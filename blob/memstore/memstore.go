@@ -1,0 +1,106 @@
+// Package memstore implements the blob.Store interface using a map.
+package memstore
+
+import (
+	"context"
+	"sort"
+	"sync"
+
+	"bitbucket.org/creachadair/ffs/blob"
+	"golang.org/x/xerrors"
+)
+
+// Store implements the blob.Store interface using a string-to-string map. The
+// contents of a Store are not persisted.
+type Store struct {
+	μ sync.Mutex
+	m map[string]string
+}
+
+// New constructs a new, empty store.
+func New() *Store { return &Store{m: make(map[string]string)} }
+
+// Clear removes all keys and values from s.
+func (s *Store) Clear() {
+	s.μ.Lock()
+	defer s.μ.Unlock()
+	for key := range s.m {
+		delete(s.m, key)
+	}
+}
+
+// Get implements part of blob.Store.
+func (s *Store) Get(_ context.Context, key string) ([]byte, error) {
+	s.μ.Lock()
+	defer s.μ.Unlock()
+
+	if v, ok := s.m[key]; ok {
+		return []byte(v), nil
+	}
+	return nil, xerrors.Errorf("get %q: %w", key, blob.ErrKeyNotFound)
+}
+
+// Put implements part of blob.Store.
+func (s *Store) Put(_ context.Context, opts blob.PutOptions) error {
+	s.μ.Lock()
+	defer s.μ.Unlock()
+
+	if _, ok := s.m[opts.Key]; ok && !opts.Replace {
+		return xerrors.Errorf("put %q: %w", opts.Key, blob.ErrKeyExists)
+	}
+	s.m[opts.Key] = string(opts.Data)
+	return nil
+}
+
+// Size implements part of blob.Store.
+func (s *Store) Size(_ context.Context, key string) (int64, error) {
+	s.μ.Lock()
+	defer s.μ.Unlock()
+
+	if v, ok := s.m[key]; ok {
+		return int64(len(v)), nil
+	}
+	return 0, xerrors.Errorf("size %q: %w", key, blob.ErrKeyNotFound)
+}
+
+// Delete implements part of blob.Store.
+func (s *Store) Delete(_ context.Context, key string) error {
+	s.μ.Lock()
+	defer s.μ.Unlock()
+
+	if _, ok := s.m[key]; !ok {
+		return xerrors.Errorf("delete %q: %w", key, blob.ErrKeyNotFound)
+	}
+	delete(s.m, key)
+	return nil
+}
+
+// List implements part of blob.Store.
+func (s *Store) List(_ context.Context, start string, f func(string) error) error {
+	s.μ.Lock()
+	var keys []string
+	for key := range s.m {
+		if key >= start {
+			keys = append(keys, key)
+		}
+	}
+	s.μ.Unlock()
+	sort.Strings(keys)
+
+	for _, key := range keys {
+		if err := f(key); err != nil {
+			if xerrors.Is(err, blob.ErrStopListing) {
+				break
+			}
+			return err
+		}
+	}
+	return nil
+}
+
+// Len implements part of blob.Store.
+func (s *Store) Len(context.Context) (int64, error) {
+	s.μ.Lock()
+	defer s.μ.Unlock()
+	return int64(len(s.m)), nil
+}
