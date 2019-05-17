@@ -1,0 +1,57 @@
+syntax = "proto3";
+
+package wirepb;
+
+import "google/protobuf/timestamp.proto";
+
+// A Node is the top-level container for file and directory metadata in
+// persistent storage.
+message Node {
+  Index index = 1;
+  uint32 mode = 2;
+  google.protobuf.Timestamp mod_time = 3;
+
+  repeated XAttr x_attrs = 4;  // extended attributes
+  repeated Child children = 5; // child file pointers
+}
+
+// An Index records the size and storage locations of file data.
+message Index {
+  uint64 total_bytes = 1;
+  repeated Extent extents = 2;
+  SplitConfig split_config = 3;
+}
+
+// An Extent describes a single contiguous span of stored data.
+message Extent {
+  uint64 base = 1;
+  uint64 bytes = 2;
+  repeated Block blocks = 3;
+}
+
+// A Block describes the size and storage key of a data blob.
+message Block {
+  uint64 bytes = 1;
+  bytes key = 2;
+}
+
+// An XAttr records the name and value of an extended attribute.
+// The contents of the value are not interpreted.
+message XAttr {
+  string name = 1;
+  bytes value = 2;
+}
+
+// A Child records the name and storage key of a child Node.
+// The name is repeated to simplify path traversal.
+message Child {
+  string name = 1;
+  bytes key = 2;
+}
+
+// A SplitConfig records the block splitter preferences.
+message SplitConfig {
+  int32 min = 1;  // minimum block size
+  int32 size = 2; // target block size
+  int32 max = 3;  // maximum block size
+}
