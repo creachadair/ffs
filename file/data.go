@@ -35,7 +35,10 @@ func (f *Data) truncate(ctx context.Context, offset int64) error {
 		n := len(span) - 1
 		last := span[n]
 
-		if i, pos := last.findBlock(offset); i >= 0 {
+		// If the offset transects a block, read that block and write back its
+		// prefix. If the offset is exactly at the start of the block, we can
+		// skip that step and discard the whole block.
+		if i, pos := last.findBlock(offset); i >= 0 && offset > pos {
 			keep := last.blocks[:i]
 			bits, err := f.s.Get(ctx, last.blocks[i].key)
 			if err != nil {
