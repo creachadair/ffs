@@ -64,6 +64,14 @@ func (d *Data) fromProto(pb *wirepb.Index) {
 	}
 }
 
+// size reports the size of the data in bytes, or 0 if d == nil.
+func (d *Data) size() int64 {
+	if d == nil {
+		return 0
+	}
+	return d.index.totalBytes
+}
+
 // truncate modifies the length of the file to end at offset, extending or
 // contracting it as necessary. Contraction may require splitting a block.
 func (f *Data) truncate(ctx context.Context, offset int64) error {
@@ -107,6 +115,8 @@ func (f *Data) truncate(ctx context.Context, offset int64) error {
 func (f *Data) writeAt(ctx context.Context, data []byte, offset int64) (int, error) {
 	if len(data) == 0 {
 		return 0, nil
+	} else if f == nil {
+		return 0, io.EOF
 	}
 	end := offset + int64(len(data))
 	pre, span, post := f.index.splitSpan(offset, end)
@@ -215,7 +225,7 @@ func (f *Data) writeAt(ctx context.Context, data []byte, offset int64) (int, err
 // the number of bytes successfully read. It satisfies the semantics of the
 // io.ReaderAt interface.
 func (f *Data) readAt(ctx context.Context, data []byte, offset int64) (int, error) {
-	if offset > f.index.totalBytes {
+	if f == nil || offset > f.index.totalBytes {
 		return 0, io.EOF
 	}
 	end := offset + int64(len(data))
@@ -292,6 +302,14 @@ func (f *Data) splitBlobs(ctx context.Context, blobs ...[]byte) ([]block, error)
 		return nil, err
 	}
 	return blks, nil
+}
+
+func (f *Data) putBlob(ctx context.Context, data []byte) (string, error) {
+	return f.s.PutCAS(ctx, data)
+}
+
+func (f *Data) getBlob(ctx context.Context, key string) ([]byte, error) {
+	return f.s.Get(ctx, key)
 }
 
 func zero(data []byte) int {
