@@ -1,4 +1,3 @@
-// Package file implements a file abstraction over a content-addressable blob.Store.
 package file
 
 import (
@@ -20,8 +19,50 @@ type Data struct {
 	index index
 }
 
-// size reports the size of the file in bytes.
-func (f *Data) size() int64 { return f.index.totalBytes }
+// toProto converts d.index to wire encoding.
+func (d *Data) toProto() *wirepb.Index {
+	if d == nil {
+		return nil
+	}
+	w := &wirepb.Index{
+		TotalBytes: uint64(d.index.totalBytes),
+		Extents:    make([]*wirepb.Extent, len(d.index.extents)),
+	}
+	for i, ext := range d.index.extents {
+		x := &wirepb.Extent{
+			Base:   uint64(ext.base),
+			Bytes:  uint64(ext.bytes),
+			Blocks: make([]*wirepb.Block, len(ext.blocks)),
+		}
+		for j, blk := range ext.blocks {
+			x.Blocks[j] = &wirepb.Block{
+				Bytes: uint64(blk.bytes),
+				Key:   []byte(blk.key),
+			}
+		}
+		w.Extents[i] = x
+	}
+	return w
+}
+
+// fromProto replaces the contents of d.index from the wire encoding pb.
+func (d *Data) fromProto(pb *wirepb.Index) {
+	d.index.totalBytes = int64(pb.TotalBytes)
+	d.index.extents = make([]*extent, len(pb.Extents))
+	for i, ext := range pb.Extents {
+		d.index.extents[i] = &extent{
+			base:   int64(ext.Base),
+			bytes:  int64(ext.Bytes),
+			blocks: make([]block, len(ext.Blocks)),
+		}
+		for j, blk := range ext.Blocks {
+			d.index.extents[i].blocks[j] = block{
+				bytes: int64(blk.Bytes),
+				key:   string(blk.Key),
+			}
+		}
+	}
+}
 
 // truncate modifies the length of the file to end at offset, extending or
 // contracting it as necessary. Contraction may require splitting a block.
@@ -266,48 +307,6 @@ func zero(data []byte) int {
 type index struct {
 	totalBytes int64
 	extents    []*extent
-}
-
-// fromProto replaces the contents of x from the wire encoding pb.
-func (x *index) fromProto(pb *wirepb.Index) {
-	x.totalBytes = int64(pb.TotalBytes)
-	x.extents = make([]*extent, len(pb.Extents))
-	for i, ext := range pb.Extents {
-		x.extents[i] = &extent{
-			base:   int64(ext.Base),
-			bytes:  int64(ext.Bytes),
-			blocks: make([]block, len(ext.Blocks)),
-		}
-		for j, blk := range ext.Blocks {
-			x.extents[i].blocks[j] = block{
-				bytes: int64(blk.Bytes),
-				key:   string(blk.Key),
-			}
-		}
-	}
-}
-
-// toProto converts x to wire encoding.
-func (x *index) toProto() *wirepb.Index {
-	w := &wirepb.Index{
-		TotalBytes: uint64(x.totalBytes),
-		Extents:    make([]*wirepb.Extent, len(x.extents)),
-	}
-	for i, ext := range x.extents {
-		x := &wirepb.Extent{
-			Base:   uint64(ext.base),
-			Bytes:  uint64(ext.bytes),
-			Blocks: make([]*wirepb.Block, len(ext.blocks)),
-		}
-		for j, blk := range ext.blocks {
-			x.Blocks[j] = &wirepb.Block{
-				Bytes: uint64(blk.bytes),
-				Key:   []byte(blk.key),
-			}
-		}
-		w.Extents[i] = x
-	}
-	return w
 }
 
 // splitSpan returns three subslices of the extents of x, those which end
