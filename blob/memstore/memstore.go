@@ -29,6 +29,15 @@ func (s *Store) Clear() {
 	}
 }
 
+// Snapshot copies a snapshot of the keys and values of s into m.
+func (s *Store) Snapshot(m map[string]string) {
+	s.μ.Lock()
+	defer s.μ.Unlock()
+	for key, val := range s.m {
+		m[key] = val
+	}
+}
+
 // Get implements part of blob.Store.
 func (s *Store) Get(_ context.Context, key string) ([]byte, error) {
 	s.μ.Lock()
