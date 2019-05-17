@@ -4,22 +4,19 @@ package file
 import (
 	"bytes"
 	"context"
-	"hash"
 	"io"
 
 	"bitbucket.org/creachadair/ffs/blob"
 	"bitbucket.org/creachadair/ffs/splitter"
-	"golang.org/x/xerrors"
 )
 
 // A Data value represents an ordered sequence of bytes stored in a blob.Store.
 // Other than length, no metadata are preserved. File data are recorded as a
 // flat array of discontiguous extents.
 type Data struct {
-	s       blob.Store
-	sc      *splitter.Config
-	newHash func() hash.Hash
-	index   index
+	s     blob.CAS
+	sc    *splitter.Config
+	index index
 }
 
 // size reports the size of the file in bytes.
@@ -235,23 +232,12 @@ func (f *Data) splitBlobs(ctx context.Context, blobs ...[]byte) ([]block, error)
 
 	var blks []block
 	if err := f.sc.New(io.MultiReader(rs...)).Split(func(blk []byte) error {
-		// Hash the block to assign the content address.
-		h := f.newHash()
-		h.Write(blk)
-		key := string(h.Sum(nil))
-		blks = append(blks, block{bytes: int64(len(blk)), key: key})
-
-		// Write the block to storage. Because we are using a content address we
-		// do not request replacement, but we also don't consider it an error if
-		// the address already exists.
-		err := f.s.Put(ctx, blob.PutOptions{
-			Key:  key,
-			Data: blk,
-		})
-		if xerrors.Is(err, blob.ErrKeyExists) {
-			return nil
+		key, err := f.s.PutCAS(ctx, blk)
+		if err != nil {
+			return err
 		}
-		return err
+		blks = append(blks, block{bytes: int64(len(blk)), key: key})
+		return nil
 	}); err != nil {
 		return nil, err
 	}

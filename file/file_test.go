@@ -5,6 +5,7 @@ import (
 	"crypto/sha1"
 	"testing"
 
+	"bitbucket.org/creachadair/ffs/blob"
 	"bitbucket.org/creachadair/ffs/blob/memstore"
 	"bitbucket.org/creachadair/ffs/splitter"
 )
@@ -12,13 +13,12 @@ import (
 func TestThings(t *testing.T) {
 	mem := memstore.New()
 	f := &Data{
-		s: mem,
+		s: blob.NewCAS(mem, sha1.New),
 		sc: &splitter.Config{
 			Min:  16,
 			Size: 1024,
 			Max:  65535,
 		},
-		newHash: sha1.New,
 	}
 
 	t.Logf("f=%+v", f)

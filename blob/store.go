@@ -18,6 +18,7 @@ package blob
 
 import (
 	"context"
+	"hash"
 
 	"golang.org/x/xerrors"
 )
@@ -74,3 +75,39 @@ var (
 	// ErrStopListing is used by a List callback to terminate the listing.
 	ErrStopListing = xerrors.New("stop listing keys")
 )
+
+// A CAS is a content-addressable wrapper that delegates to a blob.Store.  It
+// adds a PutCAS method that writes blobs keyed by their content.
+type CAS struct {
+	Store
+
+	newHash func() hash.Hash
+}
+
+// NewCAS constructs a CAS that delegates to s and uses h to assign keys.
+func NewCAS(s Store, h func() hash.Hash) CAS { return CAS{Store: s, newHash: h} }
+
+// PutCAS writes data to a content-addressed blob in the underlying store, and
+// returns the assigned key. The target key is returned even in case of error.
+func (c CAS) PutCAS(ctx context.Context, data []byte) (string, error) {
+	key := c.Key(data)
+
+	// Write the block to storage. Because we are using a content address we
+	// do not request replacement, but we also don't consider it an error if
+	// the address already exists.
+	err := c.Put(ctx, PutOptions{
+		Key:  key,
+		Data: data,
+	})
+	if xerrors.Is(err, ErrKeyExists) {
+		err = nil
+	}
+	return key, err
+}
+
+// Key constructs the content address for the specified data.
+func (c CAS) Key(data []byte) string {
+	h := c.newHash()
+	h.Write(data)
+	return string(h.Sum(nil))
+}
