@@ -82,15 +82,16 @@ func (f *Data) writeAt(ctx context.Context, data []byte, offset int64) (int, err
 	} else {
 		if span[0].base < newBase {
 			// The first extent starts before the write. Find the first block
-			// split by the write, preserve everything before that, and read in
-			// the contents to set up the split.
+			// split by or contiguous to the write, preserve everything before
+			// that, and read in the contents to set up the split.
 			newBase = span[0].base
 
 			pos := span[0].base
 			for _, blk := range span[0].blocks {
 				next := pos + blk.bytes
-				if next <= offset {
+				if next < offset {
 					left = append(left, blk)
+					pos = next
 					continue
 				}
 
@@ -106,16 +107,22 @@ func (f *Data) writeAt(ctx context.Context, data []byte, offset int64) (int, err
 		// Insert the main body of the write.
 		parts = append(parts, data)
 
-		if last := span[len(span)-1]; last.base+last.bytes > newEnd {
+		if last := span[len(span)-1]; last.base+last.bytes >= newEnd {
 			// The last extent ends after the write. Find the last block split by
-			// the write, preserve everything after that, and read in the contents
-			// to set up the split.
+			// or contiguous to the write, preserve everything after that, and
+			// read in the contents to set up the split.
 			newEnd = last.base + last.bytes
 
 			pos := last.base
 			for i, blk := range last.blocks {
+				if pos > end {
+					// Preserve the rest of this extent
+					right = append(right, last.blocks[i:]...)
+					break
+				}
 				next := pos + blk.bytes
 				if next <= end {
+					pos = next
 					continue // skip overwritten block
 				}
 
@@ -123,11 +130,9 @@ func (f *Data) writeAt(ctx context.Context, data []byte, offset int64) (int, err
 				if err != nil {
 					return 0, err
 				}
-				parts = append(parts, bits[:int(end-pos)])
 
-				// Preserve the rest of this extent.
-				right = append(right, last.blocks[i+1:]...)
-				break
+				parts = append(parts, bits[:int(next-end)])
+				pos = next
 			}
 		}
 	}
@@ -315,7 +320,7 @@ func (x *index) splitSpan(lo, hi int64) (pre, span, post []*extent) {
 	for i, ext := range x.extents {
 		if lo > ext.base+ext.bytes {
 			pre = append(pre, ext)
-		} else if ext.base >= hi {
+		} else if hi < ext.base {
 			post = append(post, x.extents[i:]...)
 			break // nothing more to do; everything else is bigger
 		} else {

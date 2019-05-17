@@ -1,6 +1,7 @@
 package file
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha1"
 	"io"
@@ -9,6 +10,7 @@ import (
 	"bitbucket.org/creachadair/ffs/blob"
 	"bitbucket.org/creachadair/ffs/blob/memstore"
 	"bitbucket.org/creachadair/ffs/splitter"
+	"github.com/golang/protobuf/proto"
 	"github.com/google/go-cmp/cmp"
 )
 
@@ -114,11 +116,8 @@ func TestIndex(t *testing.T) {
 
 	checkIndex(index{
 		totalBytes: 15,
-		extents: []*extent{
-			{base: 0, bytes: 15, blocks: []block{
-				{11, hashOf("fookinghell")},
-				{4, hashOf("mate")},
-			}, starts: []int64{0, 11}},
+		extents: []*extent{ // these adjacent blocks should be merged (with no split)
+			{base: 0, bytes: 15, blocks: []block{{15, hashOf("fookinghellmate")}}, starts: []int64{0}},
 		},
 	})
 
@@ -130,12 +129,63 @@ func TestIndex(t *testing.T) {
 		totalBytes: 23,
 		extents: []*extent{
 			{base: 0, bytes: 15, blocks: []block{
-				{11, hashOf("fookinghell")},
-				{4, hashOf("mate")},
-			}, starts: []int64{0, 11}},
+				{15, hashOf("fookinghellmate")},
+			}, starts: []int64{0}},
 			{base: 20, bytes: 3, blocks: []block{
 				{3, hashOf("cor")},
 			}, starts: []int64{20}},
 		},
 	})
+}
+
+func TestReblocking(t *testing.T) {
+	mem := memstore.New()
+	d := &Data{
+		s:  blob.NewCAS(mem, sha1.New),
+		sc: &splitter.Config{Min: 100, Size: 512, Max: 8192},
+	}
+	ctx := context.Background()
+	data := bytes.Repeat([]byte("0123456789abcdef"), 285)
+
+	// Write the data in a bunch of small contiguous chunks, and verify that the
+	// result reblocks adjacent chunks.
+	i, nb := 0, 0
+	for i < len(data) {
+		end := i + 25
+		if end > len(data) {
+			end = len(data)
+		}
+		if _, err := d.writeAt(ctx, data[i:end], int64(i)); err != nil {
+			t.Fatalf("writeAt(ctx, %#q, %d): unexpected error: %v", string(data[i:end]), i, err)
+		}
+		i = end
+		nb++
+	}
+
+	check := func(want ...int64) {
+		var total int64
+		var got []int64
+		for _, ext := range d.index.extents {
+			for _, blk := range ext.blocks {
+				total += blk.bytes
+				got = append(got, blk.bytes)
+			}
+		}
+		if diff := cmp.Diff(want, got); diff != "" {
+			t.Errorf("Wrong block sizes (-want, +got)\n%s", diff)
+		}
+		if int(total) != len(data) {
+			t.Errorf("Wrong total size: got %d, want %d", total, len(data))
+		}
+	}
+	check(2977, 485, 595, 503) // manually checked
+	t.Log("Index 1:\n", proto.MarshalTextString(d.index.toProto()))
+
+	// Now exactly overwrite one block, and verify that it updated its neighbor.
+	// Note that the tail of the original blocks should not be modified.
+	if _, err := d.writeAt(ctx, bytes.Repeat([]byte("A"), 2977), 0); err != nil {
+		t.Fatalf("writeAt(ctx, A*2977, 0): unexpected error: %v", err)
+	}
+	check(771, 216, 2164, 311, 595, 503) // manually checked
+	t.Log("Index 2:\n", proto.MarshalTextString(d.index.toProto()))
 }
