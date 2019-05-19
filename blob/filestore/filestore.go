@@ -75,7 +75,7 @@ func (s *Store) Put(_ context.Context, opts blob.PutOptions) error {
 	}
 	f, err := ioutil.TempFile(s.dir, "put*")
 	if err != nil {
-		return nil
+		return err
 	}
 	_, err = f.Write(opts.Data)
 	cerr := f.Close()
