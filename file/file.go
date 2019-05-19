@@ -229,6 +229,7 @@ func (f *File) Flush(ctx context.Context) (string, error) {
 func (f *File) IO(ctx context.Context) IO { return IO{ctx: ctx, f: f} }
 
 func (f *File) fromProto(pb *wirepb.Node) {
+	f.data = new(fileData)
 	f.data.fromProto(pb.Index)
 	f.mode = os.FileMode(pb.GetMode())
 
