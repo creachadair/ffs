@@ -109,7 +109,7 @@ var script = []op{
 func opGet(key, want string, werr error) op {
 	return func(ctx context.Context, t *testing.T, s blob.Store) {
 		got, err := s.Get(ctx, key)
-		if err != nil && (werr == nil || !xerrors.Is(err, werr)) {
+		if !errorOK(err, werr) {
 			t.Errorf("s.Get(%q): got error: %v, want: %v", key, err, werr)
 		} else if v := string(got); v != want {
 			t.Errorf("s.Get(%q): got %#q, want %#q", key, v, want)
@@ -124,7 +124,7 @@ func opPut(key, data string, replace bool, werr error) op {
 			Data:    []byte(data),
 			Replace: replace,
 		})
-		if err != nil && (werr == nil || !xerrors.Is(err, werr)) {
+		if !errorOK(err, werr) {
 			t.Errorf("s.Put(%q, %q, %v): got error: %v, want: %v", key, data, replace, err, werr)
 		}
 	}
@@ -133,7 +133,7 @@ func opPut(key, data string, replace bool, werr error) op {
 func opSize(key string, want int64, werr error) op {
 	return func(ctx context.Context, t *testing.T, s blob.Store) {
 		got, err := s.Size(ctx, key)
-		if err != nil && (werr == nil || !xerrors.Is(err, werr)) {
+		if !errorOK(err, werr) {
 			t.Errorf("s.Size(%q): got error: %v, want: %v", key, err, werr)
 		} else if got != want {
 			t.Errorf("s.Size(%q): got %d, want %d", key, got, want)
@@ -144,7 +144,7 @@ func opSize(key string, want int64, werr error) op {
 func opDelete(key string, werr error) op {
 	return func(ctx context.Context, t *testing.T, s blob.Store) {
 		err := s.Delete(ctx, key)
-		if err != nil && (werr == nil || !xerrors.Is(err, werr)) {
+		if !errorOK(err, werr) {
 			t.Errorf("s.Delete(%q): got error: %v, want: %v", key, err, werr)
 		}
 	}
@@ -176,6 +176,13 @@ func opLen(want int64) op {
 			t.Errorf("s.Len(): got %d, want %d", got, want)
 		}
 	}
+}
+
+func errorOK(err, werr error) bool {
+	if werr == nil {
+		return err == nil
+	}
+	return xerrors.Is(err, werr)
 }
 
 // Run applies the test script to empty store s, and reports any errors to t.
