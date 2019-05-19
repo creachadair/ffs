@@ -54,10 +54,15 @@ func TestIndex(t *testing.T) {
 			t.Fatalf("truncate(ctx, %d): unexpected error: %v", at, err)
 		}
 	}
+	type index struct {
+		totalBytes int64
+		extents    []*extent
+	}
 	checkIndex := func(want index) {
 		// We have to tell cmp that it's OK to look at unexported fields on these types.
 		opt := cmp.AllowUnexported(index{}, extent{}, block{})
-		if diff := cmp.Diff(want, d.index, opt); diff != "" {
+		got := index{totalBytes: d.totalBytes, extents: d.extents}
+		if diff := cmp.Diff(want, got, opt); diff != "" {
 			t.Errorf("Incorrect index (-want, +got)\n%s", diff)
 		}
 	}
@@ -167,7 +172,7 @@ func TestReblocking(t *testing.T) {
 	check := func(want ...int64) {
 		var total int64
 		var got []int64
-		for _, ext := range d.index.extents {
+		for _, ext := range d.extents {
 			for _, blk := range ext.blocks {
 				total += blk.bytes
 				got = append(got, blk.bytes)

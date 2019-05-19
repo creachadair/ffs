@@ -14,18 +14,19 @@ import (
 // Other than length, no metadata are preserved. File data are recorded as a
 // flat array of discontiguous extents.
 type fileData struct {
-	sc    splitter.Config
-	index index
+	sc         splitter.Config
+	totalBytes int64
+	extents    []*extent
 }
 
-// toProto converts d.index to wire encoding.
+// toProto converts d to wire encoding.
 func (d *fileData) toProto() *wirepb.Index {
 	if d == nil {
 		return nil
 	}
 	w := &wirepb.Index{
-		TotalBytes: uint64(d.index.totalBytes),
-		Extents:    make([]*wirepb.Extent, len(d.index.extents)),
+		TotalBytes: uint64(d.totalBytes),
+		Extents:    make([]*wirepb.Extent, len(d.extents)),
 	}
 	if d.sc.Min != 0 || d.sc.Size != 0 || d.sc.Max != 0 {
 		w.SplitConfig = &wirepb.SplitConfig{
@@ -34,7 +35,7 @@ func (d *fileData) toProto() *wirepb.Index {
 			Max:  int32(d.sc.Max),
 		}
 	}
-	for i, ext := range d.index.extents {
+	for i, ext := range d.extents {
 		x := &wirepb.Extent{
 			Base:   uint64(ext.base),
 			Bytes:  uint64(ext.bytes),
@@ -51,23 +52,23 @@ func (d *fileData) toProto() *wirepb.Index {
 	return w
 }
 
-// fromProto replaces the contents of d.index from the wire encoding pb.
+// fromProto replaces the contents of d from the wire encoding pb.
 func (d *fileData) fromProto(pb *wirepb.Index) {
-	d.index.totalBytes = int64(pb.TotalBytes)
-	d.index.extents = make([]*extent, len(pb.Extents))
+	d.totalBytes = int64(pb.TotalBytes)
+	d.extents = make([]*extent, len(pb.Extents))
 
 	d.sc.Min = int(pb.SplitConfig.GetMin())
 	d.sc.Size = int(pb.SplitConfig.GetSize())
 	d.sc.Max = int(pb.SplitConfig.GetMax())
 
 	for i, ext := range pb.Extents {
-		d.index.extents[i] = &extent{
+		d.extents[i] = &extent{
 			base:   int64(ext.Base),
 			bytes:  int64(ext.Bytes),
 			blocks: make([]block, len(ext.Blocks)),
 		}
 		for j, blk := range ext.Blocks {
-			d.index.extents[i].blocks[j] = block{
+			d.extents[i].blocks[j] = block{
 				bytes: int64(blk.Bytes),
 				key:   string(blk.Key),
 			}
@@ -80,14 +81,14 @@ func (d *fileData) size() int64 {
 	if d == nil {
 		return 0
 	}
-	return d.index.totalBytes
+	return d.totalBytes
 }
 
 // blocks calls f once for each block used by d, giving the key and the size of
 // the blob. If the same blob is repeated, f will be called multiple times for
 // the same key.
 func (d *fileData) blocks(f func(int64, string)) {
-	for _, ext := range d.index.extents {
+	for _, ext := range d.extents {
 		for _, blk := range ext.blocks {
 			f(blk.bytes, blk.key)
 		}
@@ -97,11 +98,11 @@ func (d *fileData) blocks(f func(int64, string)) {
 // truncate modifies the length of the file to end at offset, extending or
 // contracting it as necessary. Contraction may require splitting a block.
 func (d *fileData) truncate(ctx context.Context, s blob.CAS, offset int64) error {
-	if offset >= d.index.totalBytes {
-		d.index.totalBytes = offset
+	if offset >= d.totalBytes {
+		d.totalBytes = offset
 		return nil
 	}
-	pre, span, _ := d.index.splitSpan(0, offset)
+	pre, span, _ := d.splitSpan(0, offset)
 	if len(span) != 0 {
 		n := len(span) - 1
 		last := span[n]
@@ -126,8 +127,8 @@ func (d *fileData) truncate(ctx context.Context, s blob.CAS, offset int64) error
 			})
 		}
 	}
-	d.index.extents = append(pre, span...)
-	d.index.totalBytes = offset
+	d.extents = append(pre, span...)
+	d.totalBytes = offset
 	return nil
 }
 
@@ -141,7 +142,7 @@ func (d *fileData) writeAt(ctx context.Context, s blob.CAS, fileData []byte, off
 		return 0, io.EOF
 	}
 	end := offset + int64(len(fileData))
-	pre, span, post := d.index.splitSpan(offset, end)
+	pre, span, post := d.splitSpan(offset, end)
 
 	var left, right []block
 	var parts [][]byte
@@ -235,9 +236,9 @@ func (d *fileData) writeAt(ctx context.Context, s blob.CAS, fileData []byte, off
 		post = post[1:]
 	}
 
-	d.index.extents = append(append(pre, merged), post...)
-	if end > d.index.totalBytes {
-		d.index.totalBytes = end
+	d.extents = append(append(pre, merged), post...)
+	if end > d.totalBytes {
+		d.totalBytes = end
 	}
 
 	return len(fileData), nil
@@ -247,14 +248,14 @@ func (d *fileData) writeAt(ctx context.Context, s blob.CAS, fileData []byte, off
 // the number of bytes successfully read. It satisfies the semantics of the
 // io.ReaderAt interface.
 func (d *fileData) readAt(ctx context.Context, s blob.CAS, fileData []byte, offset int64) (int, error) {
-	if d == nil || offset > d.index.totalBytes {
+	if d == nil || offset > d.totalBytes {
 		return 0, io.EOF
 	}
 	end := offset + int64(len(fileData))
-	if end > d.index.totalBytes {
-		end = d.index.totalBytes
+	if end > d.totalBytes {
+		end = d.totalBytes
 	}
-	_, span, _ := d.index.splitSpan(offset, end)
+	_, span, _ := d.splitSpan(offset, end)
 
 	nr := 0
 
@@ -333,26 +334,18 @@ func zero(fileData []byte) int {
 	return len(fileData)
 }
 
-// An index represents the state of a file's contents. The extents record those
-// spans of the file that are stored; all other regions are assumed to contain
-// unstored zero-valued bytes.
-type index struct {
-	totalBytes int64
-	extents    []*extent
-}
-
-// splitSpan returns three subslices of the extents of x, those which end
+// splitSpan returns three subslices of the extents of d, those which end
 // entirely before offset lo, those fully containing the range from lo to hi,
 // and those which begin entirely at or after offset hi.
 //
 // If span is empty, the range fully spans unstored data. Otherwise, the first
 // and last elements of span are "split" by the range.
-func (x *index) splitSpan(lo, hi int64) (pre, span, post []*extent) {
-	for i, ext := range x.extents {
+func (d *fileData) splitSpan(lo, hi int64) (pre, span, post []*extent) {
+	for i, ext := range d.extents {
 		if lo > ext.base+ext.bytes {
 			pre = append(pre, ext)
 		} else if hi < ext.base {
-			post = append(post, x.extents[i:]...)
+			post = append(post, d.extents[i:]...)
 			break // nothing more to do; everything else is bigger
 		} else {
 			span = append(span, ext)
