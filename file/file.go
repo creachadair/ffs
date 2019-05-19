@@ -14,8 +14,36 @@
 
 // Package file implements a File API over a content-addressable blob.Store.
 //
-// Although a *File keeps track of basic stat information, this abstraction
-// differs from POSIX files in some important ways.
+// A File as defined by this package differs from the POSIX file model in that
+// any File may have both binary content and "children". Thus, any File is also
+// a directory, which can contain other files in a Merkle tree structure.
+//
+// A File is addressed by a storage key, corresponding to the current state of
+// its content and metadata. File metadata are stored as wire-format protocol
+// buffer messages using the wirepb.Node message in file/wirepb/wire.proto.
+//
+// Basic usage:
+//
+//   ctx := context.Background()
+//
+//   f := file.New(cas, nil)   // create a new, empty file
+//   f.Write(ctx, data)        // write some data to the file
+//   key, err := f.Flush(ctx)  // commit the file to storage
+//
+// To open an existing file,
+//
+//   f, err := file.Open(ctx, cas, key)
+//
+// The I/O methods of a File require a context argument. For compatibility with
+// the standard interfaces in the io package, a File provides a wrapper for a
+// request scoped context:
+//
+//    w := file.IO(ctx)
+//    _, err := io.Copy(w, src)
+//
+// A value of the file.IO type should not be retained beyond the dynamic extent
+// of the request whose context it captures.
+//
 package file
 
 import (
