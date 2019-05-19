@@ -83,6 +83,17 @@ func (d *fileData) size() int64 {
 	return d.index.totalBytes
 }
 
+// blocks calls f once for each block used by d, giving the key and the size of
+// the blob. If the same blob is repeated, f will be called multiple times for
+// the same key.
+func (d *fileData) blocks(f func(int64, string)) {
+	for _, ext := range d.index.extents {
+		for _, blk := range ext.blocks {
+			f(blk.bytes, blk.key)
+		}
+	}
+}
+
 // truncate modifies the length of the file to end at offset, extending or
 // contracting it as necessary. Contraction may require splitting a block.
 func (d *fileData) truncate(ctx context.Context, s blob.CAS, offset int64) error {
