@@ -220,7 +220,7 @@ func Run(t *testing.T, s blob.Store) {
 			for k := 1; k <= numKeys; k++ {
 				key := fmt.Sprintf(taskKey, i, k)
 				if err := s.Delete(ctx, key); err != nil {
-					t.Errorf("Task %d: s.Eelete(%q) failed: %v", i, key, err)
+					t.Errorf("Task %d: s.Delete(%q) failed: %v", i, key, err)
 				}
 			}
 		}()
