@@ -31,7 +31,7 @@ func New(s blob.CAS, opts *NewOptions) *File {
 		name:  opts.Name,
 		mode:  opts.Mode,
 		mtime: opts.ModTime,
-		data:  &fileData{sc: opts.Split},
+		data:  fileData{sc: opts.Split},
 		xattr: make(map[string]string),
 	}
 }
@@ -65,7 +65,7 @@ type File struct {
 	mode   os.FileMode // file mode; not used, but persisted
 	mtime  time.Time   // timestamp of last content modification
 
-	data  *fileData         // binary file data
+	data  fileData          // binary file data
 	kids  []Child           // ordered lexicographically by name
 	xattr map[string]string // extended attributes
 }
@@ -229,7 +229,7 @@ func (f *File) Flush(ctx context.Context) (string, error) {
 func (f *File) IO(ctx context.Context) IO { return IO{ctx: ctx, f: f} }
 
 func (f *File) fromProto(pb *wirepb.Node) {
-	f.data = new(fileData)
+	f.data = fileData{} // reset
 	f.data.fromProto(pb.Index)
 	f.mode = os.FileMode(pb.GetMode())
 
