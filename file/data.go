@@ -191,7 +191,7 @@ func (d *fileData) writeAt(ctx context.Context, s blob.CAS, fileData []byte, off
 					return 0, err
 				}
 
-				parts = append(parts, bits[:int(next-end)])
+				parts = append(parts, bits[int(end-pos):])
 				pos = next
 			}
 		}

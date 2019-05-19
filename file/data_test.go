@@ -88,6 +88,11 @@ func TestIndex(t *testing.T) {
 		},
 	})
 
+	writeString("barbarossa", 3)
+	checkString(0, 100, "foobarbarossabar\x00\x00\x00\x00aliquot")
+	// foo..........bar----aliquot
+	// ^^^barbarossa^^^  preserved block contents outside overlap (^)
+
 	truncate(6)
 	// foobar
 
