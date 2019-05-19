@@ -14,7 +14,6 @@ import (
 // Other than length, no metadata are preserved. File data are recorded as a
 // flat array of discontiguous extents.
 type Data struct {
-	s     blob.CAS
 	sc    *splitter.Config
 	index index
 }
@@ -74,7 +73,7 @@ func (d *Data) size() int64 {
 
 // truncate modifies the length of the file to end at offset, extending or
 // contracting it as necessary. Contraction may require splitting a block.
-func (f *Data) truncate(ctx context.Context, offset int64) error {
+func (f *Data) truncate(ctx context.Context, s blob.CAS, offset int64) error {
 	if offset >= f.index.totalBytes {
 		f.index.totalBytes = offset
 		return nil
@@ -89,11 +88,11 @@ func (f *Data) truncate(ctx context.Context, offset int64) error {
 		// skip that step and discard the whole block.
 		if i, pos := last.findBlock(offset); i >= 0 && offset > pos {
 			keep := last.blocks[:i]
-			bits, err := f.s.Get(ctx, last.blocks[i].key)
+			bits, err := s.Get(ctx, last.blocks[i].key)
 			if err != nil {
 				return err
 			}
-			blks, err := f.splitBlobs(ctx, bits[:int(offset-pos)])
+			blks, err := f.splitBlobs(ctx, s, bits[:int(offset-pos)])
 			if err != nil {
 				return err
 			}
@@ -112,7 +111,7 @@ func (f *Data) truncate(ctx context.Context, offset int64) error {
 // writeAt writes the contents of data at the specified offset in f.  It
 // returns the number of bytes successfully written, and satisfies the
 // semantics of io.WriterAt.
-func (f *Data) writeAt(ctx context.Context, data []byte, offset int64) (int, error) {
+func (f *Data) writeAt(ctx context.Context, s blob.CAS, data []byte, offset int64) (int, error) {
 	if len(data) == 0 {
 		return 0, nil
 	} else if f == nil {
@@ -146,7 +145,7 @@ func (f *Data) writeAt(ctx context.Context, data []byte, offset int64) (int, err
 					continue
 				}
 
-				bits, err := f.s.Get(ctx, blk.key)
+				bits, err := s.Get(ctx, blk.key)
 				if err != nil {
 					return 0, err
 				}
@@ -177,7 +176,7 @@ func (f *Data) writeAt(ctx context.Context, data []byte, offset int64) (int, err
 					continue // skip overwritten block
 				}
 
-				bits, err := f.s.Get(ctx, blk.key)
+				bits, err := s.Get(ctx, blk.key)
 				if err != nil {
 					return 0, err
 				}
@@ -189,7 +188,7 @@ func (f *Data) writeAt(ctx context.Context, data []byte, offset int64) (int, err
 	}
 
 	// Now write out the combined data and assemble the new index.
-	body, err := f.splitBlobs(ctx, parts...)
+	body, err := f.splitBlobs(ctx, s, parts...)
 	if err != nil {
 		return 0, err
 	}
@@ -224,7 +223,7 @@ func (f *Data) writeAt(ctx context.Context, data []byte, offset int64) (int, err
 // readAt reads the contet of f into data from the specified offset, returning
 // the number of bytes successfully read. It satisfies the semantics of the
 // io.ReaderAt interface.
-func (f *Data) readAt(ctx context.Context, data []byte, offset int64) (int, error) {
+func (f *Data) readAt(ctx context.Context, s blob.CAS, data []byte, offset int64) (int, error) {
 	if f == nil || offset > f.index.totalBytes {
 		return 0, io.EOF
 	}
@@ -260,7 +259,7 @@ func (f *Data) readAt(ctx context.Context, data []byte, offset int64) (int, erro
 			}
 
 			// Fetch the block contents and copy whatever portion we need.
-			bits, err := f.s.Get(ctx, blk.key)
+			bits, err := s.Get(ctx, blk.key)
 			if err != nil {
 				return 0, err
 			}
@@ -284,7 +283,7 @@ func (f *Data) readAt(ctx context.Context, data []byte, offset int64) (int, erro
 	return nr, nil
 }
 
-func (f *Data) splitBlobs(ctx context.Context, blobs ...[]byte) ([]block, error) {
+func (f *Data) splitBlobs(ctx context.Context, s blob.CAS, blobs ...[]byte) ([]block, error) {
 	rs := make([]io.Reader, len(blobs))
 	for i, b := range blobs {
 		rs[i] = bytes.NewReader(b)
@@ -292,7 +291,7 @@ func (f *Data) splitBlobs(ctx context.Context, blobs ...[]byte) ([]block, error)
 
 	var blks []block
 	if err := f.sc.New(io.MultiReader(rs...)).Split(func(blk []byte) error {
-		key, err := f.s.PutCAS(ctx, blk)
+		key, err := s.PutCAS(ctx, blk)
 		if err != nil {
 			return err
 		}
@@ -302,14 +301,6 @@ func (f *Data) splitBlobs(ctx context.Context, blobs ...[]byte) ([]block, error)
 		return nil, err
 	}
 	return blks, nil
-}
-
-func (f *Data) putBlob(ctx context.Context, data []byte) (string, error) {
-	return f.s.PutCAS(ctx, data)
-}
-
-func (f *Data) getBlob(ctx context.Context, key string) ([]byte, error) {
-	return f.s.Get(ctx, key)
 }
 
 func zero(data []byte) int {

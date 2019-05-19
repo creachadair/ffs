@@ -22,13 +22,13 @@ func hashOf(s string) string {
 
 func TestIndex(t *testing.T) {
 	mem := memstore.New()
+	cas := blob.NewCAS(mem, sha1.New)
 	d := &Data{
-		s:  blob.NewCAS(mem, sha1.New),
 		sc: &splitter.Config{Min: 1024}, // in effect, "don't split"
 	}
 	ctx := context.Background()
 	writeString := func(s string, at int64) {
-		nw, err := d.writeAt(ctx, []byte(s), at)
+		nw, err := d.writeAt(ctx, cas, []byte(s), at)
 		t.Logf("Write %q at offset %d (%d, %v)", s, at, nw, err)
 		if err != nil {
 			t.Fatalf("writeAt(ctx, %q, %d): got (%d, %v), unexpected error", s, at, nw, err)
@@ -38,7 +38,7 @@ func TestIndex(t *testing.T) {
 	}
 	checkString := func(at, nb int64, want string) {
 		buf := make([]byte, nb)
-		nr, err := d.readAt(ctx, buf, at)
+		nr, err := d.readAt(ctx, cas, buf, at)
 		t.Logf("Read %d from offset %d (%d, %v)", nb, at, nr, err)
 		if err != nil && err != io.EOF {
 			t.Fatalf("readAt(ctx, #[%d], %d): got (%d, %v), unexpected error", nb, at, nr, err)
@@ -47,7 +47,7 @@ func TestIndex(t *testing.T) {
 		}
 	}
 	truncate := func(at int64) {
-		err := d.truncate(ctx, at)
+		err := d.truncate(ctx, cas, at)
 		t.Logf("truncate(ctx, %d) %v", at, err)
 		if err != nil {
 			t.Fatalf("truncate(ctx, %d): unexpected error: %v", at, err)
@@ -140,8 +140,8 @@ func TestIndex(t *testing.T) {
 
 func TestReblocking(t *testing.T) {
 	mem := memstore.New()
+	cas := blob.NewCAS(mem, sha1.New)
 	d := &Data{
-		s:  blob.NewCAS(mem, sha1.New),
 		sc: &splitter.Config{Min: 100, Size: 512, Max: 8192},
 	}
 	ctx := context.Background()
@@ -155,7 +155,7 @@ func TestReblocking(t *testing.T) {
 		if end > len(data) {
 			end = len(data)
 		}
-		if _, err := d.writeAt(ctx, data[i:end], int64(i)); err != nil {
+		if _, err := d.writeAt(ctx, cas, data[i:end], int64(i)); err != nil {
 			t.Fatalf("writeAt(ctx, %#q, %d): unexpected error: %v", string(data[i:end]), i, err)
 		}
 		i = end
@@ -183,7 +183,7 @@ func TestReblocking(t *testing.T) {
 
 	// Now exactly overwrite one block, and verify that it updated its neighbor.
 	// Note that the tail of the original blocks should not be modified.
-	if _, err := d.writeAt(ctx, bytes.Repeat([]byte("A"), 2977), 0); err != nil {
+	if _, err := d.writeAt(ctx, cas, bytes.Repeat([]byte("A"), 2977), 0); err != nil {
 		t.Fatalf("writeAt(ctx, A*2977, 0): unexpected error: %v", err)
 	}
 	check(771, 216, 2164, 311, 595, 503) // manually checked
