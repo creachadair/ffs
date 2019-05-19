@@ -66,27 +66,27 @@ type File struct {
 	mtime  time.Time   // timestamp of last content modification
 
 	data  *fileData         // binary file data
-	kids  []child           // ordered lexicographically by name
+	kids  []Child           // ordered lexicographically by name
 	xattr map[string]string // extended attributes
 }
 
-// A child records the name and storage key of a child file.
-type child struct {
-	name string
-	key  string
+// A Child records the name and storage key of a child file.
+type Child struct {
+	Name string
+	Key  string
 }
 
-type byName []child
+type byName []Child
 
 func (b byName) Len() int           { return len(b) }
 func (b byName) Swap(i, j int)      { b[i], b[j] = b[j], b[i] }
-func (b byName) Less(i, j int) bool { return b[i].name < b[j].name }
+func (b byName) Less(i, j int) bool { return b[i].Name < b[j].Name }
 
 // findChild reports whether f has a child with the specified name and its
 // index in the slice if so, or otherwise -1.
 func (f *File) findChild(name string) (int, bool) {
 	if n := sort.Search(len(f.kids), func(i int) bool {
-		return f.kids[i].name == name
+		return f.kids[i].Name == name
 	}); n < len(f.kids) {
 		return n, true
 	}
@@ -106,13 +106,13 @@ func (f *File) SetChild(ctx context.Context, name string, c *File) error {
 		return err
 	}
 	if i, ok := f.findChild(name); ok {
-		if f.kids[i].key != ckey {
-			f.kids[i].key = ckey
+		if f.kids[i].Key != ckey {
+			f.kids[i].Key = ckey
 			f.modify()
 		}
 		return nil
 	}
-	f.kids = append(f.kids, child{name: name, key: ckey})
+	f.kids = append(f.kids, Child{Name: name, Key: ckey})
 	sort.Sort(byName(f.kids))
 	f.modify()
 	return nil
@@ -135,11 +135,19 @@ func (f *File) OpenChild(ctx context.Context, name string) (*File, error) {
 	if !ok {
 		return nil, xerrors.Errorf("child file %q not found", name)
 	}
-	f, err := Open(ctx, f.s, f.kids[i].key)
+	f, err := Open(ctx, f.s, f.kids[i].Key)
 	if err == nil {
 		f.name = name // remember the name the file was opened with
 	}
 	return f, err
+}
+
+// Children returns a slice of all the children of f.
+func (f *File) Children() []Child {
+	// Make a copy so the caller cannot modify the file via the slice.
+	out := make([]Child, len(f.kids))
+	copy(out, f.kids)
+	return out
 }
 
 // Stat returns an os.FileInfo describing f.
@@ -230,9 +238,9 @@ func (f *File) fromProto(pb *wirepb.Node) {
 
 	f.kids = nil
 	for _, kid := range pb.Children {
-		f.kids = append(f.kids, child{
-			name: kid.GetName(),
-			key:  string(kid.GetKey()),
+		f.kids = append(f.kids, Child{
+			Name: kid.GetName(),
+			Key:  string(kid.GetKey()),
 		})
 	}
 	sort.Sort(byName(f.kids))
@@ -257,8 +265,8 @@ func (f *File) toProto() *wirepb.Node {
 	})
 	for _, kid := range f.kids {
 		n.Children = append(n.Children, &wirepb.Child{
-			Name: kid.name,
-			Key:  []byte(kid.key),
+			Name: kid.Name,
+			Key:  []byte(kid.Key),
 		})
 	}
 	return n
