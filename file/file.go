@@ -223,6 +223,11 @@ func (f *File) Flush(ctx context.Context) (string, error) {
 	return f.key, nil
 }
 
+// IO binds f with a context so that it can be used to satisfy the standard
+// interfaces defined by the io package.  The resulting values hould be used
+// only during the lifetime of the request whose context it binds.
+func (f *File) IO(ctx context.Context) IO { return IO{ctx: ctx, f: f} }
+
 func (f *File) fromProto(pb *wirepb.Node) {
 	f.data.fromProto(pb.Index)
 	f.mode = os.FileMode(pb.GetMode())
