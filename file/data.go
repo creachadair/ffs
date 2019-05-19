@@ -26,11 +26,13 @@ func (d *fileData) toProto() *wirepb.Index {
 	w := &wirepb.Index{
 		TotalBytes: uint64(d.index.totalBytes),
 		Extents:    make([]*wirepb.Extent, len(d.index.extents)),
-		SplitConfig: &wirepb.SplitConfig{
+	}
+	if d.sc.Min != 0 || d.sc.Size != 0 || d.sc.Max != 0 {
+		w.SplitConfig = &wirepb.SplitConfig{
 			Min:  int32(d.sc.Min),
 			Size: int32(d.sc.Size),
 			Max:  int32(d.sc.Max),
-		},
+		}
 	}
 	for i, ext := range d.index.extents {
 		x := &wirepb.Extent{
