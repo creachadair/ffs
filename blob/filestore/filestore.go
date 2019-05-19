@@ -49,13 +49,13 @@ func New(dir string) (*Store, error) {
 }
 
 func (s *Store) keyPath(key string) string {
-	base := hex.EncodeToString([]byte(key + "::")) // ensure length ≥ 2
+	base := hex.EncodeToString([]byte(key + "\x00\x00")) // ensure length ≥ 2
 	return filepath.Join(s.dir, base[:2], base[2:])
 }
 
 func decodeKey(enc string) string {
 	dec, _ := hex.DecodeString(enc)
-	return strings.TrimSuffix(string(dec), "::") // trim length pad
+	return strings.TrimSuffix(string(dec), "\x00\x00") // trim length pad
 }
 
 // Get implements part of blob.Store.
@@ -69,6 +69,10 @@ func (s *Store) Get(_ context.Context, key string) ([]byte, error) {
 
 // Put implements part of blob.Store.
 func (s *Store) Put(_ context.Context, opts blob.PutOptions) error {
+	path := s.keyPath(opts.Key)
+	if _, err := os.Stat(path); err == nil && !opts.Replace {
+		return xerrors.Errorf("key %q: %w", opts.Key, blob.ErrKeyExists)
+	}
 	f, err := ioutil.TempFile(s.dir, "put*")
 	if err != nil {
 		return nil
@@ -80,7 +84,6 @@ func (s *Store) Put(_ context.Context, opts blob.PutOptions) error {
 	} else if cerr != nil {
 		return cerr
 	}
-	path := s.keyPath(opts.Key)
 	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		os.Remove(f.Name()) // best effort
 		return err
