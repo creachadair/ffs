@@ -21,9 +21,6 @@ type fileData struct {
 
 // toProto converts d to wire encoding.
 func (d *fileData) toProto() *wirepb.Index {
-	if d == nil {
-		return nil
-	}
 	w := &wirepb.Index{
 		TotalBytes: uint64(d.totalBytes),
 		Extents:    make([]*wirepb.Extent, len(d.extents)),
@@ -76,13 +73,8 @@ func (d *fileData) fromProto(pb *wirepb.Index) {
 	}
 }
 
-// size reports the size of the data in bytes, or 0 if d == nil.
-func (d *fileData) size() int64 {
-	if d == nil {
-		return 0
-	}
-	return d.totalBytes
-}
+// size reports the size of the data in bytes.
+func (d *fileData) size() int64 { return d.totalBytes }
 
 // blocks calls f once for each block used by d, giving the key and the size of
 // the blob. If the same blob is repeated, f will be called multiple times for
@@ -138,8 +130,6 @@ func (d *fileData) truncate(ctx context.Context, s blob.CAS, offset int64) error
 func (d *fileData) writeAt(ctx context.Context, s blob.CAS, fileData []byte, offset int64) (int, error) {
 	if len(fileData) == 0 {
 		return 0, nil
-	} else if d == nil {
-		return 0, io.EOF
 	}
 	end := offset + int64(len(fileData))
 	pre, span, post := d.splitSpan(offset, end)
@@ -248,7 +238,7 @@ func (d *fileData) writeAt(ctx context.Context, s blob.CAS, fileData []byte, off
 // the number of bytes successfully read. It satisfies the semantics of the
 // io.ReaderAt interface.
 func (d *fileData) readAt(ctx context.Context, s blob.CAS, fileData []byte, offset int64) (int, error) {
-	if d == nil || offset > d.totalBytes {
+	if offset > d.totalBytes {
 		return 0, io.EOF
 	}
 	end := offset + int64(len(fileData))
