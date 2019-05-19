@@ -186,7 +186,7 @@ func TestReblocking(t *testing.T) {
 		}
 	}
 	check(2977, 485, 595, 503) // manually checked
-	t.Log("Index 1:\n", proto.MarshalTextString(d.toProto()))
+	t.Log("Index 1:\n", proto.CompactTextString(d.toProto()))
 
 	// Now exactly overwrite one block, and verify that it updated its neighbor.
 	// Note that the tail of the original blocks should not be modified.
@@ -194,7 +194,7 @@ func TestReblocking(t *testing.T) {
 		t.Fatalf("writeAt(ctx, A*2977, 0): unexpected error: %v", err)
 	}
 	check(771, 216, 2164, 311, 595, 503) // manually checked
-	t.Log("Index 2:\n", proto.MarshalTextString(d.toProto()))
+	t.Log("Index 2:\n", proto.CompactTextString(d.toProto()))
 
 	t.Log("Block manifest:")
 	d.blocks(func(size int64, key string) {
