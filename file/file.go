@@ -27,7 +27,7 @@ import (
 
 	"bitbucket.org/creachadair/ffs/blob"
 	"bitbucket.org/creachadair/ffs/file/wirepb"
-	"bitbucket.org/creachadair/ffs/splitter"
+	"bitbucket.org/creachadair/ffs/split"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
 	"golang.org/x/xerrors"
@@ -55,7 +55,7 @@ type NewOptions struct {
 	Name    string
 	Mode    os.FileMode
 	ModTime time.Time
-	Split   splitter.Config
+	Split   split.Config
 }
 
 // Open opens an existing file given its storage key in s.

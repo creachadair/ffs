@@ -27,7 +27,7 @@ import (
 	"bitbucket.org/creachadair/ffs/blob/memstore"
 	"bitbucket.org/creachadair/ffs/file"
 	"bitbucket.org/creachadair/ffs/file/wirepb"
-	"bitbucket.org/creachadair/ffs/splitter"
+	"bitbucket.org/creachadair/ffs/split"
 	"github.com/golang/protobuf/proto"
 	"github.com/google/go-cmp/cmp"
 )
@@ -67,7 +67,7 @@ func TestRoundTrip(t *testing.T) {
 	cas := newCAS()
 	f := file.New(cas, &file.NewOptions{
 		Mode:  0640,
-		Split: splitter.Config{Min: 17, Size: 84, Max: 500},
+		Split: split.Config{Min: 17, Size: 84, Max: 500},
 	})
 	ctx := context.Background()
 

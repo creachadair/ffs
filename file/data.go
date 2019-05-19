@@ -21,14 +21,14 @@ import (
 
 	"bitbucket.org/creachadair/ffs/blob"
 	"bitbucket.org/creachadair/ffs/file/wirepb"
-	"bitbucket.org/creachadair/ffs/splitter"
+	"bitbucket.org/creachadair/ffs/split"
 )
 
 // A data value represents an ordered sequence of bytes stored in a blob.Store.
 // Other than length, no metadata are preserved. File data are recorded as a
 // flat array of discontiguous extents.
 type fileData struct {
-	sc         splitter.Config
+	sc         split.Config
 	totalBytes int64
 	extents    []*extent
 }

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package splitter
+package split
 
 // A RollingHash implements a rolling hash function over a window of byte data.
 type RollingHash interface {

@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package splitter implements a content-sensitive block splitter based on a
+// Package split implements a content-sensitive block splitter based on a
 // rolling hash function.
 //
 // The algorithm used to split data into blocks is based on the one from LBFS:
@@ -23,7 +23,7 @@
 // This package provides a rolling hash using the Rabin-Karp construction, and
 // alternative implementations can be plugged in via the RollingHash interface.
 //
-package splitter
+package split
 
 import (
 	"io"

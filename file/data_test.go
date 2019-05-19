@@ -24,7 +24,7 @@ import (
 
 	"bitbucket.org/creachadair/ffs/blob"
 	"bitbucket.org/creachadair/ffs/blob/memstore"
-	"bitbucket.org/creachadair/ffs/splitter"
+	"bitbucket.org/creachadair/ffs/split"
 	"github.com/golang/protobuf/proto"
 	"github.com/google/go-cmp/cmp"
 )
@@ -39,7 +39,7 @@ func TestIndex(t *testing.T) {
 	mem := memstore.New()
 	cas := blob.NewCAS(mem, sha1.New)
 	d := &fileData{
-		sc: splitter.Config{Min: 1024}, // in effect, "don't split"
+		sc: split.Config{Min: 1024}, // in effect, "don't split"
 	}
 	ctx := context.Background()
 	writeString := func(s string, at int64) {
@@ -163,7 +163,7 @@ func TestReblocking(t *testing.T) {
 	mem := memstore.New()
 	cas := blob.NewCAS(mem, sha1.New)
 	d := &fileData{
-		sc: splitter.Config{Min: 100, Size: 512, Max: 8192},
+		sc: split.Config{Min: 100, Size: 512, Max: 8192},
 	}
 	ctx := context.Background()
 	fileData := bytes.Repeat([]byte("0123456789abcdef"), 285)
