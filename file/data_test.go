@@ -23,7 +23,7 @@ func hashOf(s string) string {
 func TestIndex(t *testing.T) {
 	mem := memstore.New()
 	cas := blob.NewCAS(mem, sha1.New)
-	d := &Data{
+	d := &fileData{
 		sc: &splitter.Config{Min: 1024}, // in effect, "don't split"
 	}
 	ctx := context.Background()
@@ -141,22 +141,22 @@ func TestIndex(t *testing.T) {
 func TestReblocking(t *testing.T) {
 	mem := memstore.New()
 	cas := blob.NewCAS(mem, sha1.New)
-	d := &Data{
+	d := &fileData{
 		sc: &splitter.Config{Min: 100, Size: 512, Max: 8192},
 	}
 	ctx := context.Background()
-	data := bytes.Repeat([]byte("0123456789abcdef"), 285)
+	fileData := bytes.Repeat([]byte("0123456789abcdef"), 285)
 
 	// Write the data in a bunch of small contiguous chunks, and verify that the
 	// result reblocks adjacent chunks.
 	i, nb := 0, 0
-	for i < len(data) {
+	for i < len(fileData) {
 		end := i + 25
-		if end > len(data) {
-			end = len(data)
+		if end > len(fileData) {
+			end = len(fileData)
 		}
-		if _, err := d.writeAt(ctx, cas, data[i:end], int64(i)); err != nil {
-			t.Fatalf("writeAt(ctx, %#q, %d): unexpected error: %v", string(data[i:end]), i, err)
+		if _, err := d.writeAt(ctx, cas, fileData[i:end], int64(i)); err != nil {
+			t.Fatalf("writeAt(ctx, %#q, %d): unexpected error: %v", string(fileData[i:end]), i, err)
 		}
 		i = end
 		nb++
@@ -174,8 +174,8 @@ func TestReblocking(t *testing.T) {
 		if diff := cmp.Diff(want, got); diff != "" {
 			t.Errorf("Wrong block sizes (-want, +got)\n%s", diff)
 		}
-		if int(total) != len(data) {
-			t.Errorf("Wrong total size: got %d, want %d", total, len(data))
+		if int(total) != len(fileData) {
+			t.Errorf("Wrong total size: got %d, want %d", total, len(fileData))
 		}
 	}
 	check(2977, 485, 595, 503) // manually checked

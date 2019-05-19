@@ -23,7 +23,7 @@ type File struct {
 	offset int64
 	mode   os.FileMode
 	mtime  time.Time
-	data   *Data
+	data   *fileData
 	kids   []*File
 	xattr  map[string]string
 }

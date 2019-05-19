@@ -10,16 +10,16 @@ import (
 	"bitbucket.org/creachadair/ffs/splitter"
 )
 
-// A Data value represents an ordered sequence of bytes stored in a blob.Store.
+// A data value represents an ordered sequence of bytes stored in a blob.Store.
 // Other than length, no metadata are preserved. File data are recorded as a
 // flat array of discontiguous extents.
-type Data struct {
+type fileData struct {
 	sc    *splitter.Config
 	index index
 }
 
 // toProto converts d.index to wire encoding.
-func (d *Data) toProto() *wirepb.Index {
+func (d *fileData) toProto() *wirepb.Index {
 	if d == nil {
 		return nil
 	}
@@ -45,7 +45,7 @@ func (d *Data) toProto() *wirepb.Index {
 }
 
 // fromProto replaces the contents of d.index from the wire encoding pb.
-func (d *Data) fromProto(pb *wirepb.Index) {
+func (d *fileData) fromProto(pb *wirepb.Index) {
 	d.index.totalBytes = int64(pb.TotalBytes)
 	d.index.extents = make([]*extent, len(pb.Extents))
 	for i, ext := range pb.Extents {
@@ -64,7 +64,7 @@ func (d *Data) fromProto(pb *wirepb.Index) {
 }
 
 // size reports the size of the data in bytes, or 0 if d == nil.
-func (d *Data) size() int64 {
+func (d *fileData) size() int64 {
 	if d == nil {
 		return 0
 	}
@@ -73,7 +73,7 @@ func (d *Data) size() int64 {
 
 // truncate modifies the length of the file to end at offset, extending or
 // contracting it as necessary. Contraction may require splitting a block.
-func (f *Data) truncate(ctx context.Context, s blob.CAS, offset int64) error {
+func (f *fileData) truncate(ctx context.Context, s blob.CAS, offset int64) error {
 	if offset >= f.index.totalBytes {
 		f.index.totalBytes = offset
 		return nil
@@ -111,13 +111,13 @@ func (f *Data) truncate(ctx context.Context, s blob.CAS, offset int64) error {
 // writeAt writes the contents of data at the specified offset in f.  It
 // returns the number of bytes successfully written, and satisfies the
 // semantics of io.WriterAt.
-func (f *Data) writeAt(ctx context.Context, s blob.CAS, data []byte, offset int64) (int, error) {
-	if len(data) == 0 {
+func (f *fileData) writeAt(ctx context.Context, s blob.CAS, fileData []byte, offset int64) (int, error) {
+	if len(fileData) == 0 {
 		return 0, nil
 	} else if f == nil {
 		return 0, io.EOF
 	}
-	end := offset + int64(len(data))
+	end := offset + int64(len(fileData))
 	pre, span, post := f.index.splitSpan(offset, end)
 
 	var left, right []block
@@ -128,7 +128,7 @@ func (f *Data) writeAt(ctx context.Context, s blob.CAS, data []byte, offset int6
 	// If this write does not span any existing extents, create a new one
 	// containing just this write.
 	if len(span) == 0 {
-		parts = append(parts, data)
+		parts = append(parts, fileData)
 	} else {
 		if span[0].base < newBase {
 			// The first extent starts before the write. Find the first block
@@ -155,7 +155,7 @@ func (f *Data) writeAt(ctx context.Context, s blob.CAS, data []byte, offset int6
 		}
 
 		// Insert the main body of the write.
-		parts = append(parts, data)
+		parts = append(parts, fileData)
 
 		if last := span[len(span)-1]; last.base+last.bytes >= newEnd {
 			// The last extent ends after the write. Find the last block split by
@@ -217,17 +217,17 @@ func (f *Data) writeAt(ctx context.Context, s blob.CAS, data []byte, offset int6
 		f.index.totalBytes = end
 	}
 
-	return len(data), nil
+	return len(fileData), nil
 }
 
 // readAt reads the contet of f into data from the specified offset, returning
 // the number of bytes successfully read. It satisfies the semantics of the
 // io.ReaderAt interface.
-func (f *Data) readAt(ctx context.Context, s blob.CAS, data []byte, offset int64) (int, error) {
+func (f *fileData) readAt(ctx context.Context, s blob.CAS, fileData []byte, offset int64) (int, error) {
 	if f == nil || offset > f.index.totalBytes {
 		return 0, io.EOF
 	}
-	end := offset + int64(len(data))
+	end := offset + int64(len(fileData))
 	if end > f.index.totalBytes {
 		end = f.index.totalBytes
 	}
@@ -238,14 +238,14 @@ func (f *Data) readAt(ctx context.Context, s blob.CAS, data []byte, offset int64
 	fill := func(ext *extent) {
 		if ext.base > offset {
 			size := ext.base - offset
-			nr += zero(data[nr : nr+int(size)])
+			nr += zero(fileData[nr : nr+int(size)])
 			offset += size
 		}
 	}
 
 	// If the range begins in unstored space, fill the uncovered prefix.
 	if len(span) == 0 {
-		nr += zero(data[:int(end-offset)])
+		nr += zero(fileData[:int(end-offset)])
 	}
 
 	// Copy data out of the spanning extents.
@@ -265,7 +265,7 @@ func (f *Data) readAt(ctx context.Context, s blob.CAS, data []byte, offset int64
 			}
 
 			lo := int(offset - pos)
-			cp := copy(data[nr:], bits[lo:])
+			cp := copy(fileData[nr:], bits[lo:])
 			nr += cp
 			offset += int64(cp)
 			pos += blk.bytes
@@ -277,13 +277,13 @@ func (f *Data) readAt(ctx context.Context, s blob.CAS, data []byte, offset int64
 
 	// The contract for io.ReaderAt requires an error if we return fewer bytes
 	// than requested.
-	if nr < len(data) {
+	if nr < len(fileData) {
 		return nr, io.EOF
 	}
 	return nr, nil
 }
 
-func (f *Data) splitBlobs(ctx context.Context, s blob.CAS, blobs ...[]byte) ([]block, error) {
+func (f *fileData) splitBlobs(ctx context.Context, s blob.CAS, blobs ...[]byte) ([]block, error) {
 	rs := make([]io.Reader, len(blobs))
 	for i, b := range blobs {
 		rs[i] = bytes.NewReader(b)
@@ -303,11 +303,11 @@ func (f *Data) splitBlobs(ctx context.Context, s blob.CAS, blobs ...[]byte) ([]b
 	return blks, nil
 }
 
-func zero(data []byte) int {
-	for i := range data {
-		data[i] = 0
+func zero(fileData []byte) int {
+	for i := range fileData {
+		fileData[i] = 0
 	}
-	return len(data)
+	return len(fileData)
 }
 
 // An index represents the state of a file's contents. The extents record those
