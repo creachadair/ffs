@@ -277,6 +277,11 @@ func (f *File) Flush(ctx context.Context) (string, error) {
 	return f.key, nil
 }
 
+// XAttr calls c with a string-to-string map of the extended attributes of f.
+// The callback may modify this map directly to add, change, or remove extended
+// attributes. The file must be flushed to persist any changes.
+func (f *File) XAttr(c func(map[string]string)) { c(f.xattr); f.key = "" }
+
 // Name reports the attributed name of f, which may be "" if f is not a child
 // file and was not assigned a name at creation.
 func (f *File) Name() string { return f.name }

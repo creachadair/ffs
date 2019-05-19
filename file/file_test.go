@@ -71,6 +71,16 @@ func TestRoundTrip(t *testing.T) {
 	})
 	ctx := context.Background()
 
+	wantx := map[string]string{
+		"fruit": "apple",
+		"nut":   "hazelnut",
+	}
+	f.XAttr(func(m map[string]string) {
+		for k, v := range wantx {
+			m[k] = v
+		}
+	})
+
 	const testMessage = "Four fat fennel farmers fell feverishly for Felicia Frances"
 	fkey := mustWrite(t, f, testMessage)
 
@@ -85,6 +95,11 @@ func TestRoundTrip(t *testing.T) {
 	if got := string(bits); got != testMessage {
 		t.Errorf("Reading %s: got %q, want %q", fmtKey(fkey), got, testMessage)
 	}
+	g.XAttr(func(got map[string]string) {
+		if diff := cmp.Diff(wantx, got); diff != "" {
+			t.Errorf("XAttr (-want, +got)\n%s", diff)
+		}
+	})
 
 	logIndex(t, cas, fkey)
 }
