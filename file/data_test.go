@@ -133,12 +133,8 @@ func TestIndex(t *testing.T) {
 	checkIndex(index{
 		totalBytes: 23,
 		extents: []*extent{
-			{base: 0, bytes: 15, blocks: []block{
-				{15, hashOf("fookinghellmate")},
-			}, starts: []int64{0}},
-			{base: 20, bytes: 3, blocks: []block{
-				{3, hashOf("cor")},
-			}, starts: []int64{20}},
+			{base: 0, bytes: 15, blocks: []block{{15, hashOf("fookinghellmate")}}, starts: []int64{0}},
+			{base: 20, bytes: 3, blocks: []block{{3, hashOf("cor")}}, starts: []int64{20}},
 		},
 	})
 }
