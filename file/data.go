@@ -14,7 +14,7 @@ import (
 // Other than length, no metadata are preserved. File data are recorded as a
 // flat array of discontiguous extents.
 type fileData struct {
-	sc    *splitter.Config
+	sc    splitter.Config
 	index index
 }
 
