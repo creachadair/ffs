@@ -24,7 +24,7 @@ func TestIndex(t *testing.T) {
 	mem := memstore.New()
 	cas := blob.NewCAS(mem, sha1.New)
 	d := &fileData{
-		sc: &splitter.Config{Min: 1024}, // in effect, "don't split"
+		sc: splitter.Config{Min: 1024}, // in effect, "don't split"
 	}
 	ctx := context.Background()
 	writeString := func(s string, at int64) {
@@ -142,7 +142,7 @@ func TestReblocking(t *testing.T) {
 	mem := memstore.New()
 	cas := blob.NewCAS(mem, sha1.New)
 	d := &fileData{
-		sc: &splitter.Config{Min: 100, Size: 512, Max: 8192},
+		sc: splitter.Config{Min: 100, Size: 512, Max: 8192},
 	}
 	ctx := context.Background()
 	fileData := bytes.Repeat([]byte("0123456789abcdef"), 285)
