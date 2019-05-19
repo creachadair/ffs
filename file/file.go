@@ -80,10 +80,22 @@ func New(s blob.CAS, opts *NewOptions) *File {
 
 // NewOptions control the creation of new files.
 type NewOptions struct {
-	Name    string
-	Mode    os.FileMode
+	// The name to attribute to the new file. The name of a File is not
+	// persisted in storage.
+	Name string
+
+	// The mode associated with the file. This is persisted in storage, but is
+	// otherwise not interpreted.
+	Mode os.FileMode
+
+	// The last modification time of the file. This is persisted in storage, and
+	// is updated by methods that modify file content or children.
 	ModTime time.Time
-	Split   split.Config
+
+	// The block splitter configuration to use. If omitted, the default values
+	// from the split package are used. The block size limits are persisted in
+	// storage.
+	Split split.Config
 }
 
 // Open opens an existing file given its storage key in s.
