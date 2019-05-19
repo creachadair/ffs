@@ -25,6 +25,10 @@ func TestNewStat(t *testing.T) {
 		Mode: 0644,
 	})
 	stat := f.Stat()
+	// Verify that changing the file stat does not affect the instance we
+	// already obtained.
+	f.Chmod(0700)
+
 	if got := stat.Name(); got != "testfile" {
 		t.Errorf("New file name: got %q, want testfile", got)
 	}
@@ -127,5 +131,5 @@ func logIndex(t *testing.T, cas blob.CAS, fkey string) {
 	if err := proto.Unmarshal(bits, node); err != nil {
 		t.Errorf("Decoding wire node: %v", err)
 	}
-	t.Log("Index:\n", proto.MarshalTextString(node))
+	t.Log("Index:\n", proto.CompactTextString(node))
 }

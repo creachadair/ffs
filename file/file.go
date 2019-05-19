@@ -223,6 +223,14 @@ func (f *File) Flush(ctx context.Context) (string, error) {
 	return f.key, nil
 }
 
+// Name reports the attributed name of f, which may be "" if f is not a child
+// file and was not assigned a name at creation.
+func (f *File) Name() string { return f.name }
+
+// Chmod changes the mode of f to mode. The change will not be persisted until
+// the next time f is flushed.
+func (f *File) Chmod(mode os.FileMode) { f.mode = mode; f.key = "" }
+
 // IO binds f with a context so that it can be used to satisfy the standard
 // interfaces defined by the io package.  The resulting values hould be used
 // only during the lifetime of the request whose context it binds.
