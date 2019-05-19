@@ -83,12 +83,12 @@ func (d *fileData) size() int64 {
 
 // truncate modifies the length of the file to end at offset, extending or
 // contracting it as necessary. Contraction may require splitting a block.
-func (f *fileData) truncate(ctx context.Context, s blob.CAS, offset int64) error {
-	if offset >= f.index.totalBytes {
-		f.index.totalBytes = offset
+func (d *fileData) truncate(ctx context.Context, s blob.CAS, offset int64) error {
+	if offset >= d.index.totalBytes {
+		d.index.totalBytes = offset
 		return nil
 	}
-	pre, span, _ := f.index.splitSpan(0, offset)
+	pre, span, _ := d.index.splitSpan(0, offset)
 	if len(span) != 0 {
 		n := len(span) - 1
 		last := span[n]
@@ -102,7 +102,7 @@ func (f *fileData) truncate(ctx context.Context, s blob.CAS, offset int64) error
 			if err != nil {
 				return err
 			}
-			blks, err := f.splitBlobs(ctx, s, bits[:int(offset-pos)])
+			blks, err := d.splitBlobs(ctx, s, bits[:int(offset-pos)])
 			if err != nil {
 				return err
 			}
@@ -113,22 +113,22 @@ func (f *fileData) truncate(ctx context.Context, s blob.CAS, offset int64) error
 			})
 		}
 	}
-	f.index.extents = append(pre, span...)
-	f.index.totalBytes = offset
+	d.index.extents = append(pre, span...)
+	d.index.totalBytes = offset
 	return nil
 }
 
-// writeAt writes the contents of data at the specified offset in f.  It
+// writeAt writes the contents of data at the specified offset in d.  It
 // returns the number of bytes successfully written, and satisfies the
 // semantics of io.WriterAt.
-func (f *fileData) writeAt(ctx context.Context, s blob.CAS, fileData []byte, offset int64) (int, error) {
+func (d *fileData) writeAt(ctx context.Context, s blob.CAS, fileData []byte, offset int64) (int, error) {
 	if len(fileData) == 0 {
 		return 0, nil
-	} else if f == nil {
+	} else if d == nil {
 		return 0, io.EOF
 	}
 	end := offset + int64(len(fileData))
-	pre, span, post := f.index.splitSpan(offset, end)
+	pre, span, post := d.index.splitSpan(offset, end)
 
 	var left, right []block
 	var parts [][]byte
@@ -198,7 +198,7 @@ func (f *fileData) writeAt(ctx context.Context, s blob.CAS, fileData []byte, off
 	}
 
 	// Now write out the combined data and assemble the new index.
-	body, err := f.splitBlobs(ctx, s, parts...)
+	body, err := d.splitBlobs(ctx, s, parts...)
 	if err != nil {
 		return 0, err
 	}
@@ -222,26 +222,26 @@ func (f *fileData) writeAt(ctx context.Context, s blob.CAS, fileData []byte, off
 		post = post[1:]
 	}
 
-	f.index.extents = append(append(pre, merged), post...)
-	if end > f.index.totalBytes {
-		f.index.totalBytes = end
+	d.index.extents = append(append(pre, merged), post...)
+	if end > d.index.totalBytes {
+		d.index.totalBytes = end
 	}
 
 	return len(fileData), nil
 }
 
-// readAt reads the contet of f into data from the specified offset, returning
+// readAt reads the content of d into data from the specified offset, returning
 // the number of bytes successfully read. It satisfies the semantics of the
 // io.ReaderAt interface.
-func (f *fileData) readAt(ctx context.Context, s blob.CAS, fileData []byte, offset int64) (int, error) {
-	if f == nil || offset > f.index.totalBytes {
+func (d *fileData) readAt(ctx context.Context, s blob.CAS, fileData []byte, offset int64) (int, error) {
+	if d == nil || offset > d.index.totalBytes {
 		return 0, io.EOF
 	}
 	end := offset + int64(len(fileData))
-	if end > f.index.totalBytes {
-		end = f.index.totalBytes
+	if end > d.index.totalBytes {
+		end = d.index.totalBytes
 	}
-	_, span, _ := f.index.splitSpan(offset, end)
+	_, span, _ := d.index.splitSpan(offset, end)
 
 	nr := 0
 
@@ -293,14 +293,14 @@ func (f *fileData) readAt(ctx context.Context, s blob.CAS, fileData []byte, offs
 	return nr, nil
 }
 
-func (f *fileData) splitBlobs(ctx context.Context, s blob.CAS, blobs ...[]byte) ([]block, error) {
+func (d *fileData) splitBlobs(ctx context.Context, s blob.CAS, blobs ...[]byte) ([]block, error) {
 	rs := make([]io.Reader, len(blobs))
 	for i, b := range blobs {
 		rs[i] = bytes.NewReader(b)
 	}
 
 	var blks []block
-	if err := f.sc.New(io.MultiReader(rs...)).Split(func(blk []byte) error {
+	if err := d.sc.New(io.MultiReader(rs...)).Split(func(blk []byte) error {
 		key, err := s.PutCAS(ctx, blk)
 		if err != nil {
 			return err
