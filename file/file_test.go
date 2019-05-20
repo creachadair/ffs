@@ -83,7 +83,11 @@ func TestRoundTrip(t *testing.T) {
 	})
 
 	const testMessage = "Four fat fennel farmers fell feverishly for Felicia Frances"
-	fkey := mustWrite(t, f, testMessage)
+	mustWrite(t, f, testMessage)
+	fkey, err := f.Flush(ctx)
+	if err != nil {
+		t.Fatalf("Flushing failed: %v", err)
+	}
 
 	g, err := file.Open(ctx, cas, fkey)
 	if err != nil {
@@ -114,11 +118,15 @@ func TestChildren(t *testing.T) {
 	if err := root.SetChild(ctx, "foo", f); err != nil {
 		t.Fatalf("SetChild failed: %v", err)
 	}
-	fkey := mustWrite(t, f, "higgledy piggledy")
+	mustWrite(t, f, "higgledy piggledy")
 
 	rkey, err := root.Flush(ctx)
 	if err != nil {
 		t.Fatalf("Flush root failed: %v", err)
+	}
+	fkey, err := f.Flush(ctx)
+	if err != nil {
+		t.Fatalf("Flush leaf failed: %v", err)
 	}
 
 	t.Logf("Root key %s, child key %s", fmtKey(rkey), fmtKey(fkey))
@@ -137,17 +145,12 @@ func fmtKey(s string) string { return base64.RawURLEncoding.EncodeToString([]byt
 
 func newCAS() blob.CAS { return blob.NewCAS(memstore.New(), sha1.New) }
 
-func mustWrite(t *testing.T, f *file.File, s string) string {
+func mustWrite(t *testing.T, f *file.File, s string) {
 	t.Helper()
 	ctx := context.Background()
 	if _, err := io.WriteString(f.IO(ctx), s); err != nil {
 		t.Fatalf("Writing %q failed: %v", s, err)
 	}
-	key, err := f.Flush(ctx)
-	if err != nil {
-		t.Fatalf("Flushing %q failed: %v", fmtKey(key), err)
-	}
-	return key
 }
 
 func logIndex(t *testing.T, cas blob.CAS, fkey string) {
