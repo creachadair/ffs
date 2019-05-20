@@ -149,6 +149,9 @@ func (f *File) findChild(name string) (int, bool) {
 
 func (f *File) modify() { f.key = ""; f.mtime = time.Now() }
 
+// New constructs a new empty node backed by the same store as f.
+func (f *File) New(opts *NewOptions) *File { return New(f.s, opts) }
+
 // HasChild reports whether f has a child with the given name.
 func (f *File) HasChild(name string) bool { _, ok := f.findChild(name); return ok }
 

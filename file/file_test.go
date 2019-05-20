@@ -109,7 +109,7 @@ func TestChildren(t *testing.T) {
 	ctx := context.Background()
 	root := file.New(cas, nil)
 
-	f := file.New(cas, nil)
+	f := root.New(nil)
 	fkey := mustWrite(t, f, "higgledy piggledy")
 	if err := root.SetChild(ctx, "foo", f); err != nil {
 		t.Fatalf("SetChild failed: %v", err)
