@@ -183,11 +183,12 @@ func (f *File) RemoveChild(name string) bool {
 	return false
 }
 
-// OpenChild opens the specified child file of f.
+// OpenChild opens the specified child file of f, or returns ErrChildNotFound
+// if no such child exists.
 func (f *File) OpenChild(ctx context.Context, name string) (*File, error) {
 	i, ok := f.findChild(name)
 	if !ok {
-		return nil, xerrors.Errorf("child file %q not found", name)
+		return nil, xerrors.Errorf("open %q: %w", name, ErrChildNotFound)
 	}
 	f, err := Open(ctx, f.s, f.kids[i].Key)
 	if err == nil {

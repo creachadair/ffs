@@ -17,6 +17,8 @@ package file
 import (
 	"os"
 	"time"
+
+	"golang.org/x/xerrors"
 )
 
 // Stat implements the os.FileInfo interface for *File values.
@@ -47,3 +49,8 @@ func (s Stat) IsDir() bool { return s.mode.IsDir() }
 
 // Sys returns nil to satisfy the os.FileInfo interface.
 func (Stat) Sys() interface{} { return nil }
+
+var (
+	// ErrChildNotFound indicates that a requested child file does not exist.
+	ErrChildNotFound = xerrors.New("child file not found")
+)
