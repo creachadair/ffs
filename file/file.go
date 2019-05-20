@@ -128,6 +128,8 @@ type File struct {
 type Child struct {
 	Name string
 	Key  string
+
+	file *File
 }
 
 type byName []Child
@@ -169,7 +171,7 @@ func (f *File) SetChild(ctx context.Context, name string, c *File) error {
 		}
 		return nil
 	}
-	f.kids = append(f.kids, Child{Name: name, Key: ckey})
+	f.kids = append(f.kids, Child{Name: name, Key: ckey, file: c})
 	sort.Sort(byName(f.kids))
 	f.modify()
 	return nil
@@ -193,18 +195,25 @@ func (f *File) OpenChild(ctx context.Context, name string) (*File, error) {
 	if !ok {
 		return nil, xerrors.Errorf("open %q: %w", name, ErrChildNotFound)
 	}
-	f, err := Open(ctx, f.s, f.kids[i].Key)
+	if c := f.kids[i].file; c != nil {
+		return c, nil
+	}
+	c, err := Open(ctx, f.s, f.kids[i].Key)
 	if err == nil {
 		f.name = name // remember the name the file was opened with
+		f.kids[i].file = c
 	}
-	return f, err
+	return c, err
 }
 
 // Children returns a slice of all the children of f.
 func (f *File) Children() []Child {
 	// Make a copy so the caller cannot modify the file via the slice.
 	out := make([]Child, len(f.kids))
-	copy(out, f.kids)
+	for i, kid := range f.kids {
+		out[i].Name = kid.Name
+		out[i].Key = kid.Key
+	}
 	return out
 }
 
@@ -271,7 +280,21 @@ func (f *File) WriteAt(ctx context.Context, data []byte, offset int64) (int, err
 // Flush flushes the current state of the file to storage if necessary, and
 // returns the resulting storage key.
 func (f *File) Flush(ctx context.Context) (string, error) {
-	if f.key == "" {
+	needsUpdate := f.key == ""
+
+	// Flush any cached children.
+	for i, kid := range f.kids {
+		if kid.file != nil {
+			fkey, err := kid.file.Flush(ctx)
+			if err != nil {
+				return "", err
+			}
+			needsUpdate = needsUpdate || kid.Key != fkey
+			f.kids[i].Key = fkey
+		}
+	}
+
+	if needsUpdate {
 		key, err := saveProto(ctx, f.s, f.toProto())
 		if err != nil {
 			return "", xerrors.Errorf("flushing file %q: %w", key, err)
