@@ -120,19 +120,24 @@ type File struct {
 	mtime  time.Time   // timestamp of last content modification
 
 	data  fileData          // binary file data
-	kids  []Child           // ordered lexicographically by name
+	kids  []child           // ordered lexicographically by name
 	xattr map[string]string // extended attributes
 }
 
-// A Child records the name and storage key of a child file.
-type Child struct {
+// A child records the name and storage key of a child file.
+type child struct {
 	Name string
-	Key  string
+	Key  string // the storage key of the child
+	File *File  // the opened file for the child
 
-	file *File
+	// When a file is loaded from storage, the Key of each child is populated
+	// but its File is not created until explicitly requested.  After the child
+	// is opened, the Key may go out of sync with the file due to modifications
+	// by the caller: When the enclosing file is flushed, any child with a File
+	// attached is also flushed and the Key is updated.
 }
 
-type byName []Child
+type byName []child
 
 func (b byName) Len() int           { return len(b) }
 func (b byName) Swap(i, j int)      { b[i], b[j] = b[j], b[i] }
@@ -164,16 +169,16 @@ func (f *File) SetChild(ctx context.Context, name string, c *File) error {
 	if err != nil {
 		return err
 	}
+	defer f.modify()
 	if i, ok := f.findChild(name); ok {
 		if f.kids[i].Key != ckey {
 			f.kids[i].Key = ckey
-			f.modify()
+			f.kids[i].File = c
 		}
 		return nil
 	}
-	f.kids = append(f.kids, Child{Name: name, Key: ckey, file: c})
+	f.kids = append(f.kids, child{Name: name, Key: ckey, File: c})
 	sort.Sort(byName(f.kids))
-	f.modify()
 	return nil
 }
 
@@ -195,24 +200,22 @@ func (f *File) OpenChild(ctx context.Context, name string) (*File, error) {
 	if !ok {
 		return nil, xerrors.Errorf("open %q: %w", name, ErrChildNotFound)
 	}
-	if c := f.kids[i].file; c != nil {
+	if c := f.kids[i].File; c != nil {
 		return c, nil
 	}
 	c, err := Open(ctx, f.s, f.kids[i].Key)
 	if err == nil {
 		f.name = name // remember the name the file was opened with
-		f.kids[i].file = c
+		f.kids[i].File = c
 	}
 	return c, err
 }
 
-// Children returns a slice of all the children of f.
-func (f *File) Children() []Child {
-	// Make a copy so the caller cannot modify the file via the slice.
-	out := make([]Child, len(f.kids))
+// Children returns a slice of the names of the children of f.
+func (f *File) Children() []string {
+	out := make([]string, len(f.kids))
 	for i, kid := range f.kids {
-		out[i].Name = kid.Name
-		out[i].Key = kid.Key
+		out[i] = kid.Name
 	}
 	return out
 }
@@ -278,18 +281,21 @@ func (f *File) WriteAt(ctx context.Context, data []byte, offset int64) (int, err
 }
 
 // Flush flushes the current state of the file to storage if necessary, and
-// returns the resulting storage key.
+// returns the resulting storage key. This is the canonical way to obtain the
+// storage key for a file.
 func (f *File) Flush(ctx context.Context) (string, error) {
 	needsUpdate := f.key == ""
 
 	// Flush any cached children.
 	for i, kid := range f.kids {
-		if kid.file != nil {
-			fkey, err := kid.file.Flush(ctx)
+		if kid.File != nil {
+			fkey, err := kid.File.Flush(ctx)
 			if err != nil {
 				return "", err
 			}
-			needsUpdate = needsUpdate || kid.Key != fkey
+			if fkey != kid.Key {
+				needsUpdate = true
+			}
 			f.kids[i].Key = fkey
 		}
 	}
@@ -338,7 +344,7 @@ func (f *File) fromProto(pb *wirepb.Node) {
 
 	f.kids = nil
 	for _, kid := range pb.Children {
-		f.kids = append(f.kids, Child{
+		f.kids = append(f.kids, child{
 			Name: kid.GetName(),
 			Key:  string(kid.GetKey()),
 		})

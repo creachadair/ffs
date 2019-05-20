@@ -30,7 +30,6 @@ import (
 	"bitbucket.org/creachadair/ffs/split"
 	"github.com/golang/protobuf/proto"
 	"github.com/google/go-cmp/cmp"
-	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
 func TestNewStat(t *testing.T) {
@@ -130,11 +129,7 @@ func TestChildren(t *testing.T) {
 	}
 
 	t.Logf("Root key %s, child key %s", fmtKey(rkey), fmtKey(fkey))
-	got := root.Children()
-	if diff := cmp.Diff([]file.Child{{
-		Name: "foo",
-		Key:  fkey,
-	}}, got, cmpopts.IgnoreUnexported(file.Child{})); diff != "" {
+	if diff := cmp.Diff([]string{"foo"}, root.Children()); diff != "" {
 		t.Errorf("Children of root (-want, +got):\n%s", diff)
 	}
 
