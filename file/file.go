@@ -155,6 +155,14 @@ func (f *File) New(opts *NewOptions) *File {
 	return out
 }
 
+// SetStat calls set with the current stat metadata for f, and enables stat
+// persistence for the file. Any changes made by set are preserved.
+func (f *File) SetStat(set func(*Stat)) { set(&f.stat); f.key = ""; f.saveStat = true }
+
+// ClearStat clears the current stat metadata for f, and disables stat
+// persistence for the file.
+func (f *File) ClearStat() { f.stat = Stat{}; f.key = ""; f.saveStat = false }
+
 // HasChild reports whether f has a child with the given name.
 func (f *File) HasChild(name string) bool { _, ok := f.findChild(name); return ok }
 
