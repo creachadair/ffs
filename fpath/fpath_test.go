@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"flag"
 	"os"
+	"strconv"
 	"testing"
 
 	"bitbucket.org/creachadair/ffs/blob"
@@ -125,17 +126,17 @@ func TestPaths(t *testing.T) {
 	setPath("", subtree, fpath.ErrEmptyPath)
 	setPath("/a/dog", nil, fpath.ErrNilFile)
 
-	{
+	if fs, err := fpath.View(ctx, root, "a/boring/sludge/of/words"); err != nil {
+		t.Errorf("Visit failed: %v", err)
+	} else {
 		want := []string{"a", "boring", "sludge", "of", "words"}
 		var got []string
-		if err := fpath.Visit(ctx, root, "/a/boring/sludge/of/words", func(f *file.File) error {
-			got = append(got, f.Name())
-			f.SetStat(func(s *file.Stat) {
+		for i, elt := range fs {
+			elt.SetStat(func(s *file.Stat) {
 				s.Mode = os.ModeDir | 0755
 			})
-			return nil
-		}); err != nil {
-			t.Errorf("Visit: %v", err)
+			elt.SetXAttr("index", strconv.Itoa(i+1))
+			got = append(got, elt.Name())
 		}
 		if diff := cmp.Diff(want, got); diff != "" {
 			t.Errorf("Visited names (-want, +got)\n%s", diff)

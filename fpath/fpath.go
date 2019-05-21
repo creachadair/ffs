@@ -40,24 +40,22 @@ func Open(ctx context.Context, root *file.File, path string) (*file.File, error)
 	return fp.target, err
 }
 
-// Visit traverses the given slash-separated path sequentially from root, and
-// calls visit for each resulting file, not including root itself.
-//
-// If any element of the path does not exist the visit ends and Visit reports
-// file.ErrChildNotFound. If visit returns an error, the Visit ends and returns
-// that error.
-func Visit(ctx context.Context, root *file.File, path string, visit func(*file.File) error) error {
+// View traverses the given slash-separated path sequentially from root, and
+// returns a slice of all the files along the path not including root itself.
+// If any element of the path does not exist, View returns the prefix that was
+// found along with an file.ErrChildNotFound error.
+func View(ctx context.Context, root *file.File, path string) ([]*file.File, error) {
+	var out []*file.File
 	cur := root
 	for _, name := range parsePath(path) {
 		c, err := cur.Open(ctx, name)
 		if err != nil {
-			return err
-		} else if err := visit(c); err != nil {
-			return err
+			return out, err
 		}
+		out = append(out, c)
 		cur = c
 	}
-	return nil
+	return out, nil
 }
 
 // Set traverses the given slash-separated path sequentially from root and
