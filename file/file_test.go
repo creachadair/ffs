@@ -95,8 +95,8 @@ func TestChildren(t *testing.T) {
 
 	names := []string{"all.txt", "your.go", "base.exe"}
 	for _, name := range names {
-		if err := root.SetChild(ctx, name, root.New(nil)); err != nil {
-			t.Fatalf("SetChild %q failed: %v", name, err)
+		if err := root.Set(ctx, name, root.New(nil)); err != nil {
+			t.Fatalf("Set %q failed: %v", name, err)
 		}
 	}
 

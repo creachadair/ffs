@@ -176,9 +176,9 @@ func (f *File) ClearStat() { defer f.inval(); f.stat = Stat{}; f.saveStat = fals
 // HasChild reports whether f has a child with the given name.
 func (f *File) HasChild(name string) bool { _, ok := f.findChild(name); return ok }
 
-// SetChild makes c a child of f under the given name. This operation flushes c
-// if necessary, and reports an error if that fails.
-func (f *File) SetChild(ctx context.Context, name string, c *File) error {
+// Set makes c a child of f under the given name. This operation flushes c if
+// necessary, and reports an error if that fails.
+func (f *File) Set(ctx context.Context, name string, c *File) error {
 	ckey, err := c.Flush(ctx)
 	if err != nil {
 		return err
@@ -203,9 +203,9 @@ func (f *File) SetChild(ctx context.Context, name string, c *File) error {
 	return nil
 }
 
-// RemoveChild removes name as a child of f if present, and reports whether any
+// Remove removes name as a child of f if present, and reports whether any
 // change was made.
-func (f *File) RemoveChild(name string) bool {
+func (f *File) Remove(name string) bool {
 	if i, ok := f.findChild(name); ok {
 		defer f.modify()
 		f.kids = append(f.kids[:i], f.kids[i+1:]...)
@@ -214,9 +214,9 @@ func (f *File) RemoveChild(name string) bool {
 	return false
 }
 
-// OpenChild opens the specified child file of f, or returns ErrChildNotFound
-// if no such child exists.
-func (f *File) OpenChild(ctx context.Context, name string) (*File, error) {
+// Open opens the specified child file of f, or returns ErrChildNotFound if no
+// such child exists.
+func (f *File) Open(ctx context.Context, name string) (*File, error) {
 	i, ok := f.findChild(name)
 	if !ok {
 		return nil, xerrors.Errorf("open %q: %w", name, ErrChildNotFound)
@@ -226,7 +226,7 @@ func (f *File) OpenChild(ctx context.Context, name string) (*File, error) {
 	}
 	c, err := Open(ctx, f.s, f.kids[i].Key)
 	if err == nil {
-		f.name = name // remember the name the file was opened with
+		c.name = name // remember the name the file was opened with
 		f.kids[i].File = c
 	}
 	return c, err
