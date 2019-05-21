@@ -74,6 +74,9 @@ func TestRoundTrip(t *testing.T) {
 			t.Errorf("XAttr (-want, +got)\n%s", diff)
 		}
 	})
+	if diff := cmp.Diff(f.Stat(), g.Stat()); diff != "" {
+		t.Errorf("Stat (-want, +got)\n%s", diff)
+	}
 }
 
 func TestChildren(t *testing.T) {

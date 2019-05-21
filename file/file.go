@@ -155,6 +155,9 @@ func (f *File) New(opts *NewOptions) *File {
 	return out
 }
 
+// Stat returns the current stat metadata for f.
+func (f *File) Stat() Stat { return f.stat }
+
 // SetStat calls set with the current stat metadata for f, and enables stat
 // persistence for the file. Any changes made by set are preserved.
 func (f *File) SetStat(set func(*Stat)) { set(&f.stat); f.key = ""; f.saveStat = true }
