@@ -105,6 +105,9 @@ func TestPaths(t *testing.T) {
 	openPath("/a/boring/sludge", nil)
 	openPath("/a/boring/sludge/of", nil)
 	openPath("/a/boring/sludge/of/words", nil)
+
+	setPath("", subtree, fpath.ErrEmptyPath)
+	setPath("/a/dog", nil, file.ErrNilFile)
 }
 
 func errorOK(err, werr error) bool {

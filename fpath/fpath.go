@@ -24,6 +24,9 @@ import (
 	"golang.org/x/xerrors"
 )
 
+// ErrEmptyPath is reported by Set when given an empty path.
+var ErrEmptyPath = xerrors.New("empty path")
+
 // Open traverses the given slash-separated path sequentially from root, and
 // returns the resulting file or ErrChildNotFound. An empty path yields root
 // without error.
@@ -39,6 +42,9 @@ func Set(ctx context.Context, root *file.File, path string, f *file.File) error 
 	dir, base := "", path
 	if i := strings.LastIndex(path, "/"); i > 0 {
 		dir, base = path[:i], path[i+1:]
+	}
+	if base == "" {
+		return xerrors.Errorf("set: %w", ErrEmptyPath)
 	}
 	fp, err := findPath(ctx, query{root: root, path: dir})
 	if err != nil {
