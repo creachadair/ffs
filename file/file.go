@@ -135,8 +135,8 @@ type child struct {
 // index in the slice if so, or otherwise -1.
 func (f *File) findChild(name string) (int, bool) {
 	if n := sort.Search(len(f.kids), func(i int) bool {
-		return f.kids[i].Name == name
-	}); n < len(f.kids) {
+		return f.kids[i].Name >= name
+	}); n < len(f.kids) && f.kids[n].Name == name {
 		return n, true
 	}
 	return -1, false
