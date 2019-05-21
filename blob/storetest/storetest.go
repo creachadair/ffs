@@ -20,6 +20,7 @@ import (
 	"context"
 	"fmt"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 
@@ -196,7 +197,10 @@ func Run(t *testing.T, s blob.Store) {
 	// Exercise concurrency.
 	const numWorkers = 16
 	const numKeys = 16
-	const taskKey = "task-%d-key-%d"
+
+	taskKey := func(task, key int) string {
+		return fmt.Sprintf("task-%d-key-%d", task, key)
+	}
 
 	var wg sync.WaitGroup
 	for i := 0; i < numWorkers; i++ {
@@ -206,7 +210,7 @@ func Run(t *testing.T, s blob.Store) {
 			defer wg.Done()
 
 			for k := 1; k <= numKeys; k++ {
-				key := fmt.Sprintf(taskKey, i, k)
+				key := taskKey(i, k)
 				value := strconv.Itoa(k)
 				if err := s.Put(ctx, blob.PutOptions{
 					Key:     key,
@@ -217,15 +221,33 @@ func Run(t *testing.T, s blob.Store) {
 				}
 			}
 
+			// List all the keys currently in the store, and pick out all those
+			// that belong to this task.
+			mine := fmt.Sprintf("task-%d-", i)
+			got := make(map[string]bool)
+			if err := s.List(ctx, "", func(key string) error {
+				if strings.HasPrefix(key, mine) {
+					got[key] = true
+				}
+				return nil
+			}); err != nil {
+				t.Errorf("Task %d: s.List failed: %v", i, err)
+			}
+
 			for k := 1; k <= numKeys; k++ {
-				key := fmt.Sprintf(taskKey, i, k)
+				key := taskKey(i, k)
 				if _, err := s.Get(ctx, key); err != nil {
 					t.Errorf("Task %d: s.Get(%q) failed: %v", i, key, err)
+				}
+
+				// Verify that List did not miss any of this task's keys.
+				if !got[key] {
+					t.Errorf("Task %d: s.List missing key %q", i, key)
 				}
 			}
 
 			for k := 1; k <= numKeys; k++ {
-				key := fmt.Sprintf(taskKey, i, k)
+				key := taskKey(i, k)
 				if err := s.Delete(ctx, key); err != nil {
 					t.Errorf("Task %d: s.Delete(%q) failed: %v", i, key, err)
 				}
