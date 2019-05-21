@@ -3,6 +3,7 @@ package fpath_test
 import (
 	"context"
 	"crypto/sha1"
+	"encoding/hex"
 	"testing"
 
 	"bitbucket.org/creachadair/ffs/blob"
@@ -108,6 +109,12 @@ func TestPaths(t *testing.T) {
 
 	setPath("", subtree, fpath.ErrEmptyPath)
 	setPath("/a/dog", nil, fpath.ErrNilFile)
+
+	rkey, err := root.Flush(ctx)
+	if err != nil {
+		t.Fatalf("Flush root: %v", err)
+	}
+	t.Logf("Root key: %s", hex.EncodeToString([]byte(rkey)))
 }
 
 func errorOK(err, werr error) bool {
