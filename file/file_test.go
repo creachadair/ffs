@@ -21,6 +21,7 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"sort"
 	"testing"
 
 	"bitbucket.org/creachadair/ffs/blob"
@@ -113,24 +114,30 @@ func TestChildren(t *testing.T) {
 	ctx := context.Background()
 	root := file.New(cas, nil)
 
-	f := root.New(nil)
-	if err := root.SetChild(ctx, "foo", f); err != nil {
-		t.Fatalf("SetChild failed: %v", err)
+	names := []string{"all.txt", "your.go", "base.exe"}
+	for _, name := range names {
+		if err := root.SetChild(ctx, name, root.New(nil)); err != nil {
+			t.Fatalf("SetChild %q failed: %v", name, err)
+		}
 	}
-	mustWrite(t, f, "higgledy piggledy")
 
+	// Names should come out in lexicographic order.
+	sort.Strings(names)
+
+	// Child names should be correct even without a flush.
+	if diff := cmp.Diff(names, root.Children()); diff != "" {
+		t.Errorf("Wrong children (-want, +got):\n%s", diff)
+	}
+
+	// Flushing shouldn't disturb the names.
 	rkey, err := root.Flush(ctx)
 	if err != nil {
-		t.Fatalf("Flush root failed: %v", err)
+		t.Fatalf("root.Flush failed: %v", err)
 	}
-	fkey, err := f.Flush(ctx)
-	if err != nil {
-		t.Fatalf("Flush leaf failed: %v", err)
-	}
+	t.Logf("Flushed root to %s", fmtKey(rkey))
 
-	t.Logf("Root key %s, child key %s", fmtKey(rkey), fmtKey(fkey))
-	if diff := cmp.Diff([]string{"foo"}, root.Children()); diff != "" {
-		t.Errorf("Children of root (-want, +got):\n%s", diff)
+	if diff := cmp.Diff(names, root.Children()); diff != "" {
+		t.Errorf("Wrong children (-want, +got):\n%s", diff)
 	}
 
 	logIndex(t, cas, rkey)
