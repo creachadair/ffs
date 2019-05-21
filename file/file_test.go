@@ -18,7 +18,7 @@ import (
 	"context"
 	"crypto/sha1"
 	"encoding/base64"
-	"io"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"sort"
@@ -81,7 +81,7 @@ func TestRoundTrip(t *testing.T) {
 	})
 
 	const testMessage = "Four fat fennel farmers fell feverishly for Felicia Frances"
-	mustWrite(t, f, testMessage)
+	fmt.Fprint(f.IO(ctx), testMessage)
 	fkey, err := f.Flush(ctx)
 	if err != nil {
 		t.Fatalf("Flushing failed: %v", err)
@@ -140,11 +140,3 @@ func TestChildren(t *testing.T) {
 func fmtKey(s string) string { return base64.RawURLEncoding.EncodeToString([]byte(s)) }
 
 func newCAS() blob.CAS { return blob.NewCAS(memstore.New(), sha1.New) }
-
-func mustWrite(t *testing.T, f *file.File, s string) {
-	t.Helper()
-	ctx := context.Background()
-	if _, err := io.WriteString(f.IO(ctx), s); err != nil {
-		t.Fatalf("Writing %q failed: %v", s, err)
-	}
-}
