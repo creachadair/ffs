@@ -8,7 +8,7 @@ import (
 	"bitbucket.org/creachadair/ffs/blob"
 	"bitbucket.org/creachadair/ffs/blob/memstore"
 	"bitbucket.org/creachadair/ffs/file"
-	"bitbucket.org/creachadair/ffs/file/fpath"
+	"bitbucket.org/creachadair/ffs/fpath"
 	"golang.org/x/xerrors"
 )
 
