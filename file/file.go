@@ -38,8 +38,7 @@
 // the standard interfaces in the io package, a File provides a wrapper for a
 // request scoped context:
 //
-//    w := file.IO(ctx)
-//    _, err := io.Copy(w, src)
+//    _, err := io.Copy(f.IO(ctx), src)
 //
 // A value of the file.IO type should not be retained beyond the dynamic extent
 // of the request whose context it captures.
