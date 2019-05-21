@@ -179,6 +179,9 @@ func (f *File) HasChild(name string) bool { _, ok := f.findChild(name); return o
 // Set makes c a child of f under the given name. This operation flushes c if
 // necessary, and reports an error if that fails.
 func (f *File) Set(ctx context.Context, name string, c *File) error {
+	if c == nil {
+		return xerrors.Errorf("Set %q: %w", name, ErrNilFile)
+	}
 	ckey, err := c.Flush(ctx)
 	if err != nil {
 		return err

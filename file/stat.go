@@ -62,4 +62,7 @@ func (s *Stat) fromProto(pb *wirepb.Stat) {
 var (
 	// ErrChildNotFound indicates that a requested child file does not exist.
 	ErrChildNotFound = xerrors.New("child file not found")
+
+	// ErrNilFile is reported by methods accepting a *File when passed nil.
+	ErrNilFile = xerrors.New("nil file")
 )
