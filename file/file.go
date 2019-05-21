@@ -322,6 +322,23 @@ func (f *File) Flush(ctx context.Context) (string, error) {
 	return f.key, nil
 }
 
+// GetXAttr reports whether the specified xattr is set, and if so returns its value.
+func (f *File) GetXAttr(key string) (string, bool) { s, ok := f.xattr[key]; return s, ok }
+
+// SetXAttr sets the specified xattr.
+func (f *File) SetXAttr(key, value string) { defer f.inval(); f.xattr[key] = value }
+
+// RemoveXAttr removes the specified xattr.
+func (f *File) RemoveXAttr(key string) { defer f.inval(); delete(f.xattr, key) }
+
+// ListXAttr calls attr with the key and value of each xattr on f in
+// unspecified order.
+func (f *File) ListXAttr(attr func(key, value string)) {
+	for key, val := range f.xattr {
+		attr(key, val)
+	}
+}
+
 // XAttr calls c with a string-to-string map of the extended attributes of f.
 // The callback may modify this map directly to add, change, or remove extended
 // attributes. The file must be flushed to persist any changes.

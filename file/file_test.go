@@ -45,11 +45,9 @@ func TestRoundTrip(t *testing.T) {
 		"fruit": "apple",
 		"nut":   "hazelnut",
 	}
-	f.XAttr(func(m map[string]string) {
-		for k, v := range wantx {
-			m[k] = v
-		}
-	})
+	for k, v := range wantx {
+		f.SetXAttr(k, v)
+	}
 
 	const testMessage = "Four fat fennel farmers fell feverishly for Felicia Frances"
 	fmt.Fprint(f.IO(ctx), testMessage)
@@ -62,6 +60,8 @@ func TestRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Open %s: %v", fmtKey(fkey), err)
 	}
+
+	// Verify that file contents were preserved.
 	bits, err := ioutil.ReadAll(g.IO(ctx))
 	if err != nil {
 		t.Errorf("Reading %s: %v", fmtKey(fkey), err)
@@ -69,11 +69,20 @@ func TestRoundTrip(t *testing.T) {
 	if got := string(bits); got != testMessage {
 		t.Errorf("Reading %s: got %q, want %q", fmtKey(fkey), got, testMessage)
 	}
-	g.XAttr(func(got map[string]string) {
-		if diff := cmp.Diff(wantx, got); diff != "" {
-			t.Errorf("XAttr (-want, +got)\n%s", diff)
+
+	// Verify that extended attributes were preserved.
+	gotx := make(map[string]string)
+	g.ListXAttr(func(key, val string) {
+		if v, ok := g.GetXAttr(key); !ok || v != val {
+			t.Errorf("GetXAttr(%q): got (%q, %v), want (%q, true)", key, v, ok, val)
 		}
+		gotx[key] = val
 	})
+	if diff := cmp.Diff(wantx, gotx); diff != "" {
+		t.Errorf("XAttr (-want, +got)\n%s", diff)
+	}
+
+	// Verify that file stat was preserved.
 	if diff := cmp.Diff(f.Stat(), g.Stat()); diff != "" {
 		t.Errorf("Stat (-want, +got)\n%s", diff)
 	}
