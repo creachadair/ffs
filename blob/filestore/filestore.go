@@ -73,7 +73,7 @@ func (s *Store) Put(_ context.Context, opts blob.PutOptions) error {
 	if _, err := os.Stat(path); err == nil && !opts.Replace {
 		return xerrors.Errorf("key %q: %w", opts.Key, blob.ErrKeyExists)
 	}
-	f, err := ioutil.TempFile(s.dir, "put*")
+	f, err := ioutil.TempFile(s.dir, "put.*")
 	if err != nil {
 		return err
 	}
@@ -124,14 +124,15 @@ func (s *Store) List(_ context.Context, start string, f func(string) error) erro
 		return err
 	}
 	for _, root := range roots {
-		if root < start {
-			continue
+		if root < start || strings.HasPrefix(root, "put.") {
+			continue // skip keys prior to start and writer temporaries
 		}
 		keys, err := listdir(filepath.Join(s.dir, root))
 		if err != nil {
 			return err
 		}
 		for _, tail := range keys {
+
 			key := decodeKey(root + tail)
 			if err := f(key); xerrors.Is(err, blob.ErrStopListing) {
 				return nil
