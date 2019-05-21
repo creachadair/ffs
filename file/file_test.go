@@ -64,6 +64,9 @@ func TestNewStat(t *testing.T) {
 
 func TestRoundTrip(t *testing.T) {
 	cas := blob.NewCAS(memstore.New(), sha1.New)
+
+	// Construct a new file and write it to storage, then read it back and
+	// verify that the original state was correctly restored.
 	f := file.New(cas, &file.NewOptions{
 		Mode:  0640,
 		Split: split.Config{Min: 17, Size: 84, Max: 500},
