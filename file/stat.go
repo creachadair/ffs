@@ -18,37 +18,46 @@ import (
 	"os"
 	"time"
 
+	"bitbucket.org/creachadair/ffs/file/wirepb"
+	"github.com/golang/protobuf/ptypes"
 	"golang.org/x/xerrors"
 )
 
-// Stat implements the os.FileInfo interface for *File values.
+// Stat records file stat metadata.
 type Stat struct {
-	name  string
-	size  int64
-	mode  os.FileMode
-	mtime time.Time
+	Mode      os.FileMode
+	ModTime   time.Time
+	OwnerID   int    // numeric ID of file owner
+	OwnerName string // name of file owner
+	GroupID   int    // numeric ID of the file's primary group
+	GroupName string // name of the file's primary group
 }
 
-// Name reports the attributed name of f. Note that a *File does not persist
-// its name; the attributed name is assigned either when the file is created or
-// when it is opened as a child of another file.
-func (s Stat) Name() string { return s.name }
+func (s Stat) toProto() *wirepb.Stat {
+	pb := &wirepb.Stat{
+		Mode:      uint32(s.Mode),
+		OwnerId:   uint64(s.OwnerID),
+		OwnerName: s.OwnerName,
+		GroupId:   uint64(s.GroupID),
+		GroupName: s.GroupName,
+	}
+	if !s.ModTime.IsZero() {
+		ts, _ := ptypes.TimestampProto(s.ModTime)
+		pb.ModTime = ts
+	}
+	return pb
+}
 
-// Size reports the total size of the file's content, in bytes.
-func (s Stat) Size() int64 { return s.size }
-
-// Mode reports the file mode of the file. Note that the mode is persisted but
-// otherwise ignored.
-func (s Stat) Mode() os.FileMode { return s.mode }
-
-// ModTime reports the last modified time of the file.
-func (s Stat) ModTime() time.Time { return s.mtime }
-
-// IsDir reports whether the file is a directory based on its attributed mode.
-func (s Stat) IsDir() bool { return s.mode.IsDir() }
-
-// Sys returns nil to satisfy the os.FileInfo interface.
-func (Stat) Sys() interface{} { return nil }
+func (s *Stat) fromProto(pb *wirepb.Stat) {
+	s.Mode = os.FileMode(pb.GetMode())
+	s.OwnerID = int(pb.GetOwnerId())
+	s.OwnerName = pb.GetOwnerName()
+	s.GroupID = int(pb.GetGroupId())
+	s.GroupName = pb.GetGroupName()
+	if ts, err := ptypes.Timestamp(pb.GetModTime()); err == nil {
+		s.ModTime = ts
+	}
+}
 
 var (
 	// ErrChildNotFound indicates that a requested child file does not exist.
