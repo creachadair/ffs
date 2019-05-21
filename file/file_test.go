@@ -27,9 +27,7 @@ import (
 	"bitbucket.org/creachadair/ffs/blob"
 	"bitbucket.org/creachadair/ffs/blob/memstore"
 	"bitbucket.org/creachadair/ffs/file"
-	"bitbucket.org/creachadair/ffs/file/wirepb"
 	"bitbucket.org/creachadair/ffs/split"
-	"github.com/golang/protobuf/proto"
 	"github.com/google/go-cmp/cmp"
 )
 
@@ -105,8 +103,6 @@ func TestRoundTrip(t *testing.T) {
 			t.Errorf("XAttr (-want, +got)\n%s", diff)
 		}
 	})
-
-	logIndex(t, cas, fkey)
 }
 
 func TestChildren(t *testing.T) {
@@ -139,8 +135,6 @@ func TestChildren(t *testing.T) {
 	if diff := cmp.Diff(names, root.Children()); diff != "" {
 		t.Errorf("Wrong children (-want, +got):\n%s", diff)
 	}
-
-	logIndex(t, cas, rkey)
 }
 
 func fmtKey(s string) string { return base64.RawURLEncoding.EncodeToString([]byte(s)) }
@@ -153,18 +147,4 @@ func mustWrite(t *testing.T, f *file.File, s string) {
 	if _, err := io.WriteString(f.IO(ctx), s); err != nil {
 		t.Fatalf("Writing %q failed: %v", s, err)
 	}
-}
-
-func logIndex(t *testing.T, cas blob.CAS, fkey string) {
-	t.Helper()
-	ctx := context.Background()
-	bits, err := cas.Get(ctx, fkey)
-	if err != nil {
-		t.Fatalf("Reading %s from storage: %v", fmtKey(fkey), err)
-	}
-	node := new(wirepb.Node)
-	if err := proto.Unmarshal(bits, node); err != nil {
-		t.Errorf("Decoding wire node: %v", err)
-	}
-	t.Log("Index:\n", proto.CompactTextString(node))
 }
