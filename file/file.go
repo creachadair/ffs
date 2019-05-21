@@ -49,7 +49,6 @@ package file
 import (
 	"context"
 	"io"
-	"os"
 	"sort"
 	"time"
 
@@ -57,7 +56,6 @@ import (
 	"bitbucket.org/creachadair/ffs/file/wirepb"
 	"bitbucket.org/creachadair/ffs/split"
 	"github.com/golang/protobuf/proto"
-	"github.com/golang/protobuf/ptypes"
 	"golang.org/x/xerrors"
 )
 
@@ -69,12 +67,12 @@ func New(s blob.CAS, opts *NewOptions) *File {
 		opts = new(NewOptions)
 	}
 	return &File{
-		s:     s,
-		name:  opts.Name,
-		mode:  opts.Mode,
-		mtime: opts.ModTime,
-		data:  fileData{sc: opts.Split},
-		xattr: make(map[string]string),
+		s:        s,
+		name:     opts.Name,
+		stat:     opts.Stat,
+		saveStat: opts.Stat != Stat{},
+		data:     fileData{sc: opts.Split},
+		xattr:    make(map[string]string),
 	}
 }
 
@@ -84,13 +82,10 @@ type NewOptions struct {
 	// persisted in storage.
 	Name string
 
-	// The mode associated with the file. This is persisted in storage, but is
-	// otherwise not interpreted.
-	Mode os.FileMode
-
-	// The last modification time of the file. This is persisted in storage, and
-	// is updated by methods that modify file content or children.
-	ModTime time.Time
+	// Initial file metadata to associate with the file. If this field is
+	// nonzero, the new file will persist stat metadata to storage.  However,
+	// the contents are not otherwise interpreted.
+	Stat Stat
 
 	// The block splitter configuration to use. If omitted, the default values
 	// from the split package are used. The block size limits are persisted in
@@ -115,9 +110,9 @@ type File struct {
 	name string // if this file is a child, its attributed name
 	key  string // the storage key for the file record (wirepb.Node)
 
-	offset int64       // current seek position (≥ 0)
-	mode   os.FileMode // file mode; not used, but persisted
-	mtime  time.Time   // timestamp of last content modification
+	offset   int64 // current seek position (≥ 0)
+	stat     Stat  // file metadata
+	saveStat bool  // whether to persist file metadata
 
 	data  fileData          // binary file data
 	kids  []child           // ordered lexicographically by name
@@ -148,10 +143,17 @@ func (f *File) findChild(name string) (int, bool) {
 	return -1, false
 }
 
-func (f *File) modify() { f.key = ""; f.mtime = time.Now() }
+func (f *File) modify() { f.key = ""; f.stat.ModTime = time.Now() }
 
 // New constructs a new empty node backed by the same store as f.
-func (f *File) New(opts *NewOptions) *File { return New(f.s, opts) }
+// If f persists stat metadata, then the new file does also.
+func (f *File) New(opts *NewOptions) *File {
+	out := New(f.s, opts)
+	if f.saveStat {
+		out.saveStat = true
+	}
+	return out
+}
 
 // HasChild reports whether f has a child with the given name.
 func (f *File) HasChild(name string) bool { _, ok := f.findChild(name); return ok }
@@ -219,16 +221,6 @@ func (f *File) Children() []string {
 		out[i] = kid.Name
 	}
 	return out
-}
-
-// Stat returns an os.FileInfo describing f.
-func (f *File) Stat() Stat {
-	return Stat{
-		name:  f.name,
-		size:  f.data.size(),
-		mode:  f.mode,
-		mtime: f.mtime,
-	}
 }
 
 // Seek sets the starting offset for the next Read or Write, as io.Seeker.
@@ -320,10 +312,6 @@ func (f *File) XAttr(c func(map[string]string)) { c(f.xattr); f.key = "" }
 // file and was not assigned a name at creation.
 func (f *File) Name() string { return f.name }
 
-// Chmod changes the mode of f to mode. The change will not be persisted until
-// the next time f is flushed.
-func (f *File) Chmod(mode os.FileMode) { f.mode = mode; f.key = "" }
-
 // IO binds f with a context so that it can be used to satisfy the standard
 // interfaces defined by the io package.  The resulting values hould be used
 // only during the lifetime of the request whose context it binds.
@@ -332,11 +320,8 @@ func (f *File) IO(ctx context.Context) IO { return IO{ctx: ctx, f: f} }
 func (f *File) fromProto(pb *wirepb.Node) {
 	f.data = fileData{} // reset
 	f.data.fromProto(pb.Index)
-	f.mode = os.FileMode(pb.GetMode())
-
-	if ts, err := ptypes.Timestamp(pb.ModTime); err == nil {
-		f.mtime = ts
-	}
+	f.stat.fromProto(pb.Stat)
+	f.saveStat = pb.Stat != nil
 
 	f.xattr = make(map[string]string)
 	for _, xa := range pb.XAttrs {
@@ -356,12 +341,9 @@ func (f *File) fromProto(pb *wirepb.Node) {
 }
 
 func (f *File) toProto() *wirepb.Node {
-	n := &wirepb.Node{
-		Mode:  uint32(f.mode),
-		Index: f.data.toProto(),
-	}
-	if ts, err := ptypes.TimestampProto(f.mtime); err == nil && !f.mtime.IsZero() {
-		n.ModTime = ts
+	n := &wirepb.Node{Index: f.data.toProto()}
+	if f.saveStat {
+		n.Stat = f.stat.toProto()
 	}
 	for name, value := range f.xattr {
 		n.XAttrs = append(n.XAttrs, &wirepb.XAttr{
