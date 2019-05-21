@@ -182,6 +182,7 @@ func (f *File) Set(name string, c *File) {
 		panic("set: nil file")
 	}
 	defer f.modify()
+	c.name = name
 	if i, ok := f.findChild(name); ok {
 		f.kids[i].File = c
 		return

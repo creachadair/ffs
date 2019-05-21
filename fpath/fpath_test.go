@@ -10,6 +10,7 @@ import (
 	"bitbucket.org/creachadair/ffs/blob/memstore"
 	"bitbucket.org/creachadair/ffs/file"
 	"bitbucket.org/creachadair/ffs/fpath"
+	"github.com/google/go-cmp/cmp"
 	"golang.org/x/xerrors"
 )
 
@@ -109,6 +110,20 @@ func TestPaths(t *testing.T) {
 
 	setPath("", subtree, fpath.ErrEmptyPath)
 	setPath("/a/dog", nil, fpath.ErrNilFile)
+
+	{
+		want := []string{"a", "boring", "sludge", "of", "words"}
+		var got []string
+		if err := fpath.Visit(ctx, root, "/a/boring/sludge/of/words", func(f *file.File) error {
+			got = append(got, f.Name())
+			return nil
+		}); err != nil {
+			t.Errorf("Visit: %v", err)
+		}
+		if diff := cmp.Diff(want, got); diff != "" {
+			t.Errorf("Visited names (-want, +got)\n%s", diff)
+		}
+	}
 
 	rkey, err := root.Flush(ctx)
 	if err != nil {
