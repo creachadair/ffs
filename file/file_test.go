@@ -20,7 +20,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io/ioutil"
-	"os"
 	"sort"
 	"testing"
 
@@ -31,44 +30,13 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-func TestNewStat(t *testing.T) {
-	cas := blob.NewCAS(memstore.New(), sha1.New)
-	f := file.New(cas, &file.NewOptions{
-		Name: "testfile",
-		Mode: 0644,
-	})
-	stat := f.Stat()
-	// Verify that changing the file stat does not affect the instance we
-	// already obtained.
-	f.Chmod(0700)
-
-	if got := stat.Name(); got != "testfile" {
-		t.Errorf("New file name: got %q, want testfile", got)
-	}
-	if got := stat.Size(); got != 0 {
-		t.Errorf("New file size: got %d, want 0", got)
-	}
-	if got, want := stat.Mode(), os.FileMode(0644); got != want {
-		t.Errorf("New file mode: got %v, want %v", got, want)
-	}
-	if got := stat.ModTime(); !got.IsZero() {
-		t.Errorf("New file mtime: got %v, want zero", got)
-	}
-	if stat.IsDir() {
-		t.Error("New file isDir: got true, want false")
-	}
-	if got := stat.Sys(); got != nil {
-		t.Errorf("New file sys: got %v, want nil", got)
-	}
-}
-
 func TestRoundTrip(t *testing.T) {
 	cas := blob.NewCAS(memstore.New(), sha1.New)
 
 	// Construct a new file and write it to storage, then read it back and
 	// verify that the original state was correctly restored.
 	f := file.New(cas, &file.NewOptions{
-		Mode:  0640,
+		Stat:  file.Stat{Mode: 0640},
 		Split: split.Config{Min: 17, Size: 84, Max: 500},
 	})
 	ctx := context.Background()
