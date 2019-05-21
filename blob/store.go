@@ -25,8 +25,12 @@ import (
 
 // A Store represents a mutable blob store in which each blob is identified by
 // a unique, opaque string key. Implementations of this interface must be safe
-// for concurrent use by multiple goroutines, and all operations must be atomic
-// with respect to concurrent writers.
+// for concurrent use by multiple goroutines.
+//
+// Moreover, any sequence of operations on a Store in which there are no Delete
+// operations must be linearizable.[1]
+//
+// [1]: https://en.wikipedia.org/wiki/Linearizability
 type Store interface {
 	// Get fetches the contents of a blob from the store. If the key is not
 	// found in the store, Get must report an ErrKeyNotFound error.
