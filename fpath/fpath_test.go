@@ -4,9 +4,12 @@ import (
 	"context"
 	"crypto/sha1"
 	"encoding/hex"
+	"flag"
+	"os"
 	"testing"
 
 	"bitbucket.org/creachadair/ffs/blob"
+	"bitbucket.org/creachadair/ffs/blob/filestore"
 	"bitbucket.org/creachadair/ffs/blob/memstore"
 	"bitbucket.org/creachadair/ffs/file"
 	"bitbucket.org/creachadair/ffs/fpath"
@@ -14,8 +17,19 @@ import (
 	"golang.org/x/xerrors"
 )
 
+var saveStore = flag.String("save", "", "Save blobs to a filestore at this path")
+
 func TestPaths(t *testing.T) {
-	cas := blob.NewCAS(memstore.New(), sha1.New)
+	var bs blob.Store = memstore.New()
+	if *saveStore != "" {
+		fs, err := filestore.New(*saveStore)
+		if err != nil {
+			t.Fatalf("Opening filestore %q: %v", *saveStore, err)
+		}
+		bs = fs
+		t.Logf("Saving test output to filestore %q", *saveStore)
+	}
+	cas := blob.NewCAS(bs, sha1.New)
 
 	ctx := context.Background()
 	root := file.New(cas, nil)
@@ -116,6 +130,9 @@ func TestPaths(t *testing.T) {
 		var got []string
 		if err := fpath.Visit(ctx, root, "/a/boring/sludge/of/words", func(f *file.File) error {
 			got = append(got, f.Name())
+			f.SetStat(func(s *file.Stat) {
+				s.Mode = os.ModeDir | 0755
+			})
 			return nil
 		}); err != nil {
 			t.Errorf("Visit: %v", err)
