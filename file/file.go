@@ -176,25 +176,17 @@ func (f *File) ClearStat() { defer f.inval(); f.stat = Stat{}; f.saveStat = fals
 // HasChild reports whether f has a child with the given name.
 func (f *File) HasChild(name string) bool { _, ok := f.findChild(name); return ok }
 
-// Set makes c a child of f under the given name. This operation flushes c if
-// necessary, and reports an error if that fails.
-func (f *File) Set(ctx context.Context, name string, c *File) error {
+// Set makes c a child of f under the given name. Set will panic if c == nil.
+func (f *File) Set(name string, c *File) {
 	if c == nil {
-		return xerrors.Errorf("Set %q: %w", name, ErrNilFile)
-	}
-	ckey, err := c.Flush(ctx)
-	if err != nil {
-		return err
+		panic("set: nil file")
 	}
 	defer f.modify()
 	if i, ok := f.findChild(name); ok {
-		if f.kids[i].Key != ckey {
-			f.kids[i].Key = ckey
-			f.kids[i].File = c
-		}
-		return nil
+		f.kids[i].File = c
+		return
 	}
-	f.kids = append(f.kids, child{Name: name, Key: ckey, File: c})
+	f.kids = append(f.kids, child{Name: name, File: c})
 
 	// Restore lexicographic order.
 	for i := len(f.kids) - 1; i > 0; i-- {
@@ -203,7 +195,6 @@ func (f *File) Set(ctx context.Context, name string, c *File) error {
 		}
 		f.kids[i], f.kids[i-1] = f.kids[i-1], f.kids[i]
 	}
-	return nil
 }
 
 // Remove removes name as a child of f if present, and reports whether any

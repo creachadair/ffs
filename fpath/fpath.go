@@ -24,8 +24,13 @@ import (
 	"golang.org/x/xerrors"
 )
 
-// ErrEmptyPath is reported by Set when given an empty path.
-var ErrEmptyPath = xerrors.New("empty path")
+var (
+	// ErrEmptyPath is reported by Set when given an empty path.
+	ErrEmptyPath = xerrors.New("empty path")
+
+	// ErrNilFile is reported by Set when passed a nil file.
+	ErrNilFile = xerrors.New("nil file")
+)
 
 // Open traverses the given slash-separated path sequentially from root, and
 // returns the resulting file or ErrChildNotFound. An empty path yields root
@@ -39,6 +44,9 @@ func Open(ctx context.Context, root *file.File, path string) (*file.File, error)
 // inserts f at the end of it. An empty path is an error, and if any element of
 // the path except the last does not exist it reports ErrChildNotFound.
 func Set(ctx context.Context, root *file.File, path string, f *file.File) error {
+	if f == nil {
+		return xerrors.Errorf("Set %q: %w", path, ErrNilFile)
+	}
 	dir, base := "", path
 	if i := strings.LastIndex(path, "/"); i > 0 {
 		dir, base = path[:i], path[i+1:]
@@ -50,7 +58,8 @@ func Set(ctx context.Context, root *file.File, path string, f *file.File) error 
 	if err != nil {
 		return err
 	}
-	return fp.target.Set(ctx, base, f)
+	fp.target.Set(base, f)
+	return nil
 }
 
 // Create creates a file at the given slash-separated path beneath root,
@@ -63,8 +72,9 @@ func Create(ctx context.Context, root *file.File, path string) (*file.File, erro
 		ef: func(fp *foundPath, err error) error {
 			if xerrors.Is(err, file.ErrChildNotFound) {
 				c := fp.target.New(&file.NewOptions{Name: fp.targetName})
-				err = fp.target.Set(ctx, fp.targetName, c)
+				fp.target.Set(fp.targetName, c)
 				fp.parent, fp.target = fp.target, c
+				return nil
 			}
 			return err
 		},
