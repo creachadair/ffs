@@ -8,11 +8,26 @@ import "google/protobuf/timestamp.proto";
 // persistent storage.
 message Node {
   Index index = 1;
-  uint32 mode = 2;
-  google.protobuf.Timestamp mod_time = 3;
 
-  repeated XAttr x_attrs = 4;  // extended attributes
-  repeated Child children = 5; // child file pointers
+  Stat stat = 2;               // stat metadata (optional)
+  repeated XAttr x_attrs = 3;  // extended attributes
+  repeated Child children = 4; // child file pointers
+
+  // next id: 5
+}
+
+// Stat records POSIX style file metadata.
+message Stat {
+  uint32 mode = 1;
+  google.protobuf.Timestamp mod_time = 2;
+
+  uint64 owner_id = 3;
+  string owner_name = 4;
+
+  uint64 group_id = 5;
+  string group_name = 6;
+
+  // next id: 7
 }
 
 // An Index records the size and storage locations of file data.
