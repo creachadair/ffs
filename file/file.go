@@ -137,12 +137,6 @@ type child struct {
 	// attached is also flushed and the Key is updated.
 }
 
-type byName []child
-
-func (b byName) Len() int           { return len(b) }
-func (b byName) Swap(i, j int)      { b[i], b[j] = b[j], b[i] }
-func (b byName) Less(i, j int) bool { return b[i].Name < b[j].Name }
-
 // findChild reports whether f has a child with the specified name and its
 // index in the slice if so, or otherwise -1.
 func (f *File) findChild(name string) (int, bool) {
@@ -178,7 +172,14 @@ func (f *File) SetChild(ctx context.Context, name string, c *File) error {
 		return nil
 	}
 	f.kids = append(f.kids, child{Name: name, Key: ckey, File: c})
-	sort.Sort(byName(f.kids))
+
+	// Restore lexicographic order.
+	for i := len(f.kids) - 1; i > 0; i-- {
+		if f.kids[i].Name >= f.kids[i-1].Name {
+			break
+		}
+		f.kids[i], f.kids[i-1] = f.kids[i-1], f.kids[i]
+	}
 	return nil
 }
 
@@ -349,7 +350,9 @@ func (f *File) fromProto(pb *wirepb.Node) {
 			Key:  string(kid.GetKey()),
 		})
 	}
-	sort.Sort(byName(f.kids))
+	sort.Slice(f.kids, func(i, j int) bool {
+		return f.kids[i].Name < f.kids[j].Name
+	})
 }
 
 func (f *File) toProto() *wirepb.Node {
