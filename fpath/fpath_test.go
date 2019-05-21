@@ -122,10 +122,12 @@ func TestPaths(t *testing.T) {
 	openPath("/a/boring/sludge", nil)
 	openPath("/a/boring/sludge/of", nil)
 	openPath("/a/boring/sludge/of/words", nil)
+	createPath("/a/boring/song", nil)
 
 	setPath("", subtree, fpath.ErrEmptyPath)
 	setPath("/a/dog", nil, fpath.ErrNilFile)
 
+	// Verify that viewing a path produces the right files.
 	if fs, err := fpath.View(ctx, root, "a/boring/sludge/of/words"); err != nil {
 		t.Errorf("Visit failed: %v", err)
 	} else {
@@ -140,6 +142,30 @@ func TestPaths(t *testing.T) {
 		}
 		if diff := cmp.Diff(want, got); diff != "" {
 			t.Errorf("Visited names (-want, +got)\n%s", diff)
+		}
+	}
+
+	// Verify that walk is depth-first and respects its filter.
+	{
+		want := []string{
+			"", "a",
+			"a/boring", "a/boring/sludge", "a/boring/song",
+			"a/lasting", "a/lasting/consequence",
+		}
+		var got []string
+		if err := fpath.Walk(ctx, root, func(e fpath.Entry) error {
+			got = append(got, e.Path)
+			if e.Err != nil {
+				return e.Err
+			} else if e.File == subtree {
+				return fpath.ErrSkipChildren
+			}
+			return nil
+		}); err != nil {
+			t.Errorf("Walk failed: %v", err)
+		}
+		if diff := cmp.Diff(want, got); diff != "" {
+			t.Errorf("Walk paths (-want, +got)\n%s", diff)
 		}
 	}
 

@@ -18,6 +18,7 @@ package fpath
 
 import (
 	"context"
+	"path"
 	"strings"
 
 	"bitbucket.org/creachadair/ffs/file"
@@ -30,6 +31,10 @@ var (
 
 	// ErrNilFile is reported by Set when passed a nil file.
 	ErrNilFile = xerrors.New("nil file")
+
+	// ErrSkipChildren signals to the Walk function that the children of the
+	// current node should not be visited.
+	ErrSkipChildren = xerrors.New("skip child files")
 )
 
 // Open traverses the given slash-separated path sequentially from root, and
@@ -111,6 +116,54 @@ func Remove(ctx context.Context, root *file.File, path string) error {
 		return err
 	} else if fp.parent != nil {
 		fp.parent.Remove(fp.targetName)
+	}
+	return nil
+}
+
+// An Entry is the argument to the visit callback for the Walk function.
+type Entry struct {
+	Path string     // the path of this entry relative to the root
+	File *file.File // the file for this entry (nil on error)
+	Err  error
+}
+
+// Walk walks the file tree rooted at root, depth-first, and calls visit with
+// an entry for each file in the tree. The entry.Path gives the path of the
+// file relative to the root. If an error occurred opening the file at that
+// path, entry.File is nil and entry.Err contains the error; otherwise
+// entry.File contains the file addressed by the path.
+//
+// If visit reports an error other than ErrSkipChildren, traversal stops and
+// that error is returned to the caller of Walk.  If it returns ErrSkipChildren
+// the walk continues but skips the descendant files of the current entry.
+func Walk(ctx context.Context, root *file.File, visit func(Entry) error) error {
+	q := []string{""}
+	for len(q) != 0 {
+		next := q[len(q)-1]
+		q = q[:len(q)-1]
+
+		f, err := Open(ctx, root, next)
+		err = visit(Entry{
+			Path: next,
+			File: f,
+			Err:  err,
+		})
+		if err == nil {
+			if f == nil {
+				continue // the error was suppressed
+			}
+			kids := f.Children()
+			for i, name := range kids {
+				kids[i] = path.Join(next, name)
+			}
+			for i, j := 0, len(kids)-1; i < j; i++ {
+				kids[i], kids[j] = kids[j], kids[i]
+				j--
+			}
+			q = append(q, kids...)
+		} else if err != ErrSkipChildren {
+			return err
+		}
 	}
 	return nil
 }
