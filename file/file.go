@@ -143,7 +143,8 @@ func (f *File) findChild(name string) (int, bool) {
 	return -1, false
 }
 
-func (f *File) modify() { f.key = ""; f.stat.ModTime = time.Now() }
+func (f *File) inval()  { f.key = "" }
+func (f *File) modify() { f.inval(); f.stat.ModTime = time.Now() }
 
 // New constructs a new empty node backed by the same store as f.
 // If f persists stat metadata, then the new file does also.
@@ -160,11 +161,18 @@ func (f *File) Stat() Stat { return f.stat }
 
 // SetStat calls set with the current stat metadata for f, and enables stat
 // persistence for the file. Any changes made by set are preserved.
-func (f *File) SetStat(set func(*Stat)) { set(&f.stat); f.key = ""; f.saveStat = true }
+func (f *File) SetStat(set func(*Stat)) {
+	defer f.inval()
+
+	cp := f.stat // copy so the pointer does not outlive the call
+	set(&cp)
+	f.stat = cp
+	f.saveStat = true
+}
 
 // ClearStat clears the current stat metadata for f, and disables stat
 // persistence for the file.
-func (f *File) ClearStat() { f.stat = Stat{}; f.key = ""; f.saveStat = false }
+func (f *File) ClearStat() { defer f.inval(); f.stat = Stat{}; f.saveStat = false }
 
 // HasChild reports whether f has a child with the given name.
 func (f *File) HasChild(name string) bool { _, ok := f.findChild(name); return ok }
@@ -317,7 +325,7 @@ func (f *File) Flush(ctx context.Context) (string, error) {
 // XAttr calls c with a string-to-string map of the extended attributes of f.
 // The callback may modify this map directly to add, change, or remove extended
 // attributes. The file must be flushed to persist any changes.
-func (f *File) XAttr(c func(map[string]string)) { c(f.xattr); f.key = "" }
+func (f *File) XAttr(c func(map[string]string)) { defer f.inval(); c(f.xattr) }
 
 // Name reports the attributed name of f, which may be "" if f is not a child
 // file and was not assigned a name at creation.
