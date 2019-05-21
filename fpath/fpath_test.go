@@ -101,10 +101,10 @@ func TestPaths(t *testing.T) {
 
 	// A subtree can be spliced in, and preserve its structure.
 	createPath("/a/boring", nil)
-	setPath("/a/boring/war", subtree, nil)
-	openPath("/a/boring/war", nil)
-	openPath("/a/boring/war/of", nil)
-	openPath("/a/boring/war/of/words", nil)
+	setPath("/a/boring/sludge", subtree, nil)
+	openPath("/a/boring/sludge", nil)
+	openPath("/a/boring/sludge/of", nil)
+	openPath("/a/boring/sludge/of/words", nil)
 }
 
 func errorOK(err, werr error) bool {
