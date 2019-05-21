@@ -32,7 +32,7 @@ import (
 )
 
 func TestNewStat(t *testing.T) {
-	cas := newCAS()
+	cas := blob.NewCAS(memstore.New(), sha1.New)
 	f := file.New(cas, &file.NewOptions{
 		Name: "testfile",
 		Mode: 0644,
@@ -63,7 +63,7 @@ func TestNewStat(t *testing.T) {
 }
 
 func TestRoundTrip(t *testing.T) {
-	cas := newCAS()
+	cas := blob.NewCAS(memstore.New(), sha1.New)
 	f := file.New(cas, &file.NewOptions{
 		Mode:  0640,
 		Split: split.Config{Min: 17, Size: 84, Max: 500},
@@ -106,7 +106,7 @@ func TestRoundTrip(t *testing.T) {
 }
 
 func TestChildren(t *testing.T) {
-	cas := newCAS()
+	cas := blob.NewCAS(memstore.New(), sha1.New)
 	ctx := context.Background()
 	root := file.New(cas, nil)
 
@@ -138,5 +138,3 @@ func TestChildren(t *testing.T) {
 }
 
 func fmtKey(s string) string { return base64.RawURLEncoding.EncodeToString([]byte(s)) }
-
-func newCAS() blob.CAS { return blob.NewCAS(memstore.New(), sha1.New) }
