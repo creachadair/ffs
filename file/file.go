@@ -43,6 +43,17 @@
 // A value of the file.IO type should not be retained beyond the dynamic extent
 // of the request whose context it captures.
 //
+// Metadata
+//
+// A File supports a subset of POSIX style data metadata, including mode,
+// modification time, and owner/group identity. These metadata are not
+// interpreted by the API, but will be persisted if they are set.
+//
+// By default, a File does not persist stat metadata. To enable stat
+// persistence, you may either set initial values in the Stat field of
+// file.NewOptions when the File is created, or use the SetStat method to
+// modify the fields. To disable stat persistence, use ClearStat.  The
+// file.Stat type defines the stat attributes that are retained.
 package file
 
 import (
