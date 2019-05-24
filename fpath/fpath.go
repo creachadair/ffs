@@ -85,13 +85,15 @@ func (s *SetOptions) target() *file.File {
 }
 
 // Set traverses the given slash-separated path sequentially from root and
-// inserts a file at the end of it. An empty path is an error.  If opts.Create
-// is true, any missing path entries are created; otherwise if any path element
-// except the last does not exist it reports file.ErrChildNotFound.
+// inserts a file at the end of it. An empty path is an error (ErrEmptyPath).
 //
-// If opts.File is not nil, it is inserted at the end of the path; otherwise if
-// opts.Create is true, a new empty file is inserted. If neither of these is
-// true, it reports ErrNilFile.
+// If opts.Create is true, any missing path entries are created; otherwise it
+// is an error (file.ErrChildNotFound) if any path element except the last does
+// not exist.
+//
+// If opts.File != nil, that file is inserted at the end of the path; otherwise
+// if opts.Create is true, a new empty file is inserted. If neither of these is
+// true, Set reports ErrNilFile.
 func Set(ctx context.Context, root *file.File, path string, opts *SetOptions) error {
 	if opts.target() == nil && !opts.create() {
 		return xerrors.Errorf("set %q: %w", path, ErrNilFile)
