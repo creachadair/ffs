@@ -22,6 +22,13 @@ func newMemStore(_ context.Context, addr string) (blob.Store, error) {
 func TestRegisterOpen(t *testing.T) {
 	r := new(store.Registry)
 
+	// Registering an invalid tag should fail.
+	for _, tag := range []string{"", ":", "foo::", "foo:bar", "foo:bar:", ":baz"} {
+		if err := r.Register(tag, newMemStore); !xerrors.Is(err, store.ErrInvalidTag) {
+			t.Errorf("Register(%q, ...): got %v, want %v", tag, err, store.ErrInvalidTag)
+		}
+	}
+
 	// Registering a fresh name should succeed.
 	if err := r.Register("mem", newMemStore); err != nil {
 		t.Errorf("Register(mem, ...) failed: %v", err)

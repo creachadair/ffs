@@ -30,8 +30,8 @@ type Registry struct {
 // A tag may end with ":" but must not otherwise contain any ":" characters.
 func (r *Registry) Register(tag string, o Opener) error {
 	clean := strings.TrimSuffix(tag, ":")
-	if clean == "" || strings.HasSuffix(clean, ":") {
-		return xerrors.Errorf("register %q: invalid tag", tag)
+	if clean == "" || strings.Contains(clean, ":") {
+		return xerrors.Errorf("register %q: %w", tag, ErrInvalidTag)
 	} else if o == nil {
 		return xerrors.Errorf("register %q: opener is nil", tag)
 	}
@@ -67,6 +67,9 @@ func (r *Registry) Open(ctx context.Context, addr string) (blob.Store, error) {
 }
 
 var (
+	// ErrInvalidTag is reported by Register when given an invalid tag.
+	ErrInvalidTag = xerrors.New("invalid tag")
+
 	// ErrDuplicateTag is reported by Register when given a tag which was
 	// already previously registered with a different value.
 	ErrDuplicateTag = xerrors.New("duplicate tag")
