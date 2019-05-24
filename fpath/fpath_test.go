@@ -151,7 +151,7 @@ func TestPaths(t *testing.T) {
 			elt.SetStat(func(s *file.Stat) {
 				s.Mode = os.ModeDir | 0755
 			})
-			elt.SetXAttr("index", strconv.Itoa(i+1))
+			elt.XAttr().Set("index", strconv.Itoa(i+1))
 			got = append(got, elt.Name())
 		}
 		if diff := cmp.Diff(want, got); diff != "" {

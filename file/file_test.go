@@ -46,7 +46,7 @@ func TestRoundTrip(t *testing.T) {
 		"nut":   "hazelnut",
 	}
 	for k, v := range wantx {
-		f.SetXAttr(k, v)
+		f.XAttr().Set(k, v)
 	}
 
 	const testMessage = "Four fat fennel farmers fell feverishly for Felicia Frances"
@@ -72,8 +72,8 @@ func TestRoundTrip(t *testing.T) {
 
 	// Verify that extended attributes were preserved.
 	gotx := make(map[string]string)
-	g.ListXAttr(func(key, val string) {
-		if v, ok := g.GetXAttr(key); !ok || v != val {
+	g.XAttr().List(func(key, val string) {
+		if v, ok := g.XAttr().Get(key); !ok || v != val {
 			t.Errorf("GetXAttr(%q): got (%q, %v), want (%q, true)", key, v, ok, val)
 		}
 		gotx[key] = val

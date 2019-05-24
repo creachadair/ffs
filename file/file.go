@@ -327,23 +327,6 @@ func (f *File) Flush(ctx context.Context) (string, error) {
 	return f.key, nil
 }
 
-// GetXAttr reports whether the specified xattr is set, and if so returns its value.
-func (f *File) GetXAttr(key string) (string, bool) { s, ok := f.xattr[key]; return s, ok }
-
-// SetXAttr sets the specified xattr.
-func (f *File) SetXAttr(key, value string) { defer f.inval(); f.xattr[key] = value }
-
-// RemoveXAttr removes the specified xattr.
-func (f *File) RemoveXAttr(key string) { defer f.inval(); delete(f.xattr, key) }
-
-// ListXAttr calls attr with the key and value of each xattr on f in
-// unspecified order.
-func (f *File) ListXAttr(attr func(key, value string)) {
-	for key, val := range f.xattr {
-		attr(key, val)
-	}
-}
-
 // Name reports the attributed name of f, which may be "" if f is not a child
 // file and was not assigned a name at creation.
 func (f *File) Name() string { return f.name }
@@ -352,6 +335,9 @@ func (f *File) Name() string { return f.name }
 // interfaces defined by the io package.  The resulting values hould be used
 // only during the lifetime of the request whose context it binds.
 func (f *File) IO(ctx context.Context) IO { return IO{ctx: ctx, f: f} }
+
+// XAttr returns a view of the extended attributes of f.
+func (f *File) XAttr() XAttr { return XAttr{f: f} }
 
 func (f *File) fromProto(pb *wirepb.Node) {
 	f.data = fileData{} // reset
@@ -397,6 +383,27 @@ func (f *File) toProto() *wirepb.Node {
 		})
 	}
 	return n
+}
+
+// XAttr provides access to the extended attributes of a file.
+type XAttr struct {
+	f *File
+}
+
+// Get reports whether the specified key is set, and if so returns its value.
+func (x XAttr) Get(key string) (string, bool) { s, ok := x.f.xattr[key]; return s, ok }
+
+// Set sets the specified xattr.
+func (x XAttr) Set(key, value string) { defer x.f.inval(); x.f.xattr[key] = value }
+
+// Remove removes the specified xattr.
+func (x XAttr) Remove(key string) { defer x.f.inval(); delete(x.f.xattr, key) }
+
+// List calls attr with the key and value of each xattr in unspecified order.
+func (x XAttr) List(attr func(key, value string)) {
+	for key, val := range x.f.xattr {
+		attr(key, val)
+	}
 }
 
 func saveProto(ctx context.Context, s blob.CAS, msg proto.Message) (string, error) {
