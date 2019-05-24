@@ -12,7 +12,7 @@ import (
 )
 
 // Default is the default store registry.
-var Default = Registry{}
+var Default = &Registry{}
 
 // An Opener opens a blob.Store instance associated with the given address.  An
 // Opener must be safe for concurrent use by multiple goroutines.
