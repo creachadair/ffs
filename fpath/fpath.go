@@ -79,9 +79,8 @@ func (s *SetOptions) create() bool { return s != nil && s.Create }
 func (s *SetOptions) target() *file.File {
 	if s == nil {
 		return nil
-	} else {
-		return s.File
 	}
+	return s.File
 }
 
 // Set traverses the given slash-separated path sequentially from root and
