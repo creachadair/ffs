@@ -31,6 +31,10 @@ type Stat struct {
 	OwnerName string // name of file owner
 	GroupID   int    // numeric ID of the file's primary group
 	GroupName string // name of the file's primary group
+
+	// To add additional metadata, add a field to this type and a corresponding
+	// field to the wirepb.Stat message, then update the toProto and fromProto
+	// methods to encode and decode the value.
 }
 
 func (s Stat) toProto() *wirepb.Stat {
