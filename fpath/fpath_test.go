@@ -48,19 +48,6 @@ func TestPaths(t *testing.T) {
 
 	ctx := context.Background()
 	root := file.New(cas, nil)
-	createPath := func(path string, werr error) *file.File {
-		got, err := fpath.Create(ctx, root, path)
-		if !errorOK(err, werr) {
-			t.Errorf("CreatePath %q: got error %v, want %v", path, err, werr)
-		}
-		return got
-	}
-	removePath := func(path string, werr error) {
-		err := fpath.Remove(ctx, root, path)
-		if !errorOK(err, werr) {
-			t.Errorf("RemovePath %q: got error %v, want %v", path, err, werr)
-		}
-	}
 	openPath := func(path string, werr error) *file.File {
 		got, err := fpath.Open(ctx, root, path)
 		if !errorOK(err, werr) {
@@ -68,8 +55,21 @@ func TestPaths(t *testing.T) {
 		}
 		return got
 	}
+	createPath := func(path string, werr error) *file.File {
+		err := fpath.Set(ctx, root, path, &fpath.SetOptions{Create: true})
+		if !errorOK(err, werr) {
+			t.Errorf("CreatePath %q: got error %v, want %v", path, err, werr)
+		}
+		return openPath(path, nil)
+	}
+	removePath := func(path string, werr error) {
+		err := fpath.Remove(ctx, root, path)
+		if !errorOK(err, werr) {
+			t.Errorf("RemovePath %q: got error %v, want %v", path, err, werr)
+		}
+	}
 	setPath := func(path string, f *file.File, werr error) {
-		err := fpath.Set(ctx, root, path, f)
+		err := fpath.Set(ctx, root, path, &fpath.SetOptions{File: f})
 		if !errorOK(err, werr) {
 			t.Errorf("SetPath %q: got error %v, want %v", path, err, werr)
 		}
@@ -80,11 +80,17 @@ func TestPaths(t *testing.T) {
 		t.Errorf("Open empty path: got %p, want %p", got, root)
 	}
 
-	// Removing or creating an empty path should quietly do nothing.
+	// Removing an empty path should quietly do nothing.
 	removePath("", nil)
 	removePath("/", nil)
-	createPath("", nil)
-	createPath("/", nil)
+
+	// Setting a nil file without creation enabled should fail.
+	setPath("", nil, fpath.ErrNilFile)
+
+	// Setting on a non-existent path should fail, but the last element of the
+	// path may be missing.
+	setPath("/no/such/path", root.New(nil), file.ErrChildNotFound)
+	setPath("/okay", root.New(nil), nil)
 
 	// Removing non-existing non-empty paths should report an error,
 	removePath("nonesuch", file.ErrChildNotFound)
@@ -139,7 +145,6 @@ func TestPaths(t *testing.T) {
 	createPath("/a/boring/song", nil)
 
 	setPath("", subtree, fpath.ErrEmptyPath)
-	setPath("/a/dog", nil, fpath.ErrNilFile)
 
 	// Verify that viewing a path produces the right files.
 	if fs, err := fpath.View(ctx, root, "a/boring/sludge/of/words"); err != nil {
@@ -165,6 +170,7 @@ func TestPaths(t *testing.T) {
 			"", "a",
 			"a/boring", "a/boring/sludge", "a/boring/song",
 			"a/lasting", "a/lasting/consequence",
+			"okay",
 		}
 		var got []string
 		if err := fpath.Walk(ctx, root, func(e fpath.Entry) error {

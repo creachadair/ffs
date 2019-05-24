@@ -63,37 +63,51 @@ func View(ctx context.Context, root *file.File, path string) ([]*file.File, erro
 	return out, nil
 }
 
+// SetOptions control the behaviour of the Set function. A nil *SetOptions
+// behaves as a zero-valued options structure.
+type SetOptions struct {
+	// If true, create any path elements that do not exist along the path.
+	Create bool
+
+	// If not nil, insert this element at the end of the path.  If nil, a new
+	// empty file with default options is created.
+	File *file.File
+}
+
+func (s *SetOptions) create() bool { return s != nil && s.Create }
+
+func (s *SetOptions) target() *file.File {
+	if s == nil {
+		return nil
+	} else {
+		return s.File
+	}
+}
+
 // Set traverses the given slash-separated path sequentially from root and
-// inserts f at the end of it. An empty path is an error, and if any element of
-// the path except the last does not exist it reports file.ErrChildNotFound.
-func Set(ctx context.Context, root *file.File, path string, f *file.File) error {
-	if f == nil {
-		return xerrors.Errorf("Set %q: %w", path, ErrNilFile)
+// inserts a file at the end of it. An empty path is an error.  If opts.Create
+// is true, any missing path entries are created; otherwise if any path element
+// except the last does not exist it reports file.ErrChildNotFound.
+//
+// If opts.File is not nil, it is inserted at the end of the path; otherwise if
+// opts.Create is true, a new empty file is inserted. If neither of these is
+// true, it reports ErrNilFile.
+func Set(ctx context.Context, root *file.File, path string, opts *SetOptions) error {
+	if opts.target() == nil && !opts.create() {
+		return xerrors.Errorf("set %q: %w", path, ErrNilFile)
 	}
 	dir, base := "", path
-	if i := strings.LastIndex(path, "/"); i > 0 {
+	if i := strings.LastIndex(path, "/"); i >= 0 {
 		dir, base = path[:i], path[i+1:]
 	}
 	if base == "" {
-		return xerrors.Errorf("set: %w", ErrEmptyPath)
+		return xerrors.Errorf("set %q: %w", path, ErrEmptyPath)
 	}
-	fp, err := findPath(ctx, query{root: root, path: dir})
-	if err != nil {
-		return err
-	}
-	fp.target.Set(base, f)
-	return nil
-}
-
-// Create creates a file at the given slash-separated path beneath root,
-// creating any necessary parents, and returns the final element named. An
-// empty path yields root without error.
-func Create(ctx context.Context, root *file.File, path string) (*file.File, error) {
 	fp, err := findPath(ctx, query{
 		root: root,
-		path: path,
+		path: dir,
 		ef: func(fp *foundPath, err error) error {
-			if xerrors.Is(err, file.ErrChildNotFound) {
+			if xerrors.Is(err, file.ErrChildNotFound) && opts.create() {
 				c := fp.target.New(&file.NewOptions{Name: fp.targetName})
 				fp.target.Set(fp.targetName, c)
 				fp.parent, fp.target = fp.target, c
@@ -103,9 +117,14 @@ func Create(ctx context.Context, root *file.File, path string) (*file.File, erro
 		},
 	})
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return fp.target, nil
+	if last := opts.target(); last != nil {
+		fp.target.Set(base, last)
+	} else {
+		fp.target.Set(base, root.New(nil))
+	}
+	return nil
 }
 
 // Remove removes the file at the given slash-separated path beneath root.
