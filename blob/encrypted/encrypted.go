@@ -32,7 +32,7 @@ import (
 // A Store implements the blob.Store interface and encrypts blob data using a
 // block cipher in CTR mode. Blob storage is delegated to an underlying store.
 //
-// Note that keys are not encrypted, only block contents.
+// Note that keys are not encrypted, only blob contents.
 type Store struct {
 	blk   cipher.Block       // used to generate the keystream
 	newIV func([]byte) error // generate a fresh initialization vector
@@ -116,7 +116,7 @@ func (s *Store) List(ctx context.Context, start string, f func(string) error) er
 // It delegates directly to the underlying store.
 func (s *Store) Len(ctx context.Context) (int64, error) { return s.real.Len(ctx) }
 
-// load fetches a stored block and decodes its storage wrapper.
+// load fetches a stored blob and decodes its storage wrapper.
 func (s *Store) load(ctx context.Context, key string) (*encpb.Encrypted, error) {
 	bits, err := s.real.Get(ctx, key)
 	if err != nil {
@@ -162,9 +162,18 @@ func (s *Store) decrypt(enc *encpb.Encrypted) ([]byte, error) {
 /*
 Implementation notes
 
-An encrypted block is stored as an encpb.Encrypted protocol buffer, encrypted
-with AES in CTR mode. The block data are compressed with snappy [1] prior to
-encryption.
+An encrypted blob is stored as an encpb.Encrypted protocol buffer, encrypted
+with AES in CTR mode. The blob data are compressed with snappy [1] prior to
+encryption. The stored format is:
+
+   data []byte  [snappy-compressed, encrypted data]
+   init []byte  [initialization vector for this blob]
+   size int64   [size in bytes of the original block]
+
+The uncompressed size is stored to simplify Size queries: The actual stored
+size of the blob is not correct, but keeping the original size avoids the need
+to decrypt and decompress the blob contents. The blob must still be fetched,
+however.
 
 [1]: https://github.com/google/snappy
 */
