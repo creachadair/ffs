@@ -21,7 +21,7 @@ import (
 
 	"bitbucket.org/creachadair/ffs/blob"
 	"bitbucket.org/creachadair/ffs/blob/encrypted"
-	"bitbucket.org/creachadair/ffs/blob/encrypted/encpb"
+	"bitbucket.org/creachadair/ffs/blob/encrypted/wirepb"
 	"bitbucket.org/creachadair/ffs/blob/memstore"
 	"github.com/golang/protobuf/proto"
 )
@@ -87,7 +87,7 @@ func TestRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Get raw %q failed: %v", key, err)
 	}
-	pb := new(encpb.Encrypted)
+	pb := new(wirepb.Encrypted)
 	if err := proto.Unmarshal(raw, pb); err != nil {
 		t.Fatalf("Decoding storage wrapper: %v", err)
 	}

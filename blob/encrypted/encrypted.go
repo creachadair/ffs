@@ -23,7 +23,7 @@ import (
 	"crypto/rand"
 
 	"bitbucket.org/creachadair/ffs/blob"
-	"bitbucket.org/creachadair/ffs/blob/encrypted/encpb"
+	"bitbucket.org/creachadair/ffs/blob/encrypted/wirepb"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/snappy"
 	"golang.org/x/xerrors"
@@ -122,12 +122,12 @@ func (s *Store) List(ctx context.Context, start string, f func(string) error) er
 func (s *Store) Len(ctx context.Context) (int64, error) { return s.real.Len(ctx) }
 
 // load fetches a stored blob and decodes its storage wrapper.
-func (s *Store) load(ctx context.Context, key string) (*encpb.Encrypted, error) {
+func (s *Store) load(ctx context.Context, key string) (*wirepb.Encrypted, error) {
 	bits, err := s.real.Get(ctx, key)
 	if err != nil {
 		return nil, err
 	}
-	pb := new(encpb.Encrypted)
+	pb := new(wirepb.Encrypted)
 	if err := proto.Unmarshal(bits, pb); err != nil {
 		return nil, err
 	}
@@ -135,7 +135,7 @@ func (s *Store) load(ctx context.Context, key string) (*encpb.Encrypted, error) 
 }
 
 // encrypt compresses and encrypts the given data and returns its storage wrapper.
-func (s *Store) encrypt(data []byte) (*encpb.Encrypted, error) {
+func (s *Store) encrypt(data []byte) (*wirepb.Encrypted, error) {
 	compressed := snappy.Encode(nil, data)
 	iv := make([]byte, s.blk.BlockSize())
 	if err := s.newIV(iv); err != nil {
@@ -143,7 +143,7 @@ func (s *Store) encrypt(data []byte) (*encpb.Encrypted, error) {
 	}
 	ctr := cipher.NewCTR(s.blk, iv)
 	ctr.XORKeyStream(compressed, compressed)
-	return &encpb.Encrypted{
+	return &wirepb.Encrypted{
 		Data:             compressed,
 		Init:             iv,
 		UncompressedSize: int64(len(data)),
@@ -151,7 +151,7 @@ func (s *Store) encrypt(data []byte) (*encpb.Encrypted, error) {
 }
 
 // decrypt decrypts and decompresses the data from a storage wrapper.
-func (s *Store) decrypt(enc *encpb.Encrypted) ([]byte, error) {
+func (s *Store) decrypt(enc *wirepb.Encrypted) ([]byte, error) {
 	ctr := cipher.NewCTR(s.blk, enc.Init)
 	ctr.XORKeyStream(enc.Data, enc.Data)
 	decompressed, err := snappy.Decode(nil, enc.Data)
@@ -167,7 +167,7 @@ func (s *Store) decrypt(enc *encpb.Encrypted) ([]byte, error) {
 /*
 Implementation notes
 
-An encrypted blob is stored as an encpb.Encrypted protocol buffer, inside which
+An encrypted blob is stored as an wirepb.Encrypted protocol buffer, inside which
 the payload is compressed with snappy [1] and encrypted with AES in CTR mode.
 The wrapper message is not itself encrypted.  The stored format is:
 
