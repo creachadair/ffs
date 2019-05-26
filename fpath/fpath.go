@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package fpath implements path traversal relative to a *file.File.  A path is
-// a slash-separated string,
+// a slash-separated string, which may optionally begin with "/".
 package fpath
 
 import (
