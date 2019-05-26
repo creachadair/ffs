@@ -26,23 +26,21 @@ import (
 	"github.com/golang/protobuf/proto"
 )
 
-// testIV generates initialization vectors for testing, which in this case is
-// just zeroes. In real usage, it is unsafe to re-use an IV with a given key.
-func testIV(iv []byte) error {
-	for i := 0; i < len(iv); i++ {
-		iv[i] = 0
-	}
-	return nil
-}
-
 func TestRoundTrip(t *testing.T) {
 	m := memstore.New()
 	aes, err := aes.NewCipher([]byte("0123456789abcdef"))
 	if err != nil {
 		t.Fatalf("Creating AES cipher: %v", err)
 	}
+	var ivCalled bool
 	e := encrypted.New(m, aes, &encrypted.Options{
-		NewIV: testIV,
+		NewIV: func(iv []byte) error {
+			ivCalled = true // verify that our hook is used
+			for i := range iv {
+				iv[i] = 1 // dummy value for testing
+			}
+			return nil
+		},
 	})
 
 	const key = "molins"
@@ -55,6 +53,10 @@ func TestRoundTrip(t *testing.T) {
 		Data: []byte(value),
 	}); err != nil {
 		t.Fatalf("Put %q failed: %v", key, err)
+	}
+
+	if !ivCalled {
+		t.Error("Put did not invoke the initialization vector hook")
 	}
 
 	// Verify that we can read the blob back out and get the same result.
