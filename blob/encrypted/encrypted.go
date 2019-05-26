@@ -59,6 +59,11 @@ func (o *Options) newIV() func([]byte) error {
 // New constructs a new encrypted store that delegates to s.  If opts == nil,
 // default options are used.  New will panic if s == nil or blk == nil.
 func New(s blob.Store, blk cipher.Block, opts *Options) *Store {
+	if s == nil {
+		panic("store is nil")
+	} else if blk == nil {
+		panic("cipher is nil")
+	}
 	return &Store{
 		blk:   blk,
 		newIV: opts.newIV(),
