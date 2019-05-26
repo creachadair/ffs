@@ -70,7 +70,7 @@ func TestRegisterOpen(t *testing.T) {
 	}
 
 	// Errors reported by the opener should be propagated.
-	if s, err := r.Open(ctx, "mem:garbage"); err != badAddress {
+	if s, err := r.Open(ctx, "mem:garbage"); !xerrors.Is(err, badAddress) {
 		t.Errorf("Open(ctx, mem:garbage): got (%[1]T (%[1]p), %v), want (nil, %v)", s, err, badAddress)
 	}
 

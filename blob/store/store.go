@@ -77,7 +77,11 @@ func (r *Registry) Open(ctx context.Context, addr string) (blob.Store, error) {
 	if !ok {
 		return nil, xerrors.Errorf("open %q: %w", addr, ErrInvalidAddress)
 	}
-	return open(ctx, addr)
+	s, err := open(ctx, addr)
+	if err != nil {
+		return nil, xerrors.Errorf("open %q: %w", addr, err)
+	}
+	return s, nil
 }
 
 var (
