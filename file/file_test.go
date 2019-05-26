@@ -118,4 +118,21 @@ func TestChildren(t *testing.T) {
 	}
 }
 
+func TestCycleCheck(t *testing.T) {
+	cas := blob.NewCAS(memstore.New(), sha1.New)
+	ctx := context.Background()
+	root := file.New(cas, nil)
+
+	kid := file.New(cas, nil)
+	root.Set("harmless", kid)
+	kid.Set("harmful", root)
+
+	key, err := root.Flush(ctx)
+	if err == nil {
+		t.Errorf("Cyclic flush: got %q, nil, want error", key)
+	} else {
+		t.Logf("Cyclic flush correctly failed: %v", err)
+	}
+}
+
 func fmtKey(s string) string { return base64.RawURLEncoding.EncodeToString([]byte(s)) }

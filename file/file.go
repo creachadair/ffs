@@ -301,12 +301,25 @@ func (f *File) WriteAt(ctx context.Context, data []byte, offset int64) (int, err
 // returns the resulting storage key. This is the canonical way to obtain the
 // storage key for a file.
 func (f *File) Flush(ctx context.Context) (string, error) {
+	return f.recFlush(ctx, nil)
+}
+
+// recFlush recursively flushes f and all its child nodes. The path gives the
+// path of nodes from the root to the current flush target, and is used to
+// verify that there are no cycles in the graph.
+func (f *File) recFlush(ctx context.Context, path []*File) (string, error) {
+	// Check for direct or indirect cycles.
+	for _, elt := range path {
+		if elt == f {
+			return "", xerrors.Errorf("flush: cycle in path at %p", elt)
+		}
+	}
 	needsUpdate := f.key == ""
 
 	// Flush any cached children.
 	for i, kid := range f.kids {
 		if kid.File != nil {
-			fkey, err := kid.File.Flush(ctx)
+			fkey, err := kid.File.recFlush(ctx, append(path, f))
 			if err != nil {
 				return "", err
 			}
