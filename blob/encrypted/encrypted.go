@@ -131,7 +131,7 @@ func (s *Store) load(ctx context.Context, key string) (*encpb.Encrypted, error) 
 
 // encrypt compresses and encrypts the given data and returns its storage wrapper.
 func (s *Store) encrypt(data []byte) (*encpb.Encrypted, error) {
-	compressed := snappy.Encode(data, nil)
+	compressed := snappy.Encode(nil, data)
 	iv := make([]byte, s.blk.BlockSize())
 	if err := s.newIV(iv); err != nil {
 		return nil, xerrors.Errorf("encrypt: initialization vector: %w", err)
@@ -149,7 +149,7 @@ func (s *Store) encrypt(data []byte) (*encpb.Encrypted, error) {
 func (s *Store) decrypt(enc *encpb.Encrypted) ([]byte, error) {
 	ctr := cipher.NewCTR(s.blk, enc.Init)
 	ctr.XORKeyStream(enc.Data, enc.Data)
-	decompressed, err := snappy.Decode(enc.Data, nil)
+	decompressed, err := snappy.Decode(nil, enc.Data)
 	if err != nil {
 		return nil, xerrors.Errorf("decrypt: decompress: %w", err)
 	} else if int64(len(decompressed)) != enc.UncompressedSize {
