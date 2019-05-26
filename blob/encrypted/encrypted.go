@@ -167,11 +167,11 @@ func (s *Store) decrypt(enc *encpb.Encrypted) ([]byte, error) {
 /*
 Implementation notes
 
-An encrypted blob is stored as an encpb.Encrypted protocol buffer, encrypted
-with AES in CTR mode. The blob data are compressed with snappy [1] prior to
-encryption. The stored format is:
+An encrypted blob is stored as an encpb.Encrypted protocol buffer, inside which
+the payload is compressed with snappy [1] and encrypted with AES in CTR mode.
+The wrapper message is not itself encrypted.  The stored format is:
 
-   data []byte  [snappy-compressed, encrypted data]
+   data []byte  [snappy-compressed, encrypted payload]
    init []byte  [initialization vector for this blob]
    size int64   [size in bytes of the original block]
 
