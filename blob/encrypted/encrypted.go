@@ -154,7 +154,7 @@ func (s *Store) encrypt(data []byte) (*wirepb.Encrypted, error) {
 func (s *Store) decrypt(enc *wirepb.Encrypted) ([]byte, error) {
 	ctr := cipher.NewCTR(s.blk, enc.Init)
 	ctr.XORKeyStream(enc.Data, enc.Data)
-	decompressed, err := snappy.Decode(nil, enc.Data)
+	decompressed, err := snappy.Decode(make([]byte, enc.UncompressedSize), enc.Data)
 	if err != nil {
 		return nil, xerrors.Errorf("decrypt: decompress: %w", err)
 	} else if int64(len(decompressed)) != enc.UncompressedSize {
