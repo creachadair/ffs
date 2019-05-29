@@ -38,8 +38,8 @@ var (
 )
 
 // Open traverses the given slash-separated path sequentially from root, and
-// returns the resulting file or ErrChildNotFound. An empty path yields root
-// without error.
+// returns the resulting file or file.ErrChildNotFound. An empty path yields
+// root without error.
 func Open(ctx context.Context, root *file.File, path string) (*file.File, error) {
 	fp, err := findPath(ctx, query{root: root, path: path})
 	return fp.target, err
@@ -128,8 +128,8 @@ func Set(ctx context.Context, root *file.File, path string, opts *SetOptions) er
 	return nil
 }
 
-// Remove removes the file at the given slash-separated path beneath root.
-// If any component of the path does not exist, it returns ErrChildNotFound.
+// Remove removes the file at the given slash-separated path beneath root.  If
+// any component of the path does not exist, it returns file.ErrChildNotFound.
 func Remove(ctx context.Context, root *file.File, path string) error {
 	fp, err := findPath(ctx, query{root: root, path: path})
 	if err != nil {
