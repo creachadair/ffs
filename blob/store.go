@@ -27,8 +27,8 @@ import (
 // a unique, opaque string key. Implementations of this interface must be safe
 // for concurrent use by multiple goroutines.
 //
-// Moreover, any sequence of operations on a Store in which there are no Delete
-// operations must be linearizable.[1]
+// Moreover, any sequence of operations on a Store that does not overlap with
+// any Delete executions must be linearizable.[1]
 //
 // [1]: https://en.wikipedia.org/wiki/Linearizability
 type Store interface {
