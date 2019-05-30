@@ -92,7 +92,7 @@ func (s *Store) Put(_ context.Context, opts blob.PutOptions) error {
 	// This implementation assumes rename is atomic. It should be when the
 	// filesystem is POSIX compliant, since we created the temp file in the same
 	// directory as the target file.
-	return os.Rename(f.Name(), s.keyPath(opts.Key))
+	return os.Rename(f.Name(), path)
 }
 
 // Size implements part of blob.Store.
