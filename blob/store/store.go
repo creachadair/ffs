@@ -66,11 +66,9 @@ func (r *Registry) Register(tag string, o Opener) error {
 // "tag:value".  If the address does not have this form, or if the tag does not
 // correspond to any known implementation, Open reports ErrInvalidAddress.
 func (r *Registry) Open(ctx context.Context, addr string) (blob.Store, error) {
-	tag := addr
+	tag, target := addr, ""
 	if i := strings.Index(addr, ":"); i > 0 {
-		tag, addr = addr[:i], addr[i+1:]
-	} else {
-		addr = ""
+		tag, target = addr[:i], addr[i+1:]
 	}
 
 	r.μ.RLock()
@@ -80,9 +78,9 @@ func (r *Registry) Open(ctx context.Context, addr string) (blob.Store, error) {
 	if !ok {
 		return nil, xerrors.Errorf("open %q: %w", addr, ErrInvalidAddress)
 	}
-	s, err := open(ctx, addr)
+	s, err := open(ctx, target)
 	if err != nil {
-		return nil, xerrors.Errorf("open %q: %w", addr, err)
+		return nil, xerrors.Errorf("open [%s] %q: %w", tag, target, err)
 	}
 	return s, nil
 }
