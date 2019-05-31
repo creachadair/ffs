@@ -39,6 +39,9 @@ func TestRoundTrip(t *testing.T) {
 		Stat:  file.Stat{Mode: 0640},
 		Split: split.Config{Min: 17, Size: 84, Max: 500},
 	})
+	if n := f.Size(); n != 0 {
+		t.Errorf("Size: got %d, want 0", n)
+	}
 	ctx := context.Background()
 
 	wantx := map[string]string{
@@ -51,6 +54,9 @@ func TestRoundTrip(t *testing.T) {
 
 	const testMessage = "Four fat fennel farmers fell feverishly for Felicia Frances"
 	fmt.Fprint(f.IO(ctx), testMessage)
+	if n := f.Size(); n != int64(len(testMessage)) {
+		t.Errorf("Size: got %d, want %d", n, len(testMessage))
+	}
 	fkey, err := f.Flush(ctx)
 	if err != nil {
 		t.Fatalf("Flushing failed: %v", err)

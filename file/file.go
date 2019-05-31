@@ -166,6 +166,9 @@ func (f *File) New(opts *NewOptions) *File {
 	return out
 }
 
+// Size returns the effective size of the file content in bytes.
+func (f *File) Size() int64 { return f.data.totalBytes }
+
 // Stat returns the current stat metadata for f.
 func (f *File) Stat() Stat { return f.stat }
 
