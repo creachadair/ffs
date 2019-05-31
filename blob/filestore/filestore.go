@@ -58,8 +58,8 @@ func decodeKey(enc string) string {
 	return strings.TrimSuffix(string(dec), "\x00\x00") // trim length pad
 }
 
-// Get implements part of blob.Store. It linearizes to the point at which the
-// key path is successfully opened for reading.
+// Get implements part of blob.Store. It linearizes to the point at which
+// opening the key path for reading returns.
 func (s *Store) Get(_ context.Context, key string) ([]byte, error) {
 	bits, err := ioutil.ReadFile(s.keyPath(key))
 	if os.IsNotExist(err) {
@@ -121,10 +121,10 @@ func (s *Store) Delete(_ context.Context, key string) error {
 	return err
 }
 
-// List implements part of blob.Store. If any concurrent Put operation succeeds
-// with a key later than the current scan position, List linearizes immediately
-// after the earliest such Put operation. Otherwise, List linearizes to the
-// point at which it returns.
+// List implements part of blob.Store. If any concurrent Put operation on a key
+// later than the current scan position succeeds, List linearizes immediately
+// prior to the earliest such Put operation. Otherwise, List may be linearized
+// to any point during its execution.
 func (s *Store) List(_ context.Context, start string, f func(string) error) error {
 	roots, err := listdir(s.dir)
 	if err != nil {
