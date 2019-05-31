@@ -19,7 +19,9 @@ package filestore
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/hex"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -27,6 +29,7 @@ import (
 	"strings"
 
 	"bitbucket.org/creachadair/ffs/blob"
+	"github.com/golang/snappy"
 	"golang.org/x/xerrors"
 )
 
@@ -34,6 +37,15 @@ import (
 // one file per stored blob. Keys are encoded in hex and used to construct file
 // and directory names relative to a root directory, similar to a Git local
 // object store.
+//
+// The encoded format of a blob is:
+//
+//     | length-tag ... | compressed-data ... |
+//
+// where the length-tag is the varint-encoded length of the original blob and,
+// compressed-data are the snappy-compressed content of the original blob.
+//
+// [1]: https://github.com/google/snappy
 type Store struct {
 	dir string
 }
@@ -64,14 +76,63 @@ func decodeKey(enc string) string {
 	return strings.TrimSuffix(string(dec), "\x00\x00") // trim length pad
 }
 
+// blockSize reads enough data from r to recover the length tag.
+func blockSize(r io.Reader) (int64, error) {
+	var buf [binary.MaxVarintLen64]byte
+
+	nr, err := r.Read(buf[:])
+	if nr > 0 {
+		v, n := binary.Varint(buf[:nr])
+		if n > 0 {
+			return v, nil
+		}
+		return 0, xerrors.New("corrupted length tag")
+	}
+	return 0, err
+}
+
+// encodeBlock compresses data with snappy and packs it into a block with a
+// varint prefix encoding len(data).
+func encodeBlock(data []byte) []byte {
+	buf := make([]byte, 4+snappy.MaxEncodedLen(len(data)))
+	n := binary.PutVarint(buf, int64(len(data)))
+	enc := snappy.Encode(buf[n:], data)
+	return buf[:n+len(enc)]
+}
+
+// decodeBlock reads a varint prefix from data, decompresses the rest, and
+// verifies that the result is of the expected length. If so, the decompressed
+// block contents are returned.
+func decodeBlock(data []byte) ([]byte, error) {
+	v, n := binary.Varint(data)
+	if n <= 0 {
+		return nil, xerrors.New("invalid length tag")
+	}
+	blk, err := snappy.Decode(nil, data[n:])
+	if err != nil {
+		return nil, err
+	}
+	if v != int64(len(blk)) {
+		return nil, xerrors.Errorf("corrupted block: got %d bytes, want %d", len(blk), v)
+	}
+	return blk, nil
+}
+
 // Get implements part of blob.Store. It linearizes to the point at which
 // opening the key path for reading returns.
 func (s *Store) Get(_ context.Context, key string) ([]byte, error) {
 	bits, err := ioutil.ReadFile(s.keyPath(key))
-	if os.IsNotExist(err) {
-		return nil, xerrors.Errorf("key %q: %w", key, blob.ErrKeyNotFound)
+	if err != nil {
+		if os.IsNotExist(err) {
+			err = blob.ErrKeyNotFound
+		}
+		return nil, xerrors.Errorf("key %q: %w", key, err)
 	}
-	return bits, err
+	blk, err := decodeBlock(bits)
+	if err != nil {
+		return nil, xerrors.Errorf("key %q: %w", key, err)
+	}
+	return blk, nil
 }
 
 // Put implements part of blob.Store. A successful Put linearizes to the point
@@ -86,7 +147,7 @@ func (s *Store) Put(_ context.Context, opts blob.PutOptions) error {
 	if err != nil {
 		return err
 	}
-	_, err = f.Write(opts.Data)
+	_, err = f.Write(encodeBlock(opts.Data))
 	cerr := f.Close()
 	if err != nil {
 		return err
@@ -104,16 +165,18 @@ func (s *Store) Put(_ context.Context, opts blob.PutOptions) error {
 	return os.Rename(f.Name(), path)
 }
 
-// Size implements part of blob.Store. It linearizes to the point when the key
-// path stat succeeds.
+// Size implements part of blob.Store. It linearizes to the point at which
+// opening the key path succeeds.
 func (s *Store) Size(_ context.Context, key string) (int64, error) {
-	fi, err := os.Stat(s.keyPath(key))
-	if os.IsNotExist(err) {
-		return 0, xerrors.Errorf("key %q: %w", key, blob.ErrKeyNotFound)
-	} else if err != nil {
-		return 0, err
+	f, err := os.Open(s.keyPath(key))
+	if err != nil {
+		if os.IsNotExist(err) {
+			err = blob.ErrKeyNotFound
+		}
+		return 0, xerrors.Errorf("key %q: %w", key, err)
 	}
-	return fi.Size(), nil
+	defer f.Close()
+	return blockSize(f)
 }
 
 // Delete implements part of blob.Store.
