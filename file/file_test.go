@@ -19,6 +19,7 @@ import (
 	"crypto/sha1"
 	"encoding/base64"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"sort"
 	"testing"
@@ -91,6 +92,19 @@ func TestRoundTrip(t *testing.T) {
 	// Verify that file stat was preserved.
 	if diff := cmp.Diff(f.Stat(), g.Stat()); diff != "" {
 		t.Errorf("Stat (-want, +got)\n%s", diff)
+	}
+
+	// Verify that seek and truncation work.
+	if err := g.Truncate(ctx, 15); err != nil {
+		t.Errorf("Truncate(15): unexpected error: %v", err)
+	} else if pos, err := g.Seek(ctx, 0, io.SeekStart); err != nil {
+		t.Errorf("Seek(0): unexpected error: %v", err)
+	} else if pos != 0 {
+		t.Errorf("Pos after Seek(0): got %d, want 0", pos)
+	} else if bits, err := ioutil.ReadAll(g.IO(ctx)); err != nil {
+		t.Errorf("Read failed: %v", err)
+	} else if got, want := string(bits), testMessage[:15]; got != want {
+		t.Errorf("Truncated message: got %q, want %q", got, want)
 	}
 }
 

@@ -343,6 +343,12 @@ func (f *File) recFlush(ctx context.Context, path []*File) (string, error) {
 	return f.key, nil
 }
 
+// Truncate modifies the length of f to end at offset, extending or contracting
+// it as necessary.
+func (f *File) Truncate(ctx context.Context, offset int64) error {
+	return f.data.truncate(ctx, f.s, offset)
+}
+
 // Name reports the attributed name of f, which may be "" if f is not a child
 // file and was not assigned a name at creation.
 func (f *File) Name() string { return f.name }
