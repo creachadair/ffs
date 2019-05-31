@@ -25,7 +25,9 @@ import (
 )
 
 // Store implements the blob.Store interface using a string-to-string map. The
-// contents of a Store are not persisted.
+// contents of a Store are not persisted. All operations on a memstore are
+// protected by a mutex, so they are effectively atomic and may be linearized
+// to any point during their critical section.
 type Store struct {
 	μ sync.Mutex
 	m map[string]string
