@@ -58,7 +58,8 @@ func decodeKey(enc string) string {
 	return strings.TrimSuffix(string(dec), "\x00\x00") // trim length pad
 }
 
-// Get implements part of blob.Store.
+// Get implements part of blob.Store. It linearizes to the point at which the
+// key path is successfully opened for reading.
 func (s *Store) Get(_ context.Context, key string) ([]byte, error) {
 	bits, err := ioutil.ReadFile(s.keyPath(key))
 	if os.IsNotExist(err) {
@@ -67,7 +68,9 @@ func (s *Store) Get(_ context.Context, key string) ([]byte, error) {
 	return bits, err
 }
 
-// Put implements part of blob.Store.
+// Put implements part of blob.Store. A successful Put linearizes to the point
+// at which the rename of the write temporary succeeds; a Put that fails due to
+// an existing key linearizes to the point when the key path stat succeeds.
 func (s *Store) Put(_ context.Context, opts blob.PutOptions) error {
 	path := s.keyPath(opts.Key)
 	if _, err := os.Stat(path); err == nil && !opts.Replace {
@@ -95,7 +98,8 @@ func (s *Store) Put(_ context.Context, opts blob.PutOptions) error {
 	return os.Rename(f.Name(), path)
 }
 
-// Size implements part of blob.Store.
+// Size implements part of blob.Store. It linearizes to the point when the key
+// path stat succeeds.
 func (s *Store) Size(_ context.Context, key string) (int64, error) {
 	fi, err := os.Stat(s.keyPath(key))
 	if os.IsNotExist(err) {
@@ -117,7 +121,10 @@ func (s *Store) Delete(_ context.Context, key string) error {
 	return err
 }
 
-// List implements part of blob.Store.
+// List implements part of blob.Store. If any concurrent Put operation succeeds
+// with a key later than the current scan position, List linearizes immediately
+// after the earliest such Put operation. Otherwise, List linearizes to the
+// point at which it returns.
 func (s *Store) List(_ context.Context, start string, f func(string) error) error {
 	roots, err := listdir(s.dir)
 	if err != nil {
@@ -144,7 +151,8 @@ func (s *Store) List(_ context.Context, start string, f func(string) error) erro
 	return nil
 }
 
-// Len implements part of blob.Store.
+// Len implements part of blob.Store. It is implemented using List, so it
+// linearizes in the same manner.
 func (s *Store) Len(ctx context.Context) (int64, error) {
 	var nb int64
 	if err := s.List(ctx, "", func(string) error {
