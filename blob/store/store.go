@@ -28,8 +28,9 @@ import (
 // Default is the default store registry.
 var Default = &Registry{}
 
-// An Opener opens a blob.Store instance associated with the given address.  An
-// Opener must be safe for concurrent use by multiple goroutines.
+// An Opener opens a blob.Store instance associated with the given address.
+// The address passed to the Opener has its dispatch tag removed. An Opener
+// must be safe for concurrent use by multiple goroutines.
 type Opener func(ctx context.Context, addr string) (blob.Store, error)
 
 // A Registry maintains a mapping from addresses to Opener values.  The methods
@@ -66,8 +67,10 @@ func (r *Registry) Register(tag string, o Opener) error {
 // correspond to any known implementation, Open reports ErrInvalidAddress.
 func (r *Registry) Open(ctx context.Context, addr string) (blob.Store, error) {
 	tag := addr
-	if i := strings.Index(addr, ":"); i >= 0 {
-		tag = addr[:i]
+	if i := strings.Index(addr, ":"); i > 0 {
+		tag, addr = addr[:i], addr[i+1:]
+	} else {
+		addr = ""
 	}
 
 	r.μ.RLock()

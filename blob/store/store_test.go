@@ -27,7 +27,7 @@ import (
 var badAddress = xerrors.New("bad memstore address")
 
 func newMemStore(_ context.Context, addr string) (blob.Store, error) {
-	if addr != "mem" && addr != "mem:" {
+	if addr != "" {
 		return nil, badAddress
 	}
 	return memstore.New(), nil
