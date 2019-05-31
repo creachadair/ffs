@@ -33,6 +33,10 @@ type Store struct {
 	m map[string]string
 }
 
+// Opener constructs a memstore, for use with the store package.  The address
+// is ignored, and an error will never be returned.
+func Opener(_ context.Context, _ string) (blob.Store, error) { return New(), nil }
+
 // New constructs a new, empty store.
 func New() *Store { return &Store{m: make(map[string]string)} }
 

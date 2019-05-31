@@ -38,6 +38,12 @@ type Store struct {
 	dir string
 }
 
+// Opener constructs a filestore from an address comprising a path, for use
+// with the store package.
+func Opener(_ context.Context, addr string) (blob.Store, error) {
+	return New(strings.TrimPrefix(addr, "//")) // tolerate URL-like paths
+}
+
 // New creates a Store associated with the specified root directory, which is
 // created if it does not already exist.
 func New(dir string) (*Store, error) {
