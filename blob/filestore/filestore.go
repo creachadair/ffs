@@ -80,6 +80,9 @@ func decodeKey(enc string) string {
 func blockSize(r io.Reader) (int64, error) {
 	var buf [binary.MaxVarintLen64]byte
 
+	// If the entire blob is shorter than a maximum varint we will get a short
+	// read and possibly an error. As long as we got some data, defer reporting
+	// an error until after decoding the length.
 	nr, err := r.Read(buf[:])
 	if nr > 0 {
 		v, n := binary.Varint(buf[:nr])
