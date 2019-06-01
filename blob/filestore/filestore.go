@@ -46,7 +46,7 @@ import (
 // where the length-tag is the varint-encoded length of the original blob and,
 // compressed-data are the snappy-compressed content of the original blob.
 //
-// [1]: https://github.com/google/snappy
+// See also: https://github.com/google/snappy
 type Store struct {
 	dir string
 }
