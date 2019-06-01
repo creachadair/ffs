@@ -28,6 +28,7 @@ import (
 	"sort"
 	"strings"
 
+	"bitbucket.org/creachadair/atomicfile"
 	"bitbucket.org/creachadair/ffs/blob"
 	"github.com/golang/snappy"
 	"golang.org/x/xerrors"
@@ -145,27 +146,10 @@ func (s *Store) Put(_ context.Context, opts blob.PutOptions) error {
 	path := s.keyPath(opts.Key)
 	if _, err := os.Stat(path); err == nil && !opts.Replace {
 		return xerrors.Errorf("key %q: %w", opts.Key, blob.ErrKeyExists)
-	}
-	f, err := ioutil.TempFile(s.dir, "put.*")
-	if err != nil {
+	} else if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return err
 	}
-	_, err = f.Write(encodeBlock(opts.Data))
-	cerr := f.Close()
-	if err != nil {
-		return err
-	} else if cerr != nil {
-		return cerr
-	}
-	if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
-		os.Remove(f.Name()) // best effort
-		return err
-	}
-
-	// This implementation assumes rename is atomic. It should be when the
-	// filesystem is POSIX compliant, since we created the temp file in the same
-	// directory as the target file.
-	return os.Rename(f.Name(), path)
+	return atomicfile.WriteData(path, encodeBlock(opts.Data), 0600)
 }
 
 // Size implements part of blob.Store. It linearizes to the point at which
