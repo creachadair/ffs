@@ -29,8 +29,10 @@ import (
 var Default = &Registry{}
 
 // An Opener opens a blob.Store instance associated with the given address.
-// The address passed to the Opener has its dispatch tag removed. An Opener
-// must be safe for concurrent use by multiple goroutines.
+// The address passed to the Opener has its dispatch tag removed.
+// The format of the address is opaque to the registry, and the opener
+// is responsible for checking its validity.
+// An Opener must be safe for concurrent use by multiple goroutines.
 type Opener func(ctx context.Context, addr string) (blob.Store, error)
 
 // A Registry maintains a mapping from addresses to Opener values.  The methods
