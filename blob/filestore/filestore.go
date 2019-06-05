@@ -19,9 +19,7 @@ package filestore
 
 import (
 	"context"
-	"encoding/binary"
 	"encoding/hex"
-	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -30,7 +28,6 @@ import (
 
 	"bitbucket.org/creachadair/atomicfile"
 	"bitbucket.org/creachadair/ffs/blob"
-	"github.com/golang/snappy"
 	"golang.org/x/xerrors"
 )
 
@@ -77,50 +74,21 @@ func decodeKey(enc string) string {
 	return strings.TrimSuffix(string(dec), "\x00\x00") // trim length pad
 }
 
-// blockSize reads enough data from r to recover the length tag.
-func blockSize(r io.Reader) (int64, error) {
-	var buf [binary.MaxVarintLen64]byte
-
-	// If the entire blob is shorter than a maximum varint we will get a short
-	// read and possibly an error. As long as we got some data, defer reporting
-	// an error until after decoding the length.
-	nr, err := r.Read(buf[:])
-	if nr > 0 {
-		v, n := binary.Varint(buf[:nr])
-		if n > 0 {
-			return v, nil
-		}
-		return 0, xerrors.New("corrupted length tag")
-	}
-	return 0, err
-}
-
-// encodeBlock compresses data with snappy and packs it into a block with a
-// varint prefix encoding len(data).
-func encodeBlock(data []byte) []byte {
-	buf := make([]byte, 4+snappy.MaxEncodedLen(len(data)))
-	n := binary.PutVarint(buf, int64(len(data)))
-	enc := snappy.Encode(buf[n:], data)
-	return buf[:n+len(enc)]
-}
-
-// decodeBlock reads a varint prefix from data, decompresses the rest, and
-// verifies that the result is of the expected length. If so, the decompressed
-// block contents are returned.
-func decodeBlock(data []byte) ([]byte, error) {
-	v, n := binary.Varint(data)
-	if n <= 0 {
-		return nil, xerrors.New("invalid length tag")
-	}
-	blk, err := snappy.Decode(nil, data[n:])
+// blockSize reports the size of the blob stored in f.
+func blockSize(f *os.File) (int64, error) {
+	fi, err := f.Stat()
 	if err != nil {
-		return nil, err
+		return 0, err
 	}
-	if v != int64(len(blk)) {
-		return nil, xerrors.Errorf("corrupted block: got %d bytes, want %d", len(blk), v)
-	}
-	return blk, nil
+	return fi.Size(), nil
 }
+
+// encodeBlock encodes data for storage. It is currently a no-op.
+func encodeBlock(data []byte) []byte { return data }
+
+// decodeBlock decodes the storage representation of a blob, and returns the
+// blob data. It is the inverse of encodeBlob. It is currently a no-op.
+func decodeBlock(data []byte) ([]byte, error) { return data, nil }
 
 // Get implements part of blob.Store. It linearizes to the point at which
 // opening the key path for reading returns.
