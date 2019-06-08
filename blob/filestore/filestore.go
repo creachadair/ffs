@@ -65,13 +65,25 @@ func New(dir string) (*Store, error) {
 }
 
 func (s *Store) keyPath(key string) string {
-	base := hex.EncodeToString([]byte(key + "\x00\x00")) // ensure length ≥ 2
+	base := hex.EncodeToString([]byte(key))
+	// Pad short keys to be at least four bytes long, so the two-byte directory
+	// prefix and filename are never empty.
+	//
+	// The padding goes at the end so as to preserve lexicographic ordering on
+	// the hex-encoded portion of the key. The pad character is "-" (Unicode 45)
+	// so keys short enough to have padding in the directory name will sort
+	// before any hex digit in that position.
+	//
+	// The hex package ensures the length of the string is always even.
+	if n := len(base); n < 4 {
+		base += "----"[n:]
+	}
 	return filepath.Join(s.dir, base[:2], base[2:])
 }
 
 func decodeKey(enc string) string {
-	dec, _ := hex.DecodeString(enc)
-	return strings.TrimSuffix(string(dec), "\x00\x00") // trim length pad
+	dec, _ := hex.DecodeString(strings.TrimRight(enc, "_")) // trim length pad
+	return string(dec)
 }
 
 // blockSize reports the size of the blob stored in f.
