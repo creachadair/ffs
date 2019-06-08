@@ -35,15 +35,6 @@ import (
 // one file per stored blob. Keys are encoded in hex and used to construct file
 // and directory names relative to a root directory, similar to a Git local
 // object store.
-//
-// The encoded format of a blob is:
-//
-//     | length-tag ... | compressed-data ... |
-//
-// where the length-tag is the varint-encoded length of the original blob and,
-// compressed-data are the snappy-compressed content of the original blob.
-//
-// See also: https://github.com/google/snappy
 type Store struct {
 	dir string
 }
