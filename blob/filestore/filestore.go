@@ -72,9 +72,9 @@ func (s *Store) keyPath(key string) string {
 	return filepath.Join(s.dir, base[:2], base[2:])
 }
 
-func decodeKey(enc string) string {
-	dec, _ := hex.DecodeString(strings.TrimRight(enc, "_")) // trim length pad
-	return string(dec)
+func decodeKey(enc string) (string, error) {
+	dec, err := hex.DecodeString(strings.TrimRight(enc, "-")) // trim length pad
+	return string(dec), err
 }
 
 // blockSize reports the size of the blob stored in f.
@@ -166,9 +166,9 @@ func (s *Store) List(_ context.Context, start string, f func(string) error) erro
 			if strings.HasPrefix(tail, "tmp.") {
 				continue // skip writer temporaries
 			}
-			key := decodeKey(root + tail)
-			if key < start {
-				continue // skip keys before the starting point
+			key, err := decodeKey(root + tail)
+			if err != nil || key < start {
+				continue // skip non-key files and keys prior to the start
 			} else if err := f(key); xerrors.Is(err, blob.ErrStopListing) {
 				return nil
 			} else if err != nil {
