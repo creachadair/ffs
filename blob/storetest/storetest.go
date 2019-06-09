@@ -94,6 +94,13 @@ var script = []op{
 	opGet("", "ahoy there", nil),
 	opSize("", 10, nil),
 
+	// Check list starting points.
+	opList("a", "animal", "fruit", "nut"),
+	opList("animal", "animal", "fruit", "nut"),
+	opList("animated", "fruit", "nut"),
+	opList("goofy", "nut"),
+	opList("nutty"),
+
 	// Clean up.
 	opLen(4),
 	opDelete("", nil),
