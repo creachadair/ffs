@@ -67,12 +67,13 @@ func (s *Store) Get(ctx context.Context, key string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	size, err := s.codec.DecodedLen(enc)
-	if err != nil {
-		return nil, err
-	}
-	buf := bytes.NewBuffer(make([]byte, 0, size))
-	if err := s.codec.Decode(buf, enc); err != nil {
+
+	// Ideally we would request the decoded length and use that to allocate a
+	// buffer for the output. For some codecs, however, it isn't possible to
+	// compute the decoded length without performing the decoding, which loses
+	// the benefit.
+	var buf bytes.Buffer
+	if err := s.codec.Decode(&buf, enc); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil
