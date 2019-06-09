@@ -33,7 +33,7 @@ type op = func(context.Context, *testing.T, blob.Store)
 
 var script = []op{
 	// Verify that the store is initially empty.
-	opList(),
+	opList(""),
 	opLen(0),
 
 	// Get for a non-existing key should report an error.
@@ -55,7 +55,7 @@ var script = []op{
 	opSize("fruit", 4, nil),
 	opGet("fruit", "pear", nil),
 
-	opList("fruit"),
+	opList("", "fruit"),
 	opLen(1),
 
 	// Add some additional keys.
@@ -63,7 +63,7 @@ var script = []op{
 	opPut("animal", "cat", false, nil),
 	opPut("beverage", "piña colada", false, nil),
 
-	opList("animal", "beverage", "fruit", "nut"),
+	opList("", "animal", "beverage", "fruit", "nut"),
 	opLen(4),
 
 	// Verify that deletion works as expected.
@@ -72,7 +72,7 @@ var script = []op{
 	opDelete("animal", blob.ErrKeyNotFound),
 	opGet("animal", "", blob.ErrKeyNotFound),
 
-	opList("beverage", "fruit", "nut"),
+	opList("", "beverage", "fruit", "nut"),
 	opLen(3),
 
 	// Verify that sizes are reported correctly.
@@ -85,12 +85,12 @@ var script = []op{
 	opSize("animal", 6, nil),
 
 	opDelete("beverage", nil),
-	opList("animal", "fruit", "nut"),
+	opList("", "animal", "fruit", "nut"),
 	opLen(3),
 
 	// An empty key is valid and works normally.
 	opPut("", "ahoy there", false, nil),
-	opList("", "animal", "fruit", "nut"),
+	opList("", "", "animal", "fruit", "nut"),
 	opGet("", "ahoy there", nil),
 	opSize("", 10, nil),
 
@@ -104,7 +104,7 @@ var script = []op{
 	opLen(1),
 	opDelete("nut", nil),
 	opLen(0),
-	opList(),
+	opList(""),
 }
 
 func opGet(key, want string, werr error) op {
@@ -151,10 +151,10 @@ func opDelete(key string, werr error) op {
 	}
 }
 
-func opList(want ...string) op {
+func opList(from string, want ...string) op {
 	return func(ctx context.Context, t *testing.T, s blob.Store) {
 		var got []string
-		err := s.List(ctx, "", func(key string) error {
+		err := s.List(ctx, from, func(key string) error {
 			got = append(got, key)
 			return nil
 		})
