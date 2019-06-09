@@ -158,17 +158,18 @@ func (s *Store) List(_ context.Context, start string, f func(string) error) erro
 		return err
 	}
 	for _, root := range roots {
-		if root < start || strings.HasPrefix(root, "put.") {
-			continue // skip keys prior to start and writer temporaries
-		}
 		keys, err := listdir(filepath.Join(s.dir, root))
 		if err != nil {
 			return err
 		}
 		for _, tail := range keys {
-
+			if strings.HasPrefix(tail, "tmp.") {
+				continue // skip writer temporaries
+			}
 			key := decodeKey(root + tail)
-			if err := f(key); xerrors.Is(err, blob.ErrStopListing) {
+			if key < start {
+				continue // skip keys before the starting point
+			} else if err := f(key); xerrors.Is(err, blob.ErrStopListing) {
 				return nil
 			} else if err != nil {
 				return err
