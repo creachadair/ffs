@@ -174,12 +174,16 @@ func (f *File) Stat() Stat { return f.stat }
 
 // SetStat calls set with the current stat metadata for f, and enables stat
 // persistence for the file. Any changes made by set are preserved.
+// If set == nil, SetStat enables stat persistence but does not modify the
+// existing values.
 func (f *File) SetStat(set func(*Stat)) {
 	defer f.inval()
 
-	cp := f.stat // copy so the pointer does not outlive the call
-	set(&cp)
-	f.stat = cp
+	if set != nil {
+		cp := f.stat // copy so the pointer does not outlive the call
+		set(&cp)
+		f.stat = cp
+	}
 	f.saveStat = true
 }
 
