@@ -17,10 +17,10 @@ package zlib_test
 import (
 	"testing"
 
-	"bitbucket.org/creachadair/ffs/blob/codecs/zlib"
-	"bitbucket.org/creachadair/ffs/blob/encoded"
-	"bitbucket.org/creachadair/ffs/blob/memstore"
-	"bitbucket.org/creachadair/ffs/blob/storetest"
+	"github.com/creachadair/ffs/blob/codecs/zlib"
+	"github.com/creachadair/ffs/blob/encoded"
+	"github.com/creachadair/ffs/blob/memstore"
+	"github.com/creachadair/ffs/blob/storetest"
 )
 
 func TestStore(t *testing.T) {

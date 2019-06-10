@@ -1,5 +1,5 @@
-bitbucket.org/creachadair/atomicfile v0.1.1 h1:2FMf8JuYGte9GCVuuMm8ixi1In7ylfFOMe4rTMkDjh0=
-bitbucket.org/creachadair/atomicfile v0.1.1/go.mod h1:afm1w1sVyLuvRzciYQQVQiPWIlhwjYgDUhspvHMG4/w=
+github.com/creachadair/atomicfile v0.2.0 h1:ZtLG+eU5gQwStcLwuq5WZRmzlxNuJhFIxsEjxsFdqrQ=
+github.com/creachadair/atomicfile v0.2.0/go.mod h1:Tvr/wsb3lQY4dj+9utcmJ7Gp6wi3LKA8jRNqoxUhA2M=
 github.com/golang/protobuf v1.3.1 h1:YF8+flBXS5eO826T4nzqPrxfhQThhXl0YzfuUPu4SBg=
 github.com/golang/protobuf v1.3.1/go.mod h1:6lQm79b+lXiMfvg/cZm0SGofjICqVBUtrP5yJMmIC1U=
 github.com/golang/snappy v0.0.1 h1:Qgr9rKW7uDUkrbSmQeiDsGa8SjGyCOGtuasMWwvp2P4=

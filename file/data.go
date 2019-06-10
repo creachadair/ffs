@@ -19,9 +19,9 @@ import (
 	"context"
 	"io"
 
-	"bitbucket.org/creachadair/ffs/blob"
-	"bitbucket.org/creachadair/ffs/file/wirepb"
-	"bitbucket.org/creachadair/ffs/split"
+	"github.com/creachadair/ffs/blob"
+	"github.com/creachadair/ffs/file/wirepb"
+	"github.com/creachadair/ffs/split"
 )
 
 // A data value represents an ordered sequence of bytes stored in a blob.Store.

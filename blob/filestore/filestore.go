@@ -26,8 +26,8 @@ import (
 	"sort"
 	"strings"
 
-	"bitbucket.org/creachadair/atomicfile"
-	"bitbucket.org/creachadair/ffs/blob"
+	"github.com/creachadair/atomicfile"
+	"github.com/creachadair/ffs/blob"
 	"golang.org/x/xerrors"
 )
 

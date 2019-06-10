@@ -22,7 +22,7 @@ import (
 	"context"
 	"io"
 
-	"bitbucket.org/creachadair/ffs/blob"
+	"github.com/creachadair/ffs/blob"
 )
 
 // A Codec defines the capabilities needed to encode and decode.

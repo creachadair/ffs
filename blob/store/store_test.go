@@ -18,9 +18,9 @@ import (
 	"context"
 	"testing"
 
-	"bitbucket.org/creachadair/ffs/blob"
-	"bitbucket.org/creachadair/ffs/blob/memstore"
-	"bitbucket.org/creachadair/ffs/blob/store"
+	"github.com/creachadair/ffs/blob"
+	"github.com/creachadair/ffs/blob/memstore"
+	"github.com/creachadair/ffs/blob/store"
 	"golang.org/x/xerrors"
 )
 

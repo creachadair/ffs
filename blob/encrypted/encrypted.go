@@ -22,8 +22,8 @@ import (
 	"crypto/cipher"
 	"crypto/rand"
 
-	"bitbucket.org/creachadair/ffs/blob"
-	"bitbucket.org/creachadair/ffs/blob/encrypted/wirepb"
+	"github.com/creachadair/ffs/blob"
+	"github.com/creachadair/ffs/blob/encrypted/wirepb"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/snappy"
 	"golang.org/x/xerrors"

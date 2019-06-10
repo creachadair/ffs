@@ -18,7 +18,7 @@ import (
 	"os"
 	"time"
 
-	"bitbucket.org/creachadair/ffs/file/wirepb"
+	"github.com/creachadair/ffs/file/wirepb"
 	"github.com/golang/protobuf/ptypes"
 	"golang.org/x/xerrors"
 )

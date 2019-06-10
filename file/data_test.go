@@ -22,9 +22,9 @@ import (
 	"io"
 	"testing"
 
-	"bitbucket.org/creachadair/ffs/blob"
-	"bitbucket.org/creachadair/ffs/blob/memstore"
-	"bitbucket.org/creachadair/ffs/split"
+	"github.com/creachadair/ffs/blob"
+	"github.com/creachadair/ffs/blob/memstore"
+	"github.com/creachadair/ffs/split"
 	"github.com/golang/protobuf/proto"
 	"github.com/google/go-cmp/cmp"
 )

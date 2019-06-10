@@ -19,10 +19,10 @@ import (
 	"crypto/aes"
 	"testing"
 
-	"bitbucket.org/creachadair/ffs/blob"
-	"bitbucket.org/creachadair/ffs/blob/encrypted"
-	"bitbucket.org/creachadair/ffs/blob/encrypted/wirepb"
-	"bitbucket.org/creachadair/ffs/blob/memstore"
+	"github.com/creachadair/ffs/blob"
+	"github.com/creachadair/ffs/blob/encrypted"
+	"github.com/creachadair/ffs/blob/encrypted/wirepb"
+	"github.com/creachadair/ffs/blob/memstore"
 	"github.com/golang/protobuf/proto"
 )
 

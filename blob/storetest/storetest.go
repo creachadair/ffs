@@ -24,7 +24,7 @@ import (
 	"sync"
 	"testing"
 
-	"bitbucket.org/creachadair/ffs/blob"
+	"github.com/creachadair/ffs/blob"
 	"github.com/google/go-cmp/cmp"
 	"golang.org/x/xerrors"
 )

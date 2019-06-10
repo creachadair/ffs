@@ -21,7 +21,7 @@ import (
 	"strings"
 	"sync"
 
-	"bitbucket.org/creachadair/ffs/blob"
+	"github.com/creachadair/ffs/blob"
 	"golang.org/x/xerrors"
 )
 

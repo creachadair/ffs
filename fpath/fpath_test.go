@@ -23,11 +23,11 @@ import (
 	"strconv"
 	"testing"
 
-	"bitbucket.org/creachadair/ffs/blob"
-	"bitbucket.org/creachadair/ffs/blob/filestore"
-	"bitbucket.org/creachadair/ffs/blob/memstore"
-	"bitbucket.org/creachadair/ffs/file"
-	"bitbucket.org/creachadair/ffs/fpath"
+	"github.com/creachadair/ffs/blob"
+	"github.com/creachadair/ffs/blob/filestore"
+	"github.com/creachadair/ffs/blob/memstore"
+	"github.com/creachadair/ffs/file"
+	"github.com/creachadair/ffs/fpath"
 	"github.com/google/go-cmp/cmp"
 	"golang.org/x/xerrors"
 )

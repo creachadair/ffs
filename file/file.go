@@ -62,9 +62,9 @@ import (
 	"sort"
 	"time"
 
-	"bitbucket.org/creachadair/ffs/blob"
-	"bitbucket.org/creachadair/ffs/file/wirepb"
-	"bitbucket.org/creachadair/ffs/split"
+	"github.com/creachadair/ffs/blob"
+	"github.com/creachadair/ffs/file/wirepb"
+	"github.com/creachadair/ffs/split"
 	"github.com/golang/protobuf/proto"
 	"golang.org/x/xerrors"
 )
