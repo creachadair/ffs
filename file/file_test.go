@@ -17,7 +17,6 @@ package file_test
 import (
 	"context"
 	"crypto/sha1"
-	"encoding/base64"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -65,16 +64,16 @@ func TestRoundTrip(t *testing.T) {
 
 	g, err := file.Open(ctx, cas, fkey)
 	if err != nil {
-		t.Fatalf("Open %s: %v", fmtKey(fkey), err)
+		t.Fatalf("Open %x: %v", fkey, err)
 	}
 
 	// Verify that file contents were preserved.
 	bits, err := ioutil.ReadAll(g.IO(ctx))
 	if err != nil {
-		t.Errorf("Reading %s: %v", fmtKey(fkey), err)
+		t.Errorf("Reading %x: %v", fkey, err)
 	}
 	if got := string(bits); got != testMessage {
-		t.Errorf("Reading %s: got %q, want %q", fmtKey(fkey), got, testMessage)
+		t.Errorf("Reading %x: got %q, want %q", fkey, got, testMessage)
 	}
 
 	// Verify that extended attributes were preserved.
@@ -106,6 +105,18 @@ func TestRoundTrip(t *testing.T) {
 	} else if got, want := string(bits), testMessage[:15]; got != want {
 		t.Errorf("Truncated message: got %q, want %q", got, want)
 	}
+
+	// Exercise the scanner.
+	if err := g.Scan(ctx, func(key string, isFile bool) bool {
+		if isFile && key != fkey {
+			t.Errorf("File key: got %x, want %x", key, fkey)
+		} else {
+			t.Logf("Data key %x OK", key)
+		}
+		return true
+	}); err != nil {
+		t.Fatalf("Scan failed: %v", err)
+	}
 }
 
 func TestChildren(t *testing.T) {
@@ -131,7 +142,7 @@ func TestChildren(t *testing.T) {
 	if err != nil {
 		t.Fatalf("root.Flush failed: %v", err)
 	}
-	t.Logf("Flushed root to %s", fmtKey(rkey))
+	t.Logf("Flushed root to %x", rkey)
 
 	if diff := cmp.Diff(names, root.Children()); diff != "" {
 		t.Errorf("Wrong children (-want, +got):\n%s", diff)
@@ -154,5 +165,3 @@ func TestCycleCheck(t *testing.T) {
 		t.Logf("Cyclic flush correctly failed: %v", err)
 	}
 }
-
-func fmtKey(s string) string { return base64.RawURLEncoding.EncodeToString([]byte(s)) }

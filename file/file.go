@@ -357,6 +357,47 @@ func (f *File) Truncate(ctx context.Context, offset int64) error {
 // file and was not assigned a name at creation.
 func (f *File) Name() string { return f.name }
 
+// A ScanFunc is called by the Scan method to report the storage key for an
+// object in the file tree. It accepts the storage key and a flag that reports
+// whether the key corresponds to a file (true) or a data block (false).
+// If the ScanFunc returns false, the substructure of the specified object is
+// not further traversed.
+type ScanFunc func(key string, isFile bool) bool
+
+// Scan recursively visits f and all its descendants, and calls visit for each
+// storage key k corresponding to a file or data block. If visit(k) returns
+// false, storage keys reachable through k are not visited.
+func (f *File) Scan(ctx context.Context, visit ScanFunc) error {
+	fk, err := f.Flush(ctx)
+	if err != nil {
+		return err
+	} else if !visit(fk, true) {
+		return nil
+	}
+	for _, ext := range f.data.extents {
+		for _, blk := range ext.blocks {
+			visit(blk.key, false) // data blocks have no substructure
+		}
+	}
+	for _, kid := range f.kids {
+		// We already flushed f, so all the kids have storage keys.  We have to
+		// open each child to recur on it, but don't cache the open files for
+		// children that weren't already open.
+		kf := kid.File
+		if kf == nil {
+			var err error
+			kf, err = Open(ctx, f.s, kid.Key)
+			if err != nil {
+				return err
+			}
+		}
+		if err := kf.Scan(ctx, visit); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // IO binds f with a context so that it can be used to satisfy the standard
 // interfaces defined by the io package.  The resulting values hould be used
 // only during the lifetime of the request whose context it binds.

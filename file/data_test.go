@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha1"
-	"encoding/base64"
 	"io"
 	"testing"
 
@@ -212,6 +211,6 @@ func TestReblocking(t *testing.T) {
 
 	t.Log("Block manifest:")
 	d.blocks(func(size int64, key string) {
-		t.Logf("%-4d\t%s", size, base64.RawURLEncoding.EncodeToString([]byte(key)))
+		t.Logf("%-4d\t%x", size, []byte(key))
 	})
 }
