@@ -54,9 +54,6 @@ func (c Codec) Encode(w io.Writer, src []byte) error {
 	return z.Close()
 }
 
-// MaxEncodedLen estimates the encoded size of src.
-func (Codec) MaxEncodedLen(src []byte) int { return len(src) + 5*(len(src)/32768) }
-
 // Decode decompresses src via zlib and writes it to w.
 func (Codec) Decode(w io.Writer, src []byte) error {
 	z, err := zlib.NewReader(bytes.NewReader(src))

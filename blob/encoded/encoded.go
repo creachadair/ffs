@@ -30,11 +30,6 @@ type Codec interface {
 	// Encode writes the encoding of src to w.
 	Encode(w io.Writer, src []byte) error
 
-	// MaxEncodedLen reports an estimate of the length of the encoding of src.
-	// The estimate is not required to be accurate, but implementations should
-	// prefer an over-estimate to an under-estimate.
-	MaxEncodedLen(src []byte) int
-
 	// Decode writes the decoding of src to w.
 	Decode(w io.Writer, src []byte) error
 
@@ -81,11 +76,7 @@ func (s *Store) Get(ctx context.Context, key string) ([]byte, error) {
 
 // Put implements part of the blob.Store interface.
 func (s *Store) Put(ctx context.Context, opts blob.PutOptions) error {
-	est := s.codec.MaxEncodedLen(opts.Data)
-	if est <= 0 {
-		est = len(opts.Data)
-	}
-	buf := bytes.NewBuffer(make([]byte, 0, est))
+	buf := bytes.NewBuffer(make([]byte, 0, len(opts.Data)))
 	if err := s.codec.Encode(buf, opts.Data); err != nil {
 		return err
 	}
@@ -128,9 +119,6 @@ type Identity struct{}
 
 // Encode encodes src to w with no transformation.
 func (Identity) Encode(w io.Writer, src []byte) error { _, err := w.Write(src); return err }
-
-// MaxEncodedLen reports the exact encoded size of src, which is len(src).
-func (Identity) MaxEncodedLen(src []byte) int { return len(src) }
 
 // Decode decodes src to w with no transformation.
 func (Identity) Decode(w io.Writer, src []byte) error { _, err := w.Write(src); return err }
