@@ -385,6 +385,9 @@ func (e *extent) findBlock(offset int64) (int, int64) {
 			if e.starts[i] <= offset && offset < pos {
 				idx = i
 				base = e.starts[i]
+
+				// we found the needle, but finish the loop to populate the
+				// remainder of the offsets cache.
 			}
 		}
 		return idx, base
