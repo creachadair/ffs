@@ -113,15 +113,3 @@ func (s *Store) List(ctx context.Context, start string, f func(string) error) er
 // Len implements part of the blob.Store interface.
 // It delegates directly to the underlying store.
 func (s *Store) Len(ctx context.Context) (int64, error) { return s.real.Len(ctx) }
-
-// Identity implements an identity Codec, that encodes blobs as themselves.
-type Identity struct{}
-
-// Encode encodes src to w with no transformation.
-func (Identity) Encode(w io.Writer, src []byte) error { _, err := w.Write(src); return err }
-
-// Decode decodes src to w with no transformation.
-func (Identity) Decode(w io.Writer, src []byte) error { _, err := w.Write(src); return err }
-
-// DecodedLen reports the decoded length of src, which is len(src).
-func (Identity) DecodedLen(src []byte) (int, error) { return len(src), nil }

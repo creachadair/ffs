@@ -15,6 +15,7 @@
 package encoded_test
 
 import (
+	"io"
 	"testing"
 
 	"github.com/creachadair/ffs/blob/encoded"
@@ -24,6 +25,18 @@ import (
 
 func TestStore(t *testing.T) {
 	base := memstore.New()
-	enc := encoded.New(base, encoded.Identity{})
+	enc := encoded.New(base, identity{})
 	storetest.Run(t, enc)
 }
+
+// identity implements an identity Codec, that encodes blobs as themselves.
+type identity struct{}
+
+// Encode encodes src to w with no transformation.
+func (identity) Encode(w io.Writer, src []byte) error { _, err := w.Write(src); return err }
+
+// Decode decodes src to w with no transformation.
+func (identity) Decode(w io.Writer, src []byte) error { _, err := w.Write(src); return err }
+
+// DecodedLen reports the decoded length of src, which is len(src).
+func (identity) DecodedLen(src []byte) (int, error) { return len(src), nil }
