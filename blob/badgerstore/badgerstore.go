@@ -36,6 +36,7 @@ func Opener(_ context.Context, addr string) (blob.Store, error) {
 	opts := badger.DefaultOptions
 	opts.Dir = addr
 	opts.ValueDir = addr
+	opts.Logger = nil
 	return New(opts)
 }
 
