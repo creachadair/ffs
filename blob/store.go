@@ -19,6 +19,7 @@ package blob
 import (
 	"context"
 	"hash"
+	"io"
 
 	"golang.org/x/xerrors"
 )
@@ -28,6 +29,10 @@ import (
 // not required) to report an error from Put when given an empty key.  Even if
 // the implementation cannot store empty keys, it must report ErrKeyNotFound as
 // described below when given an empty key.
+//
+// A Store implementation may optionally implement the blob.Closer interface.
+// Clients of a Store should call blob.CloseStore on the store value when it is
+// no longer in use.
 //
 // Implementations of this interface must be safe for concurrent use by
 // multiple goroutines.  Moreover, any sequence of operations on a Store that
@@ -60,6 +65,26 @@ type Store interface {
 
 	// Len reports the number of keys currently in the store.
 	Len(ctx context.Context) (int64, error)
+}
+
+// Closer is an optional interface that a store may implement if it needs an
+// oppoartunity to clean up or flush buffers before going out of service.
+type Closer interface {
+	Close(context.Context) error
+}
+
+// CloseStore closes s and reports any error that results. If s implements
+// blob.Closer or io.Closer, its Close method is invoked; otherwise this is a
+// no-op without error.
+func CloseStore(ctx context.Context, s Store) error {
+	switch t := s.(type) {
+	case io.Closer:
+		return t.Close()
+	case Closer:
+		return t.Close(ctx)
+	default:
+		return nil
+	}
 }
 
 // PutOptions regulate the behaviour of the Put method of a Store

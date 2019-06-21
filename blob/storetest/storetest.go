@@ -195,8 +195,8 @@ func errorOK(err, werr error) bool {
 	return xerrors.Is(err, werr)
 }
 
-// Run applies the test script to empty store s, and reports any errors to t.
-// After Run returns, the contents of s are garbage.
+// Run applies the test script to empty store s, then closes s.  Any errors are
+// reported to t.  After Run returns, the contents of s are garbage.
 func Run(t *testing.T, s blob.Store) {
 	ctx := context.Background()
 	for _, op := range script {
@@ -264,4 +264,8 @@ func Run(t *testing.T, s blob.Store) {
 		}()
 	}
 	wg.Wait()
+
+	if err := blob.CloseStore(ctx, s); err != nil {
+		t.Errorf("CloseStore failed: %v", err)
+	}
 }
