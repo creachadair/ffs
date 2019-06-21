@@ -24,11 +24,14 @@ import (
 )
 
 // A Store represents a mutable blob store in which each blob is identified by
-// a unique, opaque string key. Implementations of this interface must be safe
-// for concurrent use by multiple goroutines.
+// a unique, opaque string key.  An implementation of Store is permitted (but
+// not required) to report an error from Put when given an empty key.  Even if
+// the implementation cannot store empty keys, it must report ErrKeyNotFound as
+// described below when given an empty key.
 //
-// Moreover, any sequence of operations on a Store that does not overlap with
-// any Delete executions must be linearizable.[1]
+// Implementations of this interface must be safe for concurrent use by
+// multiple goroutines.  Moreover, any sequence of operations on a Store that
+// does not overlap with any Delete executions must be linearizable.[1]
 //
 // [1]: https://en.wikipedia.org/wiki/Linearizability
 type Store interface {

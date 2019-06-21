@@ -87,12 +87,14 @@ var script = []op{
 	opDelete("beverage", nil),
 	opList("", "animal", "fruit", "nut"),
 	opLen(3),
+	opPut("0", "ahoy there", false, nil),
+	opLen(4),
+	opList("", "0", "animal", "fruit", "nut"),
+	opGet("0", "ahoy there", nil),
 
-	// An empty key is valid and works normally.
-	opPut("", "ahoy there", false, nil),
-	opList("", "", "animal", "fruit", "nut"),
-	opGet("", "ahoy there", nil),
-	opSize("", 10, nil),
+	// A missing empty key must report the correct error.
+	opSize("", 0, blob.ErrKeyNotFound),
+	opDelete("", blob.ErrKeyNotFound),
 
 	// Check list starting points.
 	opList("a", "animal", "fruit", "nut"),
@@ -103,7 +105,7 @@ var script = []op{
 
 	// Clean up.
 	opLen(4),
-	opDelete("", nil),
+	opDelete("0", nil),
 	opLen(3),
 	opDelete("animal", nil),
 	opLen(2),
