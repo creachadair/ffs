@@ -165,3 +165,41 @@ func TestCycleCheck(t *testing.T) {
 		t.Logf("Cyclic flush correctly failed: %v", err)
 	}
 }
+
+func TestRootRoundTrip(t *testing.T) {
+	cas := blob.NewCAS(memstore.New(), sha1.New)
+
+	ctx := context.Background()
+
+	// Set up an empty root, flush it out, read it back in, and check that the
+	// results look the same.
+
+	r := file.NewRoot(cas, "ROOT")
+	rf, err := r.File(ctx)
+	if err != nil {
+		t.Fatalf("Root file: %v", err)
+	}
+	rf.SetStat(func(s *file.Stat) {
+		s.Mode = 0135
+	})
+
+	rk, err := r.Flush(ctx)
+	if err != nil {
+		t.Fatalf("Flush failed: %v", err)
+	}
+	t.Logf("Root key: %x", rk)
+
+	c, err := file.OpenRoot(ctx, cas, "ROOT")
+	if err != nil {
+		t.Fatalf("Open root: %v", err)
+	}
+	cf, err := c.File(ctx)
+	if err != nil {
+		t.Fatalf("Compare file: %v", err)
+	}
+
+	// Verify that file stat was preserved.
+	if diff := cmp.Diff(rf.Stat(), cf.Stat()); diff != "" {
+		t.Errorf("Stat (-want, +got)\n%s", diff)
+	}
+}

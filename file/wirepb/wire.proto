@@ -49,6 +49,8 @@ message Index {
   uint64 total_bytes = 1;
   repeated Extent extents = 2;
   SplitConfig split_config = 3;
+
+  // next id: 4
 }
 
 // An Extent describes a single contiguous span of stored data.
@@ -56,12 +58,16 @@ message Extent {
   uint64 base = 1;
   uint64 bytes = 2;
   repeated Block blocks = 3;
+
+  // next id: 4
 }
 
 // A Block describes the size and storage key of a data blob.
 message Block {
   uint64 bytes = 1;
   bytes key = 2;
+
+  // next id: 3
 }
 
 // An XAttr records the name and value of an extended attribute.
@@ -69,6 +75,8 @@ message Block {
 message XAttr {
   string name = 1;
   bytes value = 2;
+
+  // next id: 3
 }
 
 // A Child records the name and storage key of a child Node.
@@ -76,6 +84,8 @@ message XAttr {
 message Child {
   string name = 1;
   bytes key = 2;
+
+  // next id: 3
 }
 
 // A SplitConfig records the block splitter preferences.
@@ -83,4 +93,25 @@ message SplitConfig {
   int32 min = 1;  // minimum block size
   int32 size = 2; // target block size
   int32 max = 3;  // maximum block size
+
+  // next id: 4
+}
+
+// A Root records the current state of a filesystem and its snapshots.
+message Root {
+  // The storage key of the current filesystem root.
+  bytes key = 1;
+
+  // Reverse time-ordered snapshots.
+  repeated Snapshot snapshots = 2;
+
+  // next id: 3
+
+  message Snapshot {
+    bytes key = 1;   // the storage key of the snapshot root
+    string name = 2; // an optional human-readable label for the snapshot
+
+    // When this snapshot was created or updated.
+    google.protobuf.Timestamp snap_time = 3;
+  }
 }

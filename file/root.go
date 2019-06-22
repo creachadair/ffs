@@ -1,0 +1,86 @@
+package file
+
+import (
+	"context"
+
+	"github.com/creachadair/ffs/blob"
+	"github.com/creachadair/ffs/file/wirepb"
+	"github.com/golang/protobuf/proto"
+	"golang.org/x/xerrors"
+)
+
+// A Root represents the state of a filesystem at a moment in time, including
+// the storage key of its root directory and any snapshots.
+type Root struct {
+	s    blob.CAS
+	name string       // pointer file name, e.g. "ROOT".
+	msg  *wirepb.Root // current root state
+	file *File        // root file pointer
+}
+
+// NewRoot creates a new empty root stored in s. The name is the storage key of
+// the pointer, which contains the content address of a *wirepb.Root message.
+func NewRoot(s blob.CAS, name string) *Root {
+	return &Root{s: s, name: name, msg: new(wirepb.Root), file: New(s, nil)}
+}
+
+// OpenRoot opens the root message indicated by the given pointer name in s.
+func OpenRoot(ctx context.Context, s blob.CAS, name string) (*Root, error) {
+	key, err := s.Get(ctx, name)
+	if err != nil {
+		return nil, xerrors.Errorf("reading pointer: %w", err)
+	}
+	bits, err := s.Get(ctx, string(key))
+	if err != nil {
+		return nil, xerrors.Errorf("reading root: %w", err)
+	}
+	out := &Root{s: s, name: name, msg: new(wirepb.Root)}
+	if err := proto.Unmarshal(bits, out.msg); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// File returns the root directory of r.
+func (r *Root) File(ctx context.Context) (*File, error) {
+	if r.file == nil {
+		f, err := Open(ctx, r.s, string(r.msg.Key))
+		if err != nil {
+			return nil, err
+		}
+		r.file = f
+	}
+	return r.file, nil
+}
+
+// Flush flushes the root directory of r, writes the current state of the root
+// to storage, and updates the pointer. The storage key of the root is returned.
+func (r *Root) Flush(ctx context.Context) (string, error) {
+	// Flush the root directory. It is an error if there is none.
+	f, err := r.File(ctx)
+	if err != nil {
+		return "", err
+	}
+	key, err := f.Flush(ctx)
+	if err != nil {
+		return "", err
+	}
+
+	// Update the root message and obtain its storage key.
+	r.msg.Key = []byte(key)
+	bits, err := proto.Marshal(r.msg)
+	if err != nil {
+		return "", err
+	}
+	rkey, err := r.s.PutCAS(ctx, bits)
+	if err != nil {
+		return "", err
+	}
+
+	// Update the pointer and return the storage key.
+	return rkey, r.s.Put(ctx, blob.PutOptions{
+		Key:     r.name,
+		Data:    []byte(rkey),
+		Replace: true,
+	})
+}
