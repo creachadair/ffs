@@ -38,30 +38,21 @@ func OpenRoot(ctx context.Context, s blob.CAS, name string) (*Root, error) {
 	if err := proto.Unmarshal(bits, out.msg); err != nil {
 		return nil, err
 	}
+	out.file, err = Open(ctx, s, string(out.msg.Key))
+	if err != nil {
+		return nil, err
+	}
 	return out, nil
 }
 
 // File returns the root directory of r.
-func (r *Root) File(ctx context.Context) (*File, error) {
-	if r.file == nil {
-		f, err := Open(ctx, r.s, string(r.msg.Key))
-		if err != nil {
-			return nil, err
-		}
-		r.file = f
-	}
-	return r.file, nil
-}
+func (r *Root) File() *File { return r.file }
 
 // Flush flushes the root directory of r, writes the current state of the root
 // to storage, and updates the pointer. The storage key of the root is returned.
 func (r *Root) Flush(ctx context.Context) (string, error) {
-	// Flush the root directory. It is an error if there is none.
-	f, err := r.File(ctx)
-	if err != nil {
-		return "", err
-	}
-	key, err := f.Flush(ctx)
+	// Flush the root directory.
+	key, err := r.file.Flush(ctx)
 	if err != nil {
 		return "", err
 	}

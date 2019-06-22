@@ -175,10 +175,7 @@ func TestRootRoundTrip(t *testing.T) {
 	// results look the same.
 
 	r := file.NewRoot(cas, "ROOT")
-	rf, err := r.File(ctx)
-	if err != nil {
-		t.Fatalf("Root file: %v", err)
-	}
+	rf := r.File()
 	rf.SetStat(func(s *file.Stat) {
 		s.Mode = 0135
 	})
@@ -193,10 +190,7 @@ func TestRootRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Open root: %v", err)
 	}
-	cf, err := c.File(ctx)
-	if err != nil {
-		t.Fatalf("Compare file: %v", err)
-	}
+	cf := c.File()
 
 	// Verify that file stat was preserved.
 	if diff := cmp.Diff(rf.Stat(), cf.Stat()); diff != "" {
