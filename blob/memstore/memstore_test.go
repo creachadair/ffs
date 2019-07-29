@@ -17,9 +17,12 @@ package memstore_test
 import (
 	"testing"
 
+	"github.com/creachadair/ffs/blob"
 	"github.com/creachadair/ffs/blob/memstore"
 	"github.com/creachadair/ffs/blob/storetest"
 )
+
+var _ blob.Deleter = (*memstore.Store)(nil)
 
 func TestStore(t *testing.T) {
 	m := memstore.New()

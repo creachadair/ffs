@@ -137,7 +137,7 @@ func (s *Store) Size(_ context.Context, key string) (int64, error) {
 	return blockSize(f)
 }
 
-// Delete implements part of blob.Store.
+// Delete implements the blob.Deleter interface.
 func (s *Store) Delete(_ context.Context, key string) error {
 	path := s.keyPath(key)
 	err := os.Remove(path)

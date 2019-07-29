@@ -100,10 +100,6 @@ func (s *Store) Size(ctx context.Context, key string) (int64, error) {
 	return int64(size), nil
 }
 
-// Delete implements part of the blob.Store interface.
-// It delegates directly to the underlying store.
-func (s *Store) Delete(ctx context.Context, key string) error { return s.real.Delete(ctx, key) }
-
 // List implements part of the blob.Store interface.
 // It delegates directly to the underlying store.
 func (s *Store) List(ctx context.Context, start string, f func(string) error) error {

@@ -20,11 +20,16 @@ import (
 	"os"
 	"testing"
 
+	"github.com/creachadair/ffs/blob"
 	"github.com/creachadair/ffs/blob/filestore"
 	"github.com/creachadair/ffs/blob/storetest"
 )
 
-var keepOutput = flag.Bool("keep", false, "Keep test output after running")
+var (
+	keepOutput = flag.Bool("keep", false, "Keep test output after running")
+
+	_ blob.Deleter = (*filestore.Store)(nil)
+)
 
 func TestStore(t *testing.T) {
 	dir, err := ioutil.TempDir("", "filestore")
