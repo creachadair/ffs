@@ -39,9 +39,6 @@ var script = []op{
 	// Get for a non-existing key should report an error.
 	opGet("nonesuch", "", blob.ErrKeyNotFound),
 
-	// Delete for a non-existing key should report an error.
-	opDelete("nonesuch", blob.ErrKeyNotFound),
-
 	// Put a value in and verify that it is recorded.
 	opPut("fruit", "apple", false, nil),
 	opSize("fruit", 5, nil),
@@ -62,58 +59,47 @@ var script = []op{
 	opPut("nut", "hazelnut", false, nil),
 	opPut("animal", "cat", false, nil),
 	opPut("beverage", "piña colada", false, nil),
+	opPut("animal", "badger", true, nil),
 
 	opList("", "animal", "beverage", "fruit", "nut"),
 	opLen(4),
-
-	// Verify that deletion works as expected.
-	opGet("animal", "cat", nil),
-	opDelete("animal", nil),
-	opDelete("animal", blob.ErrKeyNotFound),
-	opGet("animal", "", blob.ErrKeyNotFound),
-
-	opList("", "beverage", "fruit", "nut"),
-	opLen(3),
 
 	// Verify that sizes are reported correctly.
 	opSize("beverage", 12, nil),
 	opSize("fruit", 4, nil),
 	opSize("nut", 8, nil),
-
-	// Re-inserting a deleted key does not report a conflict.
-	opPut("animal", "badger", false, nil),
 	opSize("animal", 6, nil),
 
-	opDelete("beverage", nil),
-	opList("", "animal", "fruit", "nut"),
-	opLen(3),
 	opPut("0", "ahoy there", false, nil),
-	opLen(4),
-	opList("", "0", "animal", "fruit", "nut"),
+	opLen(5),
+	opList("", "0", "animal", "beverage", "fruit", "nut"),
 	opGet("0", "ahoy there", nil),
 
 	// A missing empty key must report the correct error.
 	opSize("", 0, blob.ErrKeyNotFound),
-	opDelete("", blob.ErrKeyNotFound),
 
 	// Check list starting points.
-	opList("a", "animal", "fruit", "nut"),
-	opList("animal", "animal", "fruit", "nut"),
-	opList("animated", "fruit", "nut"),
+	opList("a", "animal", "beverage", "fruit", "nut"),
+	opList("animal", "animal", "beverage", "fruit", "nut"),
+	opList("animated", "beverage", "fruit", "nut"),
 	opList("goofy", "nut"),
 	opList("nutty"),
+}
 
+var delScript = []op{
 	// Clean up.
-	opLen(4),
+	opLen(5),
 	opDelete("0", nil),
-	opLen(3),
+	opLen(4),
 	opDelete("animal", nil),
-	opLen(2),
+	opLen(3),
 	opDelete("fruit", nil),
-	opLen(1),
+	opLen(2),
 	opDelete("nut", nil),
-	opLen(0),
+	opLen(1),
+	opDelete("beverage", nil),
 	opList(""),
+	opDelete("animal", blob.ErrKeyNotFound),
 }
 
 func opGet(key, want string, werr error) op {
@@ -153,7 +139,11 @@ func opSize(key string, want int64, werr error) op {
 
 func opDelete(key string, werr error) op {
 	return func(ctx context.Context, t *testing.T, s blob.Store) {
-		err := s.Delete(ctx, key)
+		d, ok := s.(blob.Deleter)
+		if !ok {
+			return
+		}
+		err := d.Delete(ctx, key)
 		if !errorOK(err, werr) {
 			t.Errorf("s.Delete(%q): got error: %v, want: %v", key, err, werr)
 		}
@@ -201,6 +191,14 @@ func Run(t *testing.T, s blob.Store) {
 	ctx := context.Background()
 	for _, op := range script {
 		op(ctx, t, s)
+	}
+	del, ok := s.(blob.Deleter)
+	if ok {
+		for _, op := range delScript {
+			op(ctx, t, s)
+		}
+	} else {
+		t.Log("Skipped deletion tests: store does not support deletion")
 	}
 
 	// Exercise concurrency.
@@ -255,10 +253,12 @@ func Run(t *testing.T, s blob.Store) {
 				}
 			}
 
-			for k := 1; k <= numKeys; k++ {
-				key := taskKey(i, k)
-				if err := s.Delete(ctx, key); err != nil {
-					t.Errorf("Task %d: s.Delete(%q) failed: %v", i, key, err)
+			if ok {
+				for k := 1; k <= numKeys; k++ {
+					key := taskKey(i, k)
+					if err := del.Delete(ctx, key); err != nil {
+						t.Errorf("Task %d: s.Delete(%q) failed: %v", i, key, err)
+					}
 				}
 			}
 		}()
