@@ -18,6 +18,7 @@ package storetest
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strconv"
 	"strings"
@@ -26,7 +27,6 @@ import (
 
 	"github.com/creachadair/ffs/blob"
 	"github.com/google/go-cmp/cmp"
-	"golang.org/x/xerrors"
 )
 
 type op = func(context.Context, *testing.T, blob.Store)
@@ -182,7 +182,7 @@ func errorOK(err, werr error) bool {
 	if werr == nil {
 		return err == nil
 	}
-	return xerrors.Is(err, werr)
+	return errors.Is(err, werr)
 }
 
 // Run applies the test script to empty store s, then closes s.  Any errors are

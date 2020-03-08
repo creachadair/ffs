@@ -17,11 +17,12 @@ package memstore
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"sort"
 	"sync"
 
 	"github.com/creachadair/ffs/blob"
-	"golang.org/x/xerrors"
 )
 
 // Store implements the blob.Store interface using a string-to-string map. The
@@ -66,7 +67,7 @@ func (s *Store) Get(_ context.Context, key string) ([]byte, error) {
 	if v, ok := s.m[key]; ok {
 		return []byte(v), nil
 	}
-	return nil, xerrors.Errorf("get %q: %w", key, blob.ErrKeyNotFound)
+	return nil, fmt.Errorf("get %q: %w", key, blob.ErrKeyNotFound)
 }
 
 // Put implements part of blob.Store.
@@ -75,7 +76,7 @@ func (s *Store) Put(_ context.Context, opts blob.PutOptions) error {
 	defer s.μ.Unlock()
 
 	if _, ok := s.m[opts.Key]; ok && !opts.Replace {
-		return xerrors.Errorf("put %q: %w", opts.Key, blob.ErrKeyExists)
+		return fmt.Errorf("put %q: %w", opts.Key, blob.ErrKeyExists)
 	}
 	s.m[opts.Key] = string(opts.Data)
 	return nil
@@ -89,7 +90,7 @@ func (s *Store) Size(_ context.Context, key string) (int64, error) {
 	if v, ok := s.m[key]; ok {
 		return int64(len(v)), nil
 	}
-	return 0, xerrors.Errorf("size %q: %w", key, blob.ErrKeyNotFound)
+	return 0, fmt.Errorf("size %q: %w", key, blob.ErrKeyNotFound)
 }
 
 // Delete implements the blob.Deleter interface.
@@ -98,7 +99,7 @@ func (s *Store) Delete(_ context.Context, key string) error {
 	defer s.μ.Unlock()
 
 	if _, ok := s.m[key]; !ok {
-		return xerrors.Errorf("delete %q: %w", key, blob.ErrKeyNotFound)
+		return fmt.Errorf("delete %q: %w", key, blob.ErrKeyNotFound)
 	}
 	delete(s.m, key)
 	return nil
@@ -118,7 +119,7 @@ func (s *Store) List(_ context.Context, start string, f func(string) error) erro
 
 	for _, key := range keys {
 		if err := f(key); err != nil {
-			if xerrors.Is(err, blob.ErrStopListing) {
+			if errors.Is(err, blob.ErrStopListing) {
 				break
 			}
 			return err
