@@ -18,10 +18,9 @@ package blob
 
 import (
 	"context"
+	"errors"
 	"hash"
 	"io"
-
-	"golang.org/x/xerrors"
 )
 
 // A Store represents a mutable blob store in which each blob is identified by
@@ -102,14 +101,14 @@ type PutOptions struct {
 var (
 	// ErrKeyExists is reported by Put when writing a key that already exists in
 	// the store.
-	ErrKeyExists = xerrors.New("key already exists")
+	ErrKeyExists = errors.New("key already exists")
 
 	// ErrKeyNotFound is reported by Get or Size when given a key that does not
 	// exist in the store.
-	ErrKeyNotFound = xerrors.New("key not found")
+	ErrKeyNotFound = errors.New("key not found")
 
 	// ErrStopListing is used by a List callback to terminate the listing.
-	ErrStopListing = xerrors.New("stop listing keys")
+	ErrStopListing = errors.New("stop listing keys")
 )
 
 // A CAS is a content-addressable wrapper that delegates to a blob.Store.  It
@@ -135,7 +134,7 @@ func (c CAS) PutCAS(ctx context.Context, data []byte) (string, error) {
 		Key:  key,
 		Data: data,
 	})
-	if xerrors.Is(err, ErrKeyExists) {
+	if errors.Is(err, ErrKeyExists) {
 		err = nil
 	}
 	return key, err

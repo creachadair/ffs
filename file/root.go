@@ -2,11 +2,11 @@ package file
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/creachadair/ffs/blob"
 	"github.com/creachadair/ffs/file/wirepb"
 	"github.com/golang/protobuf/proto"
-	"golang.org/x/xerrors"
 )
 
 // A Root represents the state of a filesystem at a moment in time, including
@@ -28,11 +28,11 @@ func NewRoot(s blob.CAS, name string) *Root {
 func OpenRoot(ctx context.Context, s blob.CAS, name string) (*Root, error) {
 	key, err := s.Get(ctx, name)
 	if err != nil {
-		return nil, xerrors.Errorf("reading pointer: %w", err)
+		return nil, fmt.Errorf("reading pointer: %w", err)
 	}
 	bits, err := s.Get(ctx, string(key))
 	if err != nil {
-		return nil, xerrors.Errorf("reading root: %w", err)
+		return nil, fmt.Errorf("reading root: %w", err)
 	}
 	out := &Root{s: s, name: name, msg: new(wirepb.Root)}
 	if err := proto.Unmarshal(bits, out.msg); err != nil {

@@ -18,23 +18,24 @@ package fpath
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"path"
 	"strings"
 
 	"github.com/creachadair/ffs/file"
-	"golang.org/x/xerrors"
 )
 
 var (
 	// ErrEmptyPath is reported by Set when given an empty path.
-	ErrEmptyPath = xerrors.New("empty path")
+	ErrEmptyPath = errors.New("empty path")
 
 	// ErrNilFile is reported by Set when passed a nil file.
-	ErrNilFile = xerrors.New("nil file")
+	ErrNilFile = errors.New("nil file")
 
 	// ErrSkipChildren signals to the Walk function that the children of the
 	// current node should not be visited.
-	ErrSkipChildren = xerrors.New("skip child files")
+	ErrSkipChildren = errors.New("skip child files")
 )
 
 // Open traverses the given slash-separated path sequentially from root, and
@@ -95,20 +96,20 @@ func (s *SetOptions) target() *file.File {
 // true, Set reports ErrNilFile.
 func Set(ctx context.Context, root *file.File, path string, opts *SetOptions) error {
 	if opts.target() == nil && !opts.create() {
-		return xerrors.Errorf("set %q: %w", path, ErrNilFile)
+		return fmt.Errorf("set %q: %w", path, ErrNilFile)
 	}
 	dir, base := "", path
 	if i := strings.LastIndex(path, "/"); i >= 0 {
 		dir, base = path[:i], path[i+1:]
 	}
 	if base == "" {
-		return xerrors.Errorf("set %q: %w", path, ErrEmptyPath)
+		return fmt.Errorf("set %q: %w", path, ErrEmptyPath)
 	}
 	fp, err := findPath(ctx, query{
 		root: root,
 		path: dir,
 		ef: func(fp *foundPath, err error) error {
-			if xerrors.Is(err, file.ErrChildNotFound) && opts.create() {
+			if errors.Is(err, file.ErrChildNotFound) && opts.create() {
 				c := fp.target.New(&file.NewOptions{Name: fp.targetName})
 				fp.target.Set(fp.targetName, c)
 				fp.parent, fp.target = fp.target, c

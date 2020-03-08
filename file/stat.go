@@ -15,12 +15,12 @@
 package file
 
 import (
+	"errors"
 	"os"
 	"time"
 
 	"github.com/creachadair/ffs/file/wirepb"
 	"github.com/golang/protobuf/ptypes"
-	"golang.org/x/xerrors"
 )
 
 // Stat records file stat metadata.
@@ -65,5 +65,5 @@ func (s *Stat) fromProto(pb *wirepb.Stat) {
 
 var (
 	// ErrChildNotFound indicates that a requested child file does not exist.
-	ErrChildNotFound = xerrors.New("child file not found")
+	ErrChildNotFound = errors.New("child file not found")
 )

@@ -18,6 +18,7 @@ import (
 	"context"
 	"crypto/sha1"
 	"encoding/hex"
+	"errors"
 	"flag"
 	"os"
 	"strconv"
@@ -29,7 +30,6 @@ import (
 	"github.com/creachadair/ffs/file"
 	"github.com/creachadair/ffs/fpath"
 	"github.com/google/go-cmp/cmp"
-	"golang.org/x/xerrors"
 )
 
 var saveStore = flag.String("save", "", "Save blobs to a filestore at this path")
@@ -200,5 +200,5 @@ func errorOK(err, werr error) bool {
 	if werr == nil {
 		return err == nil
 	}
-	return xerrors.Is(err, werr)
+	return errors.Is(err, werr)
 }
