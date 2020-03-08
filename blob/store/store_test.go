@@ -24,11 +24,11 @@ import (
 	"github.com/creachadair/ffs/blob/store"
 )
 
-var badAddress = errors.New("bad memstore address")
+var errBadAddress = errors.New("bad memstore address")
 
 func newMemStore(_ context.Context, addr string) (blob.Store, error) {
 	if addr != "" {
-		return nil, badAddress
+		return nil, errBadAddress
 	}
 	return memstore.New(), nil
 }
@@ -70,8 +70,8 @@ func TestRegisterOpen(t *testing.T) {
 	}
 
 	// Errors reported by the opener should be propagated.
-	if s, err := r.Open(ctx, "mem:garbage"); !errors.Is(err, badAddress) {
-		t.Errorf("Open(ctx, mem:garbage): got (%[1]T (%[1]p), %v), want (nil, %v)", s, err, badAddress)
+	if s, err := r.Open(ctx, "mem:garbage"); !errors.Is(err, errBadAddress) {
+		t.Errorf("Open(ctx, mem:garbage): got (%[1]T (%[1]p), %v), want (nil, %v)", s, err, errBadAddress)
 	}
 
 	// Opening a non-existing tag should fail.
