@@ -58,6 +58,7 @@ package file
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"sort"
 	"time"
@@ -66,7 +67,6 @@ import (
 	"github.com/creachadair/ffs/file/wirepb"
 	"github.com/creachadair/ffs/split"
 	"github.com/golang/protobuf/proto"
-	"golang.org/x/xerrors"
 )
 
 // New constructs a new, empty File with the given options and backed by s. The
@@ -107,7 +107,7 @@ type NewOptions struct {
 func Open(ctx context.Context, s blob.CAS, key string) (*File, error) {
 	var node wirepb.Node
 	if err := loadProto(ctx, s, key, &node); err != nil {
-		return nil, xerrors.Errorf("loading file %q: %w", key, err)
+		return nil, fmt.Errorf("loading file %q: %w", key, err)
 	}
 	f := &File{s: s, key: key}
 	f.fromProto(&node)
@@ -232,7 +232,7 @@ func (f *File) Remove(name string) bool {
 func (f *File) Open(ctx context.Context, name string) (*File, error) {
 	i, ok := f.findChild(name)
 	if !ok {
-		return nil, xerrors.Errorf("open %q: %w", name, ErrChildNotFound)
+		return nil, fmt.Errorf("open %q: %w", name, ErrChildNotFound)
 	}
 	if c := f.kids[i].File; c != nil {
 		return c, nil
@@ -265,10 +265,10 @@ func (f *File) Seek(ctx context.Context, offset int64, whence int) (int64, error
 	case io.SeekEnd:
 		target += f.data.size()
 	default:
-		return 0, xerrors.Errorf("seek: invalid offset relation %v", whence)
+		return 0, fmt.Errorf("seek: invalid offset relation %v", whence)
 	}
 	if target < 0 {
-		return 0, xerrors.Errorf("seek: invalid target offset %d", target)
+		return 0, fmt.Errorf("seek: invalid target offset %d", target)
 	}
 	f.offset = target
 	return f.offset, nil
@@ -318,7 +318,7 @@ func (f *File) recFlush(ctx context.Context, path []*File) (string, error) {
 	// Check for direct or indirect cycles.
 	for _, elt := range path {
 		if elt == f {
-			return "", xerrors.Errorf("flush: cycle in path at %p", elt)
+			return "", fmt.Errorf("flush: cycle in path at %p", elt)
 		}
 	}
 	needsUpdate := f.key == ""
@@ -340,7 +340,7 @@ func (f *File) recFlush(ctx context.Context, path []*File) (string, error) {
 	if needsUpdate {
 		key, err := saveProto(ctx, f.s, f.toProto())
 		if err != nil {
-			return "", xerrors.Errorf("flushing file %q: %w", key, err)
+			return "", fmt.Errorf("flushing file %q: %w", key, err)
 		}
 		f.key = key
 	}
@@ -476,7 +476,7 @@ func (x XAttr) List(attr func(key, value string)) {
 func saveProto(ctx context.Context, s blob.CAS, msg proto.Message) (string, error) {
 	bits, err := proto.Marshal(msg)
 	if err != nil {
-		return "", xerrors.Errorf("encoding message: %w", err)
+		return "", fmt.Errorf("encoding message: %w", err)
 	}
 	return s.PutCAS(ctx, bits)
 }
@@ -484,7 +484,7 @@ func saveProto(ctx context.Context, s blob.CAS, msg proto.Message) (string, erro
 func loadProto(ctx context.Context, s blob.CAS, key string, msg proto.Message) error {
 	bits, err := s.Get(ctx, key)
 	if err != nil {
-		return xerrors.Errorf("loading message: %w", err)
+		return fmt.Errorf("loading message: %w", err)
 	}
 	return proto.Unmarshal(bits, msg)
 }

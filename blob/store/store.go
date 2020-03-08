@@ -18,11 +18,12 @@ package store
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"strings"
 	"sync"
 
 	"github.com/creachadair/ffs/blob"
-	"golang.org/x/xerrors"
 )
 
 // Default is the default store registry.
@@ -48,9 +49,9 @@ type Registry struct {
 func (r *Registry) Register(tag string, o Opener) error {
 	clean := strings.TrimSuffix(tag, ":")
 	if clean == "" || strings.Contains(clean, ":") {
-		return xerrors.Errorf("register %q: %w", tag, ErrInvalidTag)
+		return fmt.Errorf("register %q: %w", tag, ErrInvalidTag)
 	} else if o == nil {
-		return xerrors.Errorf("register %q: opener is nil", tag)
+		return fmt.Errorf("register %q: opener is nil", tag)
 	}
 
 	r.μ.Lock()
@@ -58,7 +59,7 @@ func (r *Registry) Register(tag string, o Opener) error {
 	if r.m == nil {
 		r.m = make(map[string]Opener)
 	} else if _, ok := r.m[clean]; ok {
-		return xerrors.Errorf("register %q: %w", clean, ErrDuplicateTag)
+		return fmt.Errorf("register %q: %w", clean, ErrDuplicateTag)
 	}
 	r.m[clean] = o
 	return nil
@@ -78,24 +79,24 @@ func (r *Registry) Open(ctx context.Context, addr string) (blob.Store, error) {
 	r.μ.RUnlock()
 
 	if !ok {
-		return nil, xerrors.Errorf("open %q: %w", addr, ErrInvalidAddress)
+		return nil, fmt.Errorf("open %q: %w", addr, ErrInvalidAddress)
 	}
 	s, err := open(ctx, target)
 	if err != nil {
-		return nil, xerrors.Errorf("open [%s] %q: %w", tag, target, err)
+		return nil, fmt.Errorf("open [%s] %q: %w", tag, target, err)
 	}
 	return s, nil
 }
 
 var (
 	// ErrInvalidTag is reported by Register when given an invalid tag.
-	ErrInvalidTag = xerrors.New("invalid tag")
+	ErrInvalidTag = errors.New("invalid tag")
 
 	// ErrDuplicateTag is reported by Register when given a tag which was
 	// already previously registered with a different value.
-	ErrDuplicateTag = xerrors.New("duplicate tag")
+	ErrDuplicateTag = errors.New("duplicate tag")
 
 	// ErrInvalidAddress is reported by Open when given an address that is
 	// syntactically invalid or has no corresponding Opener.
-	ErrInvalidAddress = xerrors.New("invalid address")
+	ErrInvalidAddress = errors.New("invalid address")
 )

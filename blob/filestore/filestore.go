@@ -20,6 +20,8 @@ package filestore
 import (
 	"context"
 	"encoding/hex"
+	"errors"
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -28,7 +30,6 @@ import (
 
 	"github.com/creachadair/atomicfile"
 	"github.com/creachadair/ffs/blob"
-	"golang.org/x/xerrors"
 )
 
 // Store implements the blob.Store interface using a directory structure with
@@ -101,11 +102,11 @@ func (s *Store) Get(_ context.Context, key string) ([]byte, error) {
 		if os.IsNotExist(err) {
 			err = blob.ErrKeyNotFound
 		}
-		return nil, xerrors.Errorf("key %q: %w", key, err)
+		return nil, fmt.Errorf("key %q: %w", key, err)
 	}
 	blk, err := decodeBlock(bits)
 	if err != nil {
-		return nil, xerrors.Errorf("key %q: %w", key, err)
+		return nil, fmt.Errorf("key %q: %w", key, err)
 	}
 	return blk, nil
 }
@@ -116,7 +117,7 @@ func (s *Store) Get(_ context.Context, key string) ([]byte, error) {
 func (s *Store) Put(_ context.Context, opts blob.PutOptions) error {
 	path := s.keyPath(opts.Key)
 	if _, err := os.Stat(path); err == nil && !opts.Replace {
-		return xerrors.Errorf("key %q: %w", opts.Key, blob.ErrKeyExists)
+		return fmt.Errorf("key %q: %w", opts.Key, blob.ErrKeyExists)
 	} else if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return err
 	}
@@ -131,7 +132,7 @@ func (s *Store) Size(_ context.Context, key string) (int64, error) {
 		if os.IsNotExist(err) {
 			err = blob.ErrKeyNotFound
 		}
-		return 0, xerrors.Errorf("key %q: %w", key, err)
+		return 0, fmt.Errorf("key %q: %w", key, err)
 	}
 	defer f.Close()
 	return blockSize(f)
@@ -142,7 +143,7 @@ func (s *Store) Delete(_ context.Context, key string) error {
 	path := s.keyPath(key)
 	err := os.Remove(path)
 	if os.IsNotExist(err) {
-		return xerrors.Errorf("key %q: %w", key, blob.ErrKeyNotFound)
+		return fmt.Errorf("key %q: %w", key, blob.ErrKeyNotFound)
 	}
 	_ = os.Remove(filepath.Dir(path)) // best effort, if empty
 	return err
@@ -169,7 +170,7 @@ func (s *Store) List(_ context.Context, start string, f func(string) error) erro
 			key, err := decodeKey(root + tail)
 			if err != nil || key < start {
 				continue // skip non-key files and keys prior to the start
-			} else if err := f(key); xerrors.Is(err, blob.ErrStopListing) {
+			} else if err := f(key); errors.Is(err, blob.ErrStopListing) {
 				return nil
 			} else if err != nil {
 				return err

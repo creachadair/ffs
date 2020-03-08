@@ -21,12 +21,12 @@ import (
 	"context"
 	"crypto/cipher"
 	"crypto/rand"
+	"fmt"
 
 	"github.com/creachadair/ffs/blob"
 	"github.com/creachadair/ffs/blob/encrypted/wirepb"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/snappy"
-	"golang.org/x/xerrors"
 )
 
 // A Store implements the blob.Store interface and encrypts blob data using a
@@ -135,7 +135,7 @@ func (s *Store) encrypt(data []byte) (*wirepb.Encrypted, error) {
 	compressed := snappy.Encode(nil, data)
 	iv := make([]byte, s.blk.BlockSize())
 	if err := s.newIV(iv); err != nil {
-		return nil, xerrors.Errorf("encrypt: initialization vector: %w", err)
+		return nil, fmt.Errorf("encrypt: initialization vector: %w", err)
 	}
 	ctr := cipher.NewCTR(s.blk, iv)
 	ctr.XORKeyStream(compressed, compressed)
@@ -152,9 +152,9 @@ func (s *Store) decrypt(enc *wirepb.Encrypted) ([]byte, error) {
 	ctr.XORKeyStream(enc.Data, enc.Data)
 	decompressed, err := snappy.Decode(make([]byte, enc.UncompressedSize), enc.Data)
 	if err != nil {
-		return nil, xerrors.Errorf("decrypt: decompress: %w", err)
+		return nil, fmt.Errorf("decrypt: decompress: %w", err)
 	} else if int64(len(decompressed)) != enc.UncompressedSize {
-		return nil, xerrors.Errorf("decrypt: wrong size (got %d, want %d)",
+		return nil, fmt.Errorf("decrypt: wrong size (got %d, want %d)",
 			len(decompressed), enc.UncompressedSize)
 	}
 	return decompressed, nil
