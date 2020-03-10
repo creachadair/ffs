@@ -23,6 +23,7 @@ import (
 	"github.com/creachadair/ffs/blob/encrypted"
 	"github.com/creachadair/ffs/blob/encrypted/wirepb"
 	"github.com/creachadair/ffs/blob/memstore"
+	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -91,6 +92,6 @@ func TestRoundTrip(t *testing.T) {
 	if err := proto.Unmarshal(raw, pb); err != nil {
 		t.Fatalf("Decoding storage wrapper: %v", err)
 	}
-	t.Logf("Stored block (%d bytes):\n%s", len(raw), proto.MarshalTextString(pb))
+	t.Logf("Stored block (%d bytes):\n%s", len(raw), prototext.Format(pb))
 	t.Logf("Encoded data size: %d bytes", len(pb.Data))
 }
