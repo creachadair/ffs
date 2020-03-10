@@ -18,6 +18,8 @@ package wirepb;
 
 import "google/protobuf/timestamp.proto";
 
+option go_package = ".;wirepb";
+
 // A Node is the top-level container for file and directory metadata in
 // persistent storage.
 message Node {
