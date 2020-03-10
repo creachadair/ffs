@@ -24,8 +24,8 @@ import (
 	"github.com/creachadair/ffs/blob"
 	"github.com/creachadair/ffs/blob/memstore"
 	"github.com/creachadair/ffs/split"
-	"github.com/golang/protobuf/proto"
 	"github.com/google/go-cmp/cmp"
+	"google.golang.org/protobuf/proto"
 )
 
 func hashOf(s string) string {

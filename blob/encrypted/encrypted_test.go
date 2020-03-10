@@ -23,7 +23,7 @@ import (
 	"github.com/creachadair/ffs/blob/encrypted"
 	"github.com/creachadair/ffs/blob/encrypted/wirepb"
 	"github.com/creachadair/ffs/blob/memstore"
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestRoundTrip(t *testing.T) {

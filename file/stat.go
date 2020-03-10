@@ -20,7 +20,7 @@ import (
 	"time"
 
 	"github.com/creachadair/ffs/file/wirepb"
-	"github.com/golang/protobuf/ptypes"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // Stat records file stat metadata.
@@ -46,7 +46,7 @@ func (s Stat) toProto() *wirepb.Stat {
 		GroupName: s.GroupName,
 	}
 	if !s.ModTime.IsZero() {
-		ts, _ := ptypes.TimestampProto(s.ModTime)
+		ts, _ := timestamppb.TimestampProto(s.ModTime)
 		pb.ModTime = ts
 	}
 	return pb
@@ -58,7 +58,7 @@ func (s *Stat) fromProto(pb *wirepb.Stat) {
 	s.OwnerName = pb.GetOwnerName()
 	s.GroupID = int(pb.GetGroupId())
 	s.GroupName = pb.GetGroupName()
-	if ts, err := ptypes.Timestamp(pb.GetModTime()); err == nil {
+	if ts, err := timestamppb.Timestamp(pb.GetModTime()); err == nil {
 		s.ModTime = ts
 	}
 }
