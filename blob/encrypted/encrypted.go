@@ -25,8 +25,8 @@ import (
 
 	"github.com/creachadair/ffs/blob"
 	"github.com/creachadair/ffs/blob/encrypted/wirepb"
-	"github.com/golang/protobuf/proto"
 	"github.com/golang/snappy"
+	"google.golang.org/protobuf/proto"
 )
 
 // A Store implements the blob.Store interface and encrypts blob data using a

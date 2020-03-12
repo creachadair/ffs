@@ -16,6 +16,8 @@ syntax = "proto3";
 
 package wirepb;
 
+option go_package = ".;wirepb";
+
 // Encrypted is the storage format for an encrypted blob.
 message Encrypted {
   bytes data = 1;              // the encrypted content of the blob

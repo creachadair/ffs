@@ -66,7 +66,7 @@ import (
 	"github.com/creachadair/ffs/blob"
 	"github.com/creachadair/ffs/file/wirepb"
 	"github.com/creachadair/ffs/split"
-	"github.com/golang/protobuf/proto"
+	"google.golang.org/protobuf/proto"
 )
 
 // New constructs a new, empty File with the given options and backed by s. The
