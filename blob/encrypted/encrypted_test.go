@@ -15,26 +15,23 @@
 package encrypted_test
 
 import (
-	"context"
+	"bytes"
 	"crypto/aes"
 	"testing"
 
-	"github.com/creachadair/ffs/blob"
 	"github.com/creachadair/ffs/blob/encrypted"
 	"github.com/creachadair/ffs/blob/encrypted/wirepb"
-	"github.com/creachadair/ffs/blob/memstore"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 )
 
 func TestRoundTrip(t *testing.T) {
-	m := memstore.New()
 	aes, err := aes.NewCipher([]byte("0123456789abcdef"))
 	if err != nil {
 		t.Fatalf("Creating AES cipher: %v", err)
 	}
 	var ivCalled bool
-	e := encrypted.New(m, aes, &encrypted.Options{
+	e := encrypted.New(aes, &encrypted.Options{
 		NewIV: func(iv []byte) error {
 			ivCalled = true // verify that our hook is used
 			for i := range iv {
@@ -44,54 +41,39 @@ func TestRoundTrip(t *testing.T) {
 		},
 	})
 
-	const key = "molins"
 	const value = "some of what a fool thinks often remains"
 
-	// Write the test blob through the encrypted store.
-	ctx := context.Background()
-	if err := e.Put(ctx, blob.PutOptions{
-		Key:  key,
-		Data: []byte(value),
-	}); err != nil {
-		t.Fatalf("Put %q failed: %v", key, err)
+	// Encode the test value through the encrypted codec.
+	var encoded bytes.Buffer
+	if err := e.Encode(&encoded, []byte(value)); err != nil {
+		t.Fatalf("Encode %q failed: %v", value, err)
 	}
 
 	if !ivCalled {
 		t.Error("Put did not invoke the initialization vector hook")
 	}
 
-	// Verify that we can read the blob back out and get the same result.
-	got, err := e.Get(ctx, key)
-	if err != nil {
-		t.Errorf("Get %q failed: %v", key, err)
-	} else if s := string(got); s != value {
-		t.Errorf("Get %q: got %q, want %q", key, s, value)
+	// Verify that we can decode the blob to recover the original value.
+	var verify bytes.Buffer
+	if err := e.Decode(&verify, encoded.Bytes()); err != nil {
+		t.Fatalf("Decode [%d bytes] failed: %v", encoded.Len(), err)
+	} else if got := verify.String(); got != value {
+		t.Errorf("Decode: got %q, want %q", got, value)
 	}
 
-	// Verify that Size reflects the input size, not the encoded size.
-	size, err := e.Size(ctx, key)
+	// Verify that DecodedLen reflects the input size, not the encoded size.
+	size, err := e.DecodedLen(encoded.Bytes())
 	if err != nil {
-		t.Errorf("Size %q failed: %v", key, err)
-	} else if size != int64(len(value)) {
-		t.Errorf("Size %q: got %d, want %d", key, size, len(value))
-	}
-
-	// Verify that Len works.
-	if v, err := e.Len(ctx); err != nil {
-		t.Errorf("Len failed: %v", err)
-	} else if v != 1 {
-		t.Errorf("Len: got %d, want 1", v)
+		t.Errorf("DecodedLen failed: %v", err)
+	} else if size != len(value) {
+		t.Errorf("DecodedLen: got %d, want %d", size, len(value))
 	}
 
 	// Log the stored block for debugging purposes.
-	raw, err := m.Get(ctx, key)
-	if err != nil {
-		t.Fatalf("Get raw %q failed: %v", key, err)
-	}
 	pb := new(wirepb.Encrypted)
-	if err := proto.Unmarshal(raw, pb); err != nil {
+	if err := proto.Unmarshal(encoded.Bytes(), pb); err != nil {
 		t.Fatalf("Decoding storage wrapper: %v", err)
 	}
-	t.Logf("Stored block (%d bytes):\n%s", len(raw), prototext.Format(pb))
+	t.Logf("Stored block (%d bytes):\n%s", encoded.Len(), prototext.Format(pb))
 	t.Logf("Encoded data size: %d bytes", len(pb.Data))
 }

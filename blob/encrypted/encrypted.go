@@ -18,28 +18,24 @@
 package encrypted
 
 import (
-	"context"
 	"crypto/cipher"
 	"crypto/rand"
 	"fmt"
+	"io"
 
-	"github.com/creachadair/ffs/blob"
 	"github.com/creachadair/ffs/blob/encrypted/wirepb"
 	"github.com/golang/snappy"
 	"google.golang.org/protobuf/proto"
 )
 
-// A Store implements the blob.Store interface and encrypts blob data using a
-// block cipher in CTR mode. Blob storage is delegated to an underlying store.
-//
-// Note that keys are not encrypted, only blob contents.
-type Store struct {
+// A Codec implements the encoded.Codec interface and encrypts data using a
+// block cipher in CTR mode.
+type Codec struct {
 	blk   cipher.Block       // used to generate the keystream
 	newIV func([]byte) error // generate a fresh initialization vector
-	real  blob.Store         // the underlying storage implementation
 }
 
-// Options control the construction of a *Store.
+// Options control the construction of a *Codec.
 type Options struct {
 	// Replace the contents of iv with fresh initialization vector.
 	// If nil, the store uses the crypto/rand package to generate random IVs.
@@ -58,86 +54,70 @@ func (o *Options) newIV() func([]byte) error {
 
 // New constructs a new encrypted store that delegates to s.  If opts == nil,
 // default options are used.  New will panic if s == nil or blk == nil.
-func New(s blob.Store, blk cipher.Block, opts *Options) *Store {
-	if s == nil {
-		panic("store is nil")
-	} else if blk == nil {
+func New(blk cipher.Block, opts *Options) *Codec {
+	if blk == nil {
 		panic("cipher is nil")
 	}
-	return &Store{
+	return &Codec{
 		blk:   blk,
 		newIV: opts.newIV(),
-		real:  s,
 	}
 }
 
-// Get implements part of the blob.Store interface.
-func (s *Store) Get(ctx context.Context, key string) ([]byte, error) {
-	enc, err := s.load(ctx, key)
+// Encode implements part of the codec interface. It encrypts src with the
+// provided cipher in CTR mode and writes it out as a wire-format wrapper
+// protobuf message to w.
+func (c *Codec) Encode(w io.Writer, src []byte) error {
+	wrapper, err := c.encrypt(src)
 	if err != nil {
-		return nil, err
+		return fmt.Errorf("encryption failed: %v", err)
 	}
-	return s.decrypt(enc)
+	bits, err := proto.MarshalOptions{Deterministic: true}.Marshal(wrapper)
+	if err != nil {
+		return fmt.Errorf("encoding failed: %v", err)
+	}
+	_, err = w.Write(bits)
+	return err
 }
 
-// Put implements part of the blob.Store interface.
-func (s *Store) Put(ctx context.Context, opts blob.PutOptions) error {
-	enc, err := s.encrypt(opts.Data)
+// Decode implements part of the codec interface.  It decodes src as a
+// wire-format wrapper prototbuf message, decrypts the message, and writes the
+// result to w.  If decryption fails, an error is reported without writing any
+// data to w.
+func (c *Codec) Decode(w io.Writer, src []byte) error {
+	wrapper, err := unmarshal(src)
 	if err != nil {
 		return err
 	}
-	bits, err := proto.Marshal(enc)
-	if err != nil {
-		return err
-	}
-
-	// Leave the original options as given, but replace the data.
-	opts.Data = bits
-	return s.real.Put(ctx, opts)
+	return c.decrypt(wrapper, w)
 }
 
-// Size implements part of the blob.Store interface. This implementation
-// requires access to the blob content, since the stored size of an encrypted
-// blob is not equivalent to the original.
-func (s *Store) Size(ctx context.Context, key string) (int64, error) {
-	enc, err := s.load(ctx, key)
+// DecodedLen implements part of the codec interface. It decodes src as a
+// wire-format wrapper protobuf message, and returns the original message size.
+func (c *Codec) DecodedLen(src []byte) (int, error) {
+	wrapper, err := unmarshal(src)
 	if err != nil {
 		return 0, err
 	}
-	return enc.UncompressedSize, nil
+	return int(wrapper.UncompressedSize), nil
 }
 
-// List implements part of the blob.Store interface.
-// It delegates directly to the underlying store.
-func (s *Store) List(ctx context.Context, start string, f func(string) error) error {
-	return s.real.List(ctx, start, f)
-}
-
-// Len implements part of the blob.Store interface.
-// It delegates directly to the underlying store.
-func (s *Store) Len(ctx context.Context) (int64, error) { return s.real.Len(ctx) }
-
-// load fetches a stored blob and decodes its storage wrapper.
-func (s *Store) load(ctx context.Context, key string) (*wirepb.Encrypted, error) {
-	bits, err := s.real.Get(ctx, key)
-	if err != nil {
-		return nil, err
+func unmarshal(data []byte) (*wirepb.Encrypted, error) {
+	var pb wirepb.Encrypted
+	if err := proto.Unmarshal(data, &pb); err != nil {
+		return nil, fmt.Errorf("decoding failed: %v", err)
 	}
-	pb := new(wirepb.Encrypted)
-	if err := proto.Unmarshal(bits, pb); err != nil {
-		return nil, err
-	}
-	return pb, nil
+	return &pb, nil
 }
 
 // encrypt compresses and encrypts the given data and returns its storage wrapper.
-func (s *Store) encrypt(data []byte) (*wirepb.Encrypted, error) {
+func (c *Codec) encrypt(data []byte) (*wirepb.Encrypted, error) {
 	compressed := snappy.Encode(nil, data)
-	iv := make([]byte, s.blk.BlockSize())
-	if err := s.newIV(iv); err != nil {
+	iv := make([]byte, c.blk.BlockSize())
+	if err := c.newIV(iv); err != nil {
 		return nil, fmt.Errorf("encrypt: initialization vector: %w", err)
 	}
-	ctr := cipher.NewCTR(s.blk, iv)
+	ctr := cipher.NewCTR(c.blk, iv)
 	ctr.XORKeyStream(compressed, compressed)
 	return &wirepb.Encrypted{
 		Data:             compressed,
@@ -147,17 +127,18 @@ func (s *Store) encrypt(data []byte) (*wirepb.Encrypted, error) {
 }
 
 // decrypt decrypts and decompresses the data from a storage wrapper.
-func (s *Store) decrypt(enc *wirepb.Encrypted) ([]byte, error) {
-	ctr := cipher.NewCTR(s.blk, enc.Init)
+func (c *Codec) decrypt(enc *wirepb.Encrypted, w io.Writer) error {
+	ctr := cipher.NewCTR(c.blk, enc.Init)
 	ctr.XORKeyStream(enc.Data, enc.Data)
 	decompressed, err := snappy.Decode(make([]byte, enc.UncompressedSize), enc.Data)
 	if err != nil {
-		return nil, fmt.Errorf("decrypt: decompress: %w", err)
+		return fmt.Errorf("decrypt: decompress: %w", err)
 	} else if int64(len(decompressed)) != enc.UncompressedSize {
-		return nil, fmt.Errorf("decrypt: wrong size (got %d, want %d)",
+		return fmt.Errorf("decrypt: wrong size (got %d, want %d)",
 			len(decompressed), enc.UncompressedSize)
 	}
-	return decompressed, nil
+	_, err = w.Write(decompressed)
+	return err
 }
 
 /*
