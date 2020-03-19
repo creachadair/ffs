@@ -3,10 +3,12 @@ package file
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/creachadair/ffs/blob"
 	"github.com/creachadair/ffs/file/wirepb"
 	"google.golang.org/protobuf/proto"
+	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
 // A Root represents the state of a filesystem at a moment in time, including
@@ -47,6 +49,55 @@ func OpenRoot(ctx context.Context, s blob.CAS, name string) (*Root, error) {
 
 // File returns the root directory of r.
 func (r *Root) File() *File { return r.file }
+
+// Snapshot adds a snapshot with the specified label pointing to the current
+// filesystem root.  This has the side-effect of flushing the root directory.
+// The storage key of the updated root is returned.
+func (r *Root) Snapshot(ctx context.Context, name string) (string, error) {
+	key, err := r.file.Flush(ctx)
+	if err != nil {
+		return "", err
+	}
+	now := time.Now()
+	r.addSnapshot(&wirepb.Root_Snapshot{
+		Key:  []byte(key),
+		Name: name,
+		SnapTime: &timestamppb.Timestamp{
+			Seconds: int64(now.Unix()),
+			Nanos:   int32(now.Nanosecond()),
+		},
+	})
+	return r.Flush(ctx)
+}
+
+// findSnapshot reports the location of the first snapshot with the specified
+// name, or -1. If name == "", findSnapshot returns -1.
+func (r *Root) findSnapshot(name string) int {
+	if name == "" {
+		return -1
+	}
+	for i, snap := range r.msg.Snapshots {
+		if snap.Name == name {
+			return i
+		}
+	}
+	return -1
+}
+
+// addSnapshot appends snap to the snapshots of root and removes any existing
+// snapshot with the same name, if applicable.
+func (r *Root) addSnapshot(snap *wirepb.Root_Snapshot) {
+	old := r.findSnapshot(snap.Name)
+	if old >= 0 {
+		// Slide the rest down, leaving the final element free for reuse.
+		copy(r.msg.Snapshots[old:], r.msg.Snapshots[old+1:])
+		r.msg.Snapshots[len(r.msg.Snapshots)-1] = snap
+		return
+	}
+
+	// No matching snapshot was found; add the new one to the end.
+	r.msg.Snapshots = append(r.msg.Snapshots, snap)
+}
 
 // Flush flushes the root directory of r, writes the current state of the root
 // to storage, and updates the pointer. The storage key of the root is returned.
