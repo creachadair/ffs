@@ -14,9 +14,9 @@
 
 syntax = "proto3";
 
-package wirepb;
+package ffs.codecs.encrypted.wirepb;
 
-option go_package = ".;wirepb";
+option go_package = "github.com/creachadair/ffs/blob/codecs/encrypted/wirepb";
 
 // Encrypted is the storage format for an encrypted blob.
 message Encrypted {

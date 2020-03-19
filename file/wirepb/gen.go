@@ -17,4 +17,4 @@
 // buffer compiler.
 package wirepb
 
-//go:generate protoc --go_out=. wire.proto
+//go:generate protoc --go_out=. --go_opt=paths=source_relative fileinfo.proto

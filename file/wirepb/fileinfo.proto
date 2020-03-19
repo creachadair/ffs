@@ -14,11 +14,11 @@
 
 syntax = "proto3";
 
-package wirepb;
+package ffs.file.wirepb;
 
 import "google/protobuf/timestamp.proto";
 
-option go_package = ".;wirepb";
+option go_package = "github.com/creachadair/ffs/file/wirepb";
 
 // A Node is the top-level container for file and directory metadata in
 // persistent storage.
