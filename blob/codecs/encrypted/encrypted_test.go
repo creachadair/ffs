@@ -19,8 +19,8 @@ import (
 	"crypto/aes"
 	"testing"
 
-	"github.com/creachadair/ffs/blob/encrypted"
-	"github.com/creachadair/ffs/blob/encrypted/wirepb"
+	"github.com/creachadair/ffs/blob/codecs/encrypted"
+	"github.com/creachadair/ffs/blob/codecs/encrypted/wirepb"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
 )

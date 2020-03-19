@@ -23,7 +23,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/creachadair/ffs/blob/encrypted/wirepb"
+	"github.com/creachadair/ffs/blob/codecs/encrypted/wirepb"
 	"github.com/golang/snappy"
 	"google.golang.org/protobuf/proto"
 )
