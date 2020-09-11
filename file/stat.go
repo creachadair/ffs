@@ -54,6 +54,9 @@ func (s Stat) toProto() *wirepb.Stat {
 }
 
 func (s *Stat) fromProto(pb *wirepb.Stat) {
+	if pb == nil {
+		return // no stat was persisted for this file
+	}
 	s.Mode = os.FileMode(pb.GetMode())
 	s.OwnerID = int(pb.GetOwnerId())
 	s.OwnerName = pb.GetOwnerName()
