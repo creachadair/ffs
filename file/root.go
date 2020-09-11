@@ -72,16 +72,31 @@ func (r *Root) Snapshot(ctx context.Context, name string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	now := time.Now()
-	r.addSnapshot(&wirepb.Root_Snapshot{
-		Key:  []byte(key),
-		Name: name,
-		SnapTime: &timestamppb.Timestamp{
-			Seconds: int64(now.Unix()),
-			Nanos:   int32(now.Nanosecond()),
-		},
-	})
+	r.addSnapshot(Snapshot{
+		Key:     key,
+		Name:    name,
+		Updated: time.Now(),
+	}.toProto())
 	return r.Flush(ctx)
+}
+
+// RemoveSnapshot removes a snapshot with the specified label from r, and
+// reports whether any change was made.
+func (r *Root) RemoveSnapshot(name string) bool {
+	if i := r.findSnapshot(name); i >= 0 {
+		r.msg.Snapshots = append(r.msg.Snapshots[:i], r.msg.Snapshots[i+1:]...)
+		return true
+	}
+	return false
+}
+
+// ListSnapshots returns the snapshots defined on r.
+func (r *Root) ListSnapshots() []Snapshot {
+	snaps := make([]Snapshot, len(r.msg.Snapshots))
+	for i, snap := range r.msg.Snapshots {
+		snaps[i].fromProto(snap)
+	}
+	return snaps
 }
 
 // findSnapshot reports the location of the first snapshot with the specified
@@ -139,4 +154,33 @@ func (r *Root) Flush(ctx context.Context) (string, error) {
 		Data:    []byte(rkey),
 		Replace: true,
 	})
+}
+
+// A Snapshot represents a point-in-time snapshot of the root.
+type Snapshot struct {
+	Key     string    // the storage key of the root file
+	Name    string    // the label assigned to identify the snapshot
+	Updated time.Time // when the snapshot was created or updated
+}
+
+func (s Snapshot) toProto() *wirepb.Root_Snapshot {
+	pb := &wirepb.Root_Snapshot{
+		Key:  []byte(s.Key),
+		Name: s.Name,
+	}
+	if !s.Updated.IsZero() {
+		pb.SnapTime = &timestamppb.Timestamp{
+			Seconds: int64(s.Updated.Unix()),
+			Nanos:   int32(s.Updated.Nanosecond()),
+		}
+	}
+	return pb
+}
+
+func (s *Snapshot) fromProto(pb *wirepb.Root_Snapshot) {
+	s.Key = string(pb.GetKey())
+	s.Name = pb.GetName()
+	if ts := pb.SnapTime; ts != nil {
+		s.Updated = time.Unix(ts.Seconds, int64(ts.Nanos))
+	}
 }
