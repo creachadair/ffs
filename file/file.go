@@ -77,7 +77,7 @@ func New(s blob.CAS, opts *NewOptions) *File {
 	if opts == nil {
 		opts = new(NewOptions)
 	}
-	return &File{
+	out := &File{
 		s:        s,
 		name:     opts.Name,
 		stat:     opts.Stat,
@@ -85,6 +85,13 @@ func New(s blob.CAS, opts *NewOptions) *File {
 		data:     fileData{sc: opts.Split},
 		xattr:    make(map[string]string),
 	}
+	if opts.Virtual {
+		// The key must be non-empty so the view plumbing will work, but is
+		// otherwise not significant.
+		out.isView = true
+		out.key = "virtual"
+	}
+	return out
 }
 
 // NewOptions control the creation of new files.
@@ -97,6 +104,11 @@ type NewOptions struct {
 	// nonzero, the new file will persist stat metadata to storage.  However,
 	// the contents are not otherwise interpreted.
 	Stat Stat
+
+	// If true, create the file as a non-persistent view (see file.View).
+	// The resulting file can still be modified in memory, but modifications
+	// will not be persisted.
+	Virtual bool
 
 	// The block splitter configuration to use. If omitted, the default values
 	// from the split package are used. The block size limits are persisted in
