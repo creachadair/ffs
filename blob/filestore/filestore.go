@@ -87,13 +87,6 @@ func blockSize(f *os.File) (int64, error) {
 	return fi.Size(), nil
 }
 
-// encodeBlock encodes data for storage. It is currently a no-op.
-func encodeBlock(data []byte) []byte { return data }
-
-// decodeBlock decodes the storage representation of a blob, and returns the
-// blob data. It is the inverse of encodeBlob. It is currently a no-op.
-func decodeBlock(data []byte) ([]byte, error) { return data, nil }
-
 // Get implements part of blob.Store. It linearizes to the point at which
 // opening the key path for reading returns.
 func (s *Store) Get(_ context.Context, key string) ([]byte, error) {
@@ -104,11 +97,7 @@ func (s *Store) Get(_ context.Context, key string) ([]byte, error) {
 		}
 		return nil, fmt.Errorf("key %q: %w", key, err)
 	}
-	blk, err := decodeBlock(bits)
-	if err != nil {
-		return nil, fmt.Errorf("key %q: %w", key, err)
-	}
-	return blk, nil
+	return bits, nil
 }
 
 // Put implements part of blob.Store. A successful Put linearizes to the point
@@ -121,7 +110,7 @@ func (s *Store) Put(_ context.Context, opts blob.PutOptions) error {
 	} else if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return err
 	}
-	return atomicfile.WriteData(path, encodeBlock(opts.Data), 0600)
+	return atomicfile.WriteData(path, opts.Data, 0600)
 }
 
 // Size implements part of blob.Store. It linearizes to the point at which
