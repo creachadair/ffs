@@ -58,6 +58,7 @@ package file
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"sort"
@@ -226,6 +227,11 @@ func (f *File) Remove(name string) bool {
 	}
 	return false
 }
+
+var (
+	// ErrChildNotFound indicates that a requested child file does not exist.
+	ErrChildNotFound = errors.New("child file not found")
+)
 
 // Open opens the specified child file of f, or returns ErrChildNotFound if no
 // such child exists.

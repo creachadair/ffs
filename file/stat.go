@@ -15,7 +15,6 @@
 package file
 
 import (
-	"errors"
 	"os"
 	"time"
 
@@ -64,8 +63,3 @@ func (s *Stat) fromProto(pb *wirepb.Stat) {
 		s.ModTime = time.Unix(pb.ModTime.Seconds, int64(pb.ModTime.Nanos))
 	}
 }
-
-var (
-	// ErrChildNotFound indicates that a requested child file does not exist.
-	ErrChildNotFound = errors.New("child file not found")
-)
