@@ -115,6 +115,20 @@ func Open(ctx context.Context, s blob.CAS, key string) (*File, error) {
 	return f, nil
 }
 
+// View opens a view of an existing file given its storage key in s.
+//
+// A view differs from an ordinary file in that it is not persisted: Flushing a
+// view is a no-op, and when a view occurs as the child of another file, that
+// child is skipped when flushing its parent file to storage.
+func View(ctx context.Context, s blob.CAS, key string) (*File, error) {
+	f, err := Open(ctx, s, key)
+	if err != nil {
+		return nil, err
+	}
+	f.isView = true
+	return f, nil
+}
+
 // A File represents a writable file stored in a content-addressable blobstore.
 type File struct {
 	s    blob.CAS
@@ -124,6 +138,7 @@ type File struct {
 	offset   int64 // current seek position (≥ 0)
 	stat     Stat  // file metadata
 	saveStat bool  // whether to persist file metadata
+	isView   bool  // whether this file is a view
 
 	data  fileData          // binary file data
 	kids  []child           // ordered lexicographically by name
@@ -154,7 +169,12 @@ func (f *File) findChild(name string) (int, bool) {
 	return -1, false
 }
 
-func (f *File) inval()  { f.key = "" }
+func (f *File) inval() {
+	if !f.isView {
+		f.key = ""
+	}
+}
+
 func (f *File) modify() { f.inval(); f.stat.ModTime = time.Now() }
 
 // New constructs a new empty node backed by the same store as f.
@@ -166,6 +186,9 @@ func (f *File) New(opts *NewOptions) *File {
 	}
 	return out
 }
+
+// IsView reports whether f is a view.
+func (f *File) IsView() bool { return f.isView }
 
 // Size returns the effective size of the file content in bytes.
 func (f *File) Size() int64 { return f.data.totalBytes }
@@ -321,6 +344,10 @@ func (f *File) Flush(ctx context.Context) (string, error) {
 // path of nodes from the root to the current flush target, and is used to
 // verify that there are no cycles in the graph.
 func (f *File) recFlush(ctx context.Context, path []*File) (string, error) {
+	if f.isView {
+		return f.key, nil
+	}
+
 	// Check for direct or indirect cycles.
 	for _, elt := range path {
 		if elt == f {
@@ -450,6 +477,9 @@ func (f *File) toProto() *wirepb.Node {
 		return n.XAttrs[i].Name < n.XAttrs[j].Name
 	})
 	for _, kid := range f.kids {
+		if kid.File.isView {
+			continue
+		}
 		n.Children = append(n.Children, &wirepb.Child{
 			Name: kid.Name,
 			Key:  []byte(kid.Key),

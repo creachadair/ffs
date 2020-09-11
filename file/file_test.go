@@ -17,6 +17,7 @@ package file_test
 import (
 	"context"
 	"crypto/sha1"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -168,7 +169,6 @@ func TestCycleCheck(t *testing.T) {
 
 func TestRootRoundTrip(t *testing.T) {
 	cas := blob.NewCAS(memstore.New(), sha1.New)
-
 	ctx := context.Background()
 
 	// Set up an empty root, flush it out, read it back in, and check that the
@@ -195,5 +195,62 @@ func TestRootRoundTrip(t *testing.T) {
 	// Verify that file stat was preserved.
 	if diff := cmp.Diff(rf.Stat(), cf.Stat()); diff != "" {
 		t.Errorf("Stat (-want, +got)\n%s", diff)
+	}
+}
+
+func TestView(t *testing.T) {
+	cas := blob.NewCAS(memstore.New(), sha1.New)
+	ctx := context.Background()
+	mustFlush := func(tag string, f *file.File) string {
+		key, err := f.Flush(ctx)
+		if err != nil {
+			t.Fatalf("Flush %s: %v", tag, err)
+		}
+		return key
+	}
+
+	// Create and store a file to manipulate in the tests below.
+	const fileText = "Hello, is there anybody in there?"
+
+	f := file.New(cas, nil)
+	if _, err := fmt.Fprintln(f.IO(ctx), fileText); err != nil {
+		t.Fatalf("Writing test file: %v", err)
+	}
+	fkey := mustFlush("test file", f)
+	t.Logf("Created test file %x", fkey)
+
+	// Open a view on the test file, make some changes, and verify that the
+	// changes are not persisted.
+	v, err := file.View(ctx, cas, fkey)
+	if err != nil {
+		t.Fatalf("Viewing: %v", err)
+	}
+	if _, err := fmt.Fprintln(v.IO(ctx), "Somebody that I used to know"); err != nil {
+		t.Fatalf("Writing view: %v", err)
+	}
+	vkey := mustFlush("view", v)
+	if vkey != fkey {
+		t.Errorf("Flush view: got key %x, want %x", vkey, fkey)
+	}
+
+	// Create a file with v as its child.
+	g := file.New(cas, nil)
+	g.Set("kiddo", v)
+	g.Set("other", file.New(cas, nil)) // a non-view child
+	gkey := mustFlush("parent", g)
+
+	// Verify that the view child was not persisted, but other children were.
+	h, err := file.Open(ctx, cas, gkey)
+	if err != nil {
+		t.Fatalf("Opening parent: %v", err)
+	}
+
+	if c, err := h.Open(ctx, "kiddo"); !errors.Is(err, file.ErrChildNotFound) {
+		t.Errorf("Open kiddo: got %v, %v; want error %v", c, err, file.ErrChildNotFound)
+	}
+	if c, err := h.Open(ctx, "other"); err != nil {
+		t.Errorf("Open other: unexpected error: %v", err)
+	} else {
+		t.Logf("Open other succeeded for %x", mustFlush("other", c))
 	}
 }
