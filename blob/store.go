@@ -71,7 +71,7 @@ type Deleter interface {
 }
 
 // Closer is an optional interface that a store may implement if it needs an
-// oppoartunity to clean up or flush buffers before going out of service.
+// opportunity to clean up or flush buffers before going out of service.
 type Closer interface {
 	Close(context.Context) error
 }
