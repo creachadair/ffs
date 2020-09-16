@@ -20,9 +20,6 @@ import (
 	"testing"
 
 	"github.com/creachadair/ffs/blob/codecs/encrypted"
-	"github.com/creachadair/ffs/blob/codecs/encrypted/wirepb"
-	"google.golang.org/protobuf/encoding/prototext"
-	"google.golang.org/protobuf/proto"
 )
 
 func TestRoundTrip(t *testing.T) {
@@ -70,10 +67,5 @@ func TestRoundTrip(t *testing.T) {
 	}
 
 	// Log the stored block for debugging purposes.
-	pb := new(wirepb.Encrypted)
-	if err := proto.Unmarshal(encoded.Bytes(), pb); err != nil {
-		t.Fatalf("Decoding storage wrapper: %v", err)
-	}
-	t.Logf("Stored block (%d bytes):\n%s", encoded.Len(), prototext.Format(pb))
-	t.Logf("Encoded data size: %d bytes", len(pb.Data))
+	t.Logf("Stored block (%d bytes):\n%+v", encoded.Len(), encoded.Bytes())
 }

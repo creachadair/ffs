@@ -20,12 +20,12 @@ package encrypted
 import (
 	"crypto/cipher"
 	"crypto/rand"
+	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 
-	"github.com/creachadair/ffs/blob/codecs/encrypted/wirepb"
 	"github.com/golang/snappy"
-	"google.golang.org/protobuf/proto"
 )
 
 // A Codec implements the encoded.Codec interface and encrypts data using a
@@ -65,97 +65,125 @@ func New(blk cipher.Block, opts *Options) *Codec {
 }
 
 // Encode implements part of the codec interface. It encrypts src with the
-// provided cipher in CTR mode and writes it out as a wire-format wrapper
-// protobuf message to w.
+// provided cipher in CTR mode and writes it out as an encoded block to w.
 func (c *Codec) Encode(w io.Writer, src []byte) error {
-	wrapper, err := c.encrypt(src)
+	bits, err := c.encrypt(src)
 	if err != nil {
 		return fmt.Errorf("encryption failed: %v", err)
-	}
-	bits, err := proto.MarshalOptions{Deterministic: true}.Marshal(wrapper)
-	if err != nil {
-		return fmt.Errorf("encoding failed: %v", err)
 	}
 	_, err = w.Write(bits)
 	return err
 }
 
-// Decode implements part of the codec interface.  It decodes src as a
-// wire-format wrapper prototbuf message, decrypts the message, and writes the
-// result to w.  If decryption fails, an error is reported without writing any
-// data to w.
+// Decode implements part of the codec interface.  It decodes src from a
+// wrapper block, decrypts the message, and writes the result to w.  If
+// decryption fails, an error is reported without writing any data to w.
 func (c *Codec) Decode(w io.Writer, src []byte) error {
-	wrapper, err := unmarshal(src)
+	blk, err := parseBlock(src)
 	if err != nil {
 		return err
 	}
-	return c.decrypt(wrapper, w)
+	return c.decrypt(blk, w)
 }
 
-// DecodedLen implements part of the codec interface. It decodes src as a
-// wire-format wrapper protobuf message, and returns the original message size.
+// DecodedLen implements part of the codec interface. It decodes src from a
+// wrapper block, decrypts the original size, and returns it.
 func (c *Codec) DecodedLen(src []byte) (int, error) {
-	wrapper, err := unmarshal(src)
+	enc, err := parseBlock(src)
 	if err != nil {
 		return 0, err
 	}
-	return int(wrapper.UncompressedSize), nil
+
+	ctr := cipher.NewCTR(c.blk, enc.IV)
+	ctr.XORKeyStream(enc.Len, enc.Len)
+	return int(binary.BigEndian.Uint32(enc.Len)), nil
 }
 
-func unmarshal(data []byte) (*wirepb.Encrypted, error) {
-	var pb wirepb.Encrypted
-	if err := proto.Unmarshal(data, &pb); err != nil {
-		return nil, fmt.Errorf("decoding failed: %v", err)
-	}
-	return &pb, nil
-}
+// encrypt compresses and encrypts the given data and returns its encoded block.
+func (c *Codec) encrypt(data []byte) ([]byte, error) {
+	ivLen := c.blk.BlockSize()
+	bufSize := 1 + ivLen + 4 + snappy.MaxEncodedLen(len(data))
 
-// encrypt compresses and encrypts the given data and returns its storage wrapper.
-func (c *Codec) encrypt(data []byte) (*wirepb.Encrypted, error) {
-	compressed := snappy.Encode(nil, data)
-	iv := make([]byte, c.blk.BlockSize())
-	if err := c.newIV(iv); err != nil {
+	buf := make([]byte, bufSize)
+	buf[0] = byte(ivLen)
+	if err := c.newIV(buf[1 : 1+ivLen]); err != nil {
 		return nil, fmt.Errorf("encrypt: initialization vector: %w", err)
 	}
-	ctr := cipher.NewCTR(c.blk, iv)
-	ctr.XORKeyStream(compressed, compressed)
-	return &wirepb.Encrypted{
-		Data:             compressed,
-		Init:             iv,
-		UncompressedSize: int64(len(data)),
-	}, nil
+
+	binary.BigEndian.PutUint32(buf[1+ivLen:], uint32(len(data)))
+	compressed := snappy.Encode(buf[1+ivLen+4:], data)
+	finalLen := 1 + ivLen + 4 + len(compressed)
+
+	ebuf := buf[1+ivLen : finalLen]
+	ctr := cipher.NewCTR(c.blk, buf[1:1+ivLen])
+	ctr.XORKeyStream(ebuf, ebuf)
+
+	return buf[:finalLen], nil
 }
 
 // decrypt decrypts and decompresses the data from a storage wrapper.
-func (c *Codec) decrypt(enc *wirepb.Encrypted, w io.Writer) error {
-	ctr := cipher.NewCTR(c.blk, enc.Init)
+func (c *Codec) decrypt(enc block, w io.Writer) error {
+	ctr := cipher.NewCTR(c.blk, enc.IV)
+
+	ctr.XORKeyStream(enc.Len, enc.Len)
 	ctr.XORKeyStream(enc.Data, enc.Data)
-	decompressed, err := snappy.Decode(make([]byte, enc.UncompressedSize), enc.Data)
+	decLen := int(binary.BigEndian.Uint32(enc.Len))
+
+	decompressed, err := snappy.Decode(make([]byte, decLen), enc.Data)
 	if err != nil {
 		return fmt.Errorf("decrypt: decompress: %w", err)
-	} else if int64(len(decompressed)) != enc.UncompressedSize {
-		return fmt.Errorf("decrypt: wrong size (got %d, want %d)",
-			len(decompressed), enc.UncompressedSize)
+	} else if len(decompressed) != decLen {
+		return fmt.Errorf("decrypt: wrong size (got %d, want %d)", len(decompressed), decLen)
 	}
+
 	_, err = w.Write(decompressed)
 	return err
+}
+
+type block struct {
+	IV   []byte
+	Len  []byte
+	Data []byte
+}
+
+// parseBlock parses the binary encoding of a block, reporting an error if the
+// structure of the block is invalid.
+func parseBlock(from []byte) (block, error) {
+	if len(from) < 5 {
+		return block{}, errors.New("parse: invalid block format")
+	}
+	ivLen := int(from[0])
+	if len(from) < 5+ivLen {
+		return block{}, errors.New("parse: invalid initialization vector")
+	}
+
+	// Copy the input data so that we do not clobber the caller's data.
+	cp := make([]byte, len(from))
+	copy(cp, from)
+	return block{
+		IV:   cp[1 : 1+ivLen],
+		Len:  cp[1+ivLen : 1+ivLen+4],
+		Data: cp[1+ivLen+4:],
+	}, nil
 }
 
 /*
 Implementation notes
 
-An encrypted blob is stored as an wirepb.Encrypted protocol buffer, inside which
-the payload is compressed with snappy [1] and encrypted with AES in CTR mode.
-The wrapper message is not itself encrypted.  The stored format is:
+An encrypted blob is stored as a buffer with the following structure:
 
-   data []byte  [snappy-compressed, encrypted payload]
-   init []byte  [initialization vector for this blob]
-   size int64   [size in bytes of the original block]
+   ilen byte    : initialization vector length       | plaintext
+   iint []byte  : initialization vector (ilen bytes) | plaintext
+   size uint32  : size in bytes of plaintext block   | encrypted
+   data []byte  : block data                         | compressed, encrypted
 
-The uncompressed size is stored to simplify Size queries: The actual stored
-size of the blob is not correct, but keeping the original size avoids the need
-to decrypt and decompress the blob contents. The blob must still be fetched,
-however.
+The size of the original block is encrypted but stored without compression at
+the head of the encrypted blob, to allow answering size queries without having
+to fully decrypt and decompress the blob data.
 
-[1]: https://github.com/google/snappy
+Block data are compressed with https://github.com/google/snappy.
+Encrpytion is done with AES en CTR mode.
+
+A minimal blob is 5 bytes in length, consisting of a 1-byte zero IV tag and
+four bytes of encrypted length.
 */
