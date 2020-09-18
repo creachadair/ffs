@@ -52,7 +52,8 @@ func TestRoundTrip(t *testing.T) {
 
 	// Verify that we can decode the blob to recover the original value.
 	var verify bytes.Buffer
-	if err := e.Decode(&verify, encoded.Bytes()); err != nil {
+	src := encoded.String()
+	if err := e.Decode(&verify, []byte(src)); err != nil {
 		t.Fatalf("Decode [%d bytes] failed: %v", encoded.Len(), err)
 	} else if got := verify.String(); got != value {
 		t.Errorf("Decode: got %q, want %q", got, value)

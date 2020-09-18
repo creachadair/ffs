@@ -158,12 +158,10 @@ func parseBlock(from []byte) (block, error) {
 	}
 
 	// Copy the input data so that we do not clobber the caller's data.
-	cp := make([]byte, len(from))
-	copy(cp, from)
 	return block{
-		IV:   cp[1 : 1+ivLen],
-		Len:  cp[1+ivLen : 1+ivLen+4],
-		Data: cp[1+ivLen+4:],
+		IV:   from[1 : 1+ivLen],
+		Len:  from[1+ivLen : 1+ivLen+4],
+		Data: from[1+ivLen+4:],
 	}, nil
 }
 
