@@ -27,14 +27,14 @@ import (
 
 // A Codec defines the capabilities needed to encode and decode.
 type Codec interface {
-	// Encode writes the encoding of src to w.
+	// Encode writes the encoding of src to w. After encoding, src may be garbage.
 	Encode(w io.Writer, src []byte) error
 
-	// Decode writes the decoding of src to w.
+	// Decode writes the decoding of src to w.  After decoding, src may be garbage.
 	Decode(w io.Writer, src []byte) error
 
 	// DecodedLen reports the decoded length of src. It reports an error if src
-	// is not a valid encoding.
+	// is not a valid encoding.  After decoding, src may be garbage.
 	DecodedLen(src []byte) (int, error)
 }
 
