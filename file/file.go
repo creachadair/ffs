@@ -489,7 +489,7 @@ func (f *File) toProto() *wirepb.Node {
 		return n.XAttrs[i].Name < n.XAttrs[j].Name
 	})
 	for _, kid := range f.kids {
-		if kid.File.isView {
+		if kid.File != nil && kid.File.isView {
 			continue
 		}
 		n.Children = append(n.Children, &wirepb.Child{
