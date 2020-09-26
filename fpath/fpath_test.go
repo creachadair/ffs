@@ -174,21 +174,21 @@ func TestPaths(t *testing.T) {
 
 	setPath("", subtree, fpath.ErrEmptyPath)
 
-	// Verify that viewing a path produces the right files.
-	if fs, err := fpath.View(ctx, root, "a/boring/sludge/of/words"); err != nil {
-		t.Errorf("Visit failed: %v", err)
+	// Verify that opening a path produces the right files.
+	if fs, err := fpath.OpenPath(ctx, root, "a/boring/sludge/of/words"); err != nil {
+		t.Errorf("OpenPath failed: %v", err)
 	} else {
 		want := []string{"a", "boring", "sludge", "of", "words"}
 		var got []string
 		for i, elt := range fs {
 			elt.SetStat(func(s *file.Stat) {
-				s.Mode = os.ModeDir | 0755
+				s.Mode = os.ModeDir | 0750
 			})
 			elt.XAttr().Set("index", strconv.Itoa(i+1))
 			got = append(got, elt.Name())
 		}
 		if diff := cmp.Diff(want, got); diff != "" {
-			t.Errorf("Visited names (-want, +got)\n%s", diff)
+			t.Errorf("Path names (-want, +got)\n%s", diff)
 		}
 	}
 

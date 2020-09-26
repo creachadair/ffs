@@ -46,11 +46,11 @@ func Open(ctx context.Context, root *file.File, path string) (*file.File, error)
 	return fp.target, err
 }
 
-// View traverses the given slash-separated path sequentially from root, and
-// returns a slice of all the files along the path not including root itself.
-// If any element of the path does not exist, View returns the prefix that was
-// found along with an file.ErrChildNotFound error.
-func View(ctx context.Context, root *file.File, path string) ([]*file.File, error) {
+// OpenPath traverses the given slash-separated path sequentially from root,
+// and returns a slice of all the files along the path, not including root
+// itself.  If any element of the path does not exist, OpenPath returns the
+// prefix that was found along with an file.ErrChildNotFound error.
+func OpenPath(ctx context.Context, root *file.File, path string) ([]*file.File, error) {
 	var out []*file.File
 	cur := root
 	for _, name := range parsePath(path) {
