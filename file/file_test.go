@@ -174,11 +174,23 @@ func TestRootRoundTrip(t *testing.T) {
 	// Set up an empty root, flush it out, read it back in, and check that the
 	// results look the same.
 
-	r := file.NewRoot(cas, nil)
-	rf := r.File()
-	rf.SetStat(func(s *file.Stat) {
-		s.Mode = 0135
+	r := file.NewRoot(cas, &file.NewOptions{
+		Name: "carrot",
+		Stat: file.Stat{Mode: 0135},
 	})
+	fk, err := r.File().Flush(ctx)
+	if err != nil {
+		t.Fatalf("Flushing root file failed: %v", err)
+	}
+	t.Logf("Root file key: %x", fk)
+
+	sk, err := r.SetSnapshot(ctx, "sniplet")
+	if err != nil {
+		t.Fatalf("Snapshot failed: %v", err)
+	} else if sk != fk {
+		t.Errorf("Snapshot key: got %x, want %x", sk, fk)
+	}
+	t.Logf("Snapshot key: %x", sk)
 
 	rk, err := r.Flush(ctx)
 	if err != nil {
@@ -193,8 +205,16 @@ func TestRootRoundTrip(t *testing.T) {
 	cf := c.File()
 
 	// Verify that file stat was preserved.
-	if diff := cmp.Diff(rf.Stat(), cf.Stat()); diff != "" {
+	if diff := cmp.Diff(r.File().Stat(), cf.Stat()); diff != "" {
 		t.Errorf("Stat (-want, +got)\n%s", diff)
+	}
+
+	// Verify that the snapshot was preserved.
+	snap, ok := c.Snapshot("sniplet")
+	if !ok {
+		t.Error("Snapshot not found on opened root")
+	} else if snap.Key != fk {
+		t.Errorf("Restored snapshot key: got %x, want %x", snap.Key, fk)
 	}
 }
 
