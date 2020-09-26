@@ -21,63 +21,29 @@ import (
 	"errors"
 	"fmt"
 	"strings"
-	"sync"
 
 	"github.com/creachadair/ffs/blob"
 )
 
-// Default is the default store registry.
-var Default = &Registry{}
-
 // An Opener opens a blob.Store instance associated with the given address.
-// The address passed to the Opener has its dispatch tag removed.
-// The format of the address is opaque to the registry, and the opener
-// is responsible for checking its validity.
-// An Opener must be safe for concurrent use by multiple goroutines.
+// The address passed to the Opener has its dispatch tag removed.  The format
+// of the address is opaque to the registry, and the opener is responsible for
+// checking its validity.
 type Opener func(ctx context.Context, addr string) (blob.Store, error)
 
-// A Registry maintains a mapping from addresses to Opener values.  The methods
-// of a Registry are safe for concurrent use by multiple goroutines.
-type Registry struct {
-	μ sync.RWMutex
-	m map[string]Opener
-}
-
-// Register associates the specified address tag with the given Opener.  It is
-// an error (ErrDuplicateTag) if tag is already registered.
-// A tag may end with ":" but must not otherwise contain any ":" characters.
-func (r *Registry) Register(tag string, o Opener) error {
-	clean := strings.TrimSuffix(tag, ":")
-	if clean == "" || strings.Contains(clean, ":") {
-		return fmt.Errorf("register %q: %w", tag, ErrInvalidTag)
-	} else if o == nil {
-		return fmt.Errorf("register %q: opener is nil", tag)
-	}
-
-	r.μ.Lock()
-	defer r.μ.Unlock()
-	if r.m == nil {
-		r.m = make(map[string]Opener)
-	} else if _, ok := r.m[clean]; ok {
-		return fmt.Errorf("register %q: %w", clean, ErrDuplicateTag)
-	}
-	r.m[clean] = o
-	return nil
-}
+// A Registry maintains a mapping from dispatch tags to Opener values.
+type Registry map[string]Opener
 
 // Open opens a blob.Store for the specified address of the form "tag" or
 // "tag:value".  If the address does not have this form, or if the tag does not
 // correspond to any known implementation, Open reports ErrInvalidAddress.
-func (r *Registry) Open(ctx context.Context, addr string) (blob.Store, error) {
+func (r Registry) Open(ctx context.Context, addr string) (blob.Store, error) {
 	tag, target := addr, ""
 	if i := strings.Index(addr, ":"); i > 0 {
 		tag, target = addr[:i], addr[i+1:]
 	}
 
-	r.μ.RLock()
-	open, ok := r.m[tag]
-	r.μ.RUnlock()
-
+	open, ok := r[tag]
 	if !ok {
 		return nil, fmt.Errorf("open %q: %w", addr, ErrInvalidAddress)
 	}
@@ -89,13 +55,6 @@ func (r *Registry) Open(ctx context.Context, addr string) (blob.Store, error) {
 }
 
 var (
-	// ErrInvalidTag is reported by Register when given an invalid tag.
-	ErrInvalidTag = errors.New("invalid tag")
-
-	// ErrDuplicateTag is reported by Register when given a tag which was
-	// already previously registered with a different value.
-	ErrDuplicateTag = errors.New("duplicate tag")
-
 	// ErrInvalidAddress is reported by Open when given an address that is
 	// syntactically invalid or has no corresponding Opener.
 	ErrInvalidAddress = errors.New("invalid address")

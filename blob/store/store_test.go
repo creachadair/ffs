@@ -33,31 +33,9 @@ func newMemStore(_ context.Context, addr string) (blob.Store, error) {
 	return memstore.New(), nil
 }
 
-func TestRegisterOpen(t *testing.T) {
-	r := new(store.Registry)
-
-	// Registering an invalid tag should fail.
-	for _, tag := range []string{"", ":", "foo::", "foo:bar", "foo:bar:", ":baz"} {
-		if err := r.Register(tag, newMemStore); !errors.Is(err, store.ErrInvalidTag) {
-			t.Errorf("Register(%q, ...): got %v, want %v", tag, err, store.ErrInvalidTag)
-		}
-	}
-
-	// Registering a fresh name should succeed.
-	if err := r.Register("mem", newMemStore); err != nil {
-		t.Errorf("Register(mem, ...) failed: %v", err)
-	}
-
-	// Registering a fresh name with a nil Opener should fail.
-	if err := r.Register("bogus", nil); err == nil {
-		t.Error("Register(bogus, nil) did not fail")
-	} else {
-		t.Logf("Register(bogus, nil) correctly failed: %v", err)
-	}
-
-	// Re-registering an existing name should fail.
-	if err := r.Register("mem:", newMemStore); !errors.Is(err, store.ErrDuplicateTag) {
-		t.Errorf("Register(mem:, ...): got %v, want %v", err, store.ErrDuplicateTag)
+func TestRegistryOpen(t *testing.T) {
+	r := store.Registry{
+		"mem": newMemStore,
 	}
 
 	ctx := context.Background()
