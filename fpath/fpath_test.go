@@ -48,6 +48,7 @@ func TestPaths(t *testing.T) {
 
 	ctx := context.Background()
 	root := file.New(cas, nil)
+	setDir := func(s *file.Stat) { s.Mode = os.ModeDir | 0755 }
 	openPath := func(path string, werr error) *file.File {
 		got, err := fpath.Open(ctx, root, path)
 		if !errorOK(err, werr) {
@@ -57,10 +58,8 @@ func TestPaths(t *testing.T) {
 	}
 	createPath := func(path string, werr error) *file.File {
 		err := fpath.Set(ctx, root, path, &fpath.SetOptions{
-			Create: true,
-			SetStat: func(s *file.Stat) {
-				s.Mode = os.ModeDir | 0755
-			},
+			Create:  true,
+			SetStat: setDir,
 		})
 		if !errorOK(err, werr) {
 			t.Errorf("CreatePath %q: got error %v, want %v", path, err, werr)
@@ -114,18 +113,28 @@ func TestPaths(t *testing.T) {
 		}
 	}
 
-	// Verify that the stat callback was properly invoked for intermediate paths
-	// components that we created.
-	for _, path := range []string{"/a", "/a/lasting"} {
+	// Verify that the stat callback was properly invoked for path components
+	// that we created.
+	for _, path := range []string{"/a", "/a/lasting", "/a/lasting/peace"} {
 		got := openPath(path, nil).Stat().Mode
 		if want := os.ModeDir | 0755; got != want {
-			t.Errorf("Wrong intermediate path mode for %q: got %v, want %v", path, got, want)
+			t.Errorf("Wrong path mode for %q: got %v, want %v", path, got, want)
 		}
 	}
 
-	// Verify that the stat callback was NOT invoked for the final element.
-	if got, want := openPath("/a/lasting/peace", nil).Stat().Mode, os.FileMode(0); got != want {
-		t.Errorf("Final path mode: got %v, want %v", got, want)
+	// Verify that the stat callback is not called for the final path element if
+	// we provided the file that is to be inserted.
+	{
+		const path = "/a/lasting/itch"
+		if err := fpath.Set(ctx, root, path, &fpath.SetOptions{
+			Create:  true,
+			SetStat: setDir,
+			File:    root.New(nil),
+		}); err != nil {
+			t.Errorf("Create %q: got unexpected error %v", "/a/lasting/itch", err)
+		} else if got, want := openPath(path, nil).Stat().Mode, os.FileMode(0); got != want {
+			t.Errorf("Wrong mode for %q: got %v, want %v", path, got, want)
+		}
 	}
 
 	// Prefixes of an existing path should exist.
@@ -188,7 +197,7 @@ func TestPaths(t *testing.T) {
 		want := []string{
 			"", "a",
 			"a/boring", "a/boring/sludge", "a/boring/song",
-			"a/lasting", "a/lasting/consequence",
+			"a/lasting", "a/lasting/consequence", "a/lasting/itch",
 			"okay",
 		}
 		var got []string

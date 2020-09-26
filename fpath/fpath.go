@@ -71,7 +71,8 @@ type SetOptions struct {
 	Create bool
 
 	// If not nil, this function is called for any intermediate path elements
-	// created along the path. It is not called for the final element.
+	// created along the path. It is also called for the final element if a new
+	// final element is not provided as File.
 	SetStat func(*file.Stat)
 
 	// If not nil, insert this element at the end of the path.  If nil, a new
@@ -88,10 +89,11 @@ func (s *SetOptions) target() *file.File {
 	return s.File
 }
 
-func (s *SetOptions) setStat(f *file.File) {
+func (s *SetOptions) setStat(f *file.File) *file.File {
 	if s != nil && s.SetStat != nil {
 		f.SetStat(s.SetStat)
 	}
+	return f
 }
 
 // Set traverses the given slash-separated path sequentially from root and
@@ -120,8 +122,7 @@ func Set(ctx context.Context, root *file.File, path string, opts *SetOptions) er
 		path: dir,
 		ef: func(fp *foundPath, err error) error {
 			if errors.Is(err, file.ErrChildNotFound) && opts.create() {
-				c := fp.target.New(&file.NewOptions{Name: fp.targetName})
-				opts.setStat(c)
+				c := opts.setStat(fp.target.New(&file.NewOptions{Name: fp.targetName}))
 				fp.target.Set(fp.targetName, c)
 				fp.parent, fp.target = fp.target, c
 				return nil
@@ -135,7 +136,7 @@ func Set(ctx context.Context, root *file.File, path string, opts *SetOptions) er
 	if last := opts.target(); last != nil {
 		fp.target.Set(base, last)
 	} else {
-		fp.target.Set(base, root.New(nil))
+		fp.target.Set(base, opts.setStat(root.New(nil)))
 	}
 	return nil
 }
