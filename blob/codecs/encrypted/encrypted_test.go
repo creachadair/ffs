@@ -50,6 +50,9 @@ func TestRoundTrip(t *testing.T) {
 		t.Error("Put did not invoke the initialization vector hook")
 	}
 
+	// Log the stored block for debugging purposes.
+	t.Logf("Stored block (%d bytes):\n%+v", encoded.Len(), encoded.Bytes())
+
 	// Verify that we can decode the blob to recover the original value.
 	var verify bytes.Buffer
 	src := encoded.String()
@@ -60,13 +63,10 @@ func TestRoundTrip(t *testing.T) {
 	}
 
 	// Verify that DecodedLen reflects the input size, not the encoded size.
-	size, err := e.DecodedLen(encoded.Bytes())
+	size, err := e.DecodedLen([]byte(src))
 	if err != nil {
 		t.Errorf("DecodedLen failed: %v", err)
 	} else if size != len(value) {
 		t.Errorf("DecodedLen: got %d, want %d", size, len(value))
 	}
-
-	// Log the stored block for debugging purposes.
-	t.Logf("Stored block (%d bytes):\n%+v", encoded.Len(), encoded.Bytes())
 }
