@@ -33,8 +33,15 @@ type fileData struct {
 	extents    []*extent
 }
 
+func (d *fileData) hasSplitConfig() bool {
+	return d.sc.Min != 0 || d.sc.Size != 0 || d.sc.Max != 0
+}
+
 // toProto converts d to wire encoding.
 func (d *fileData) toProto() *wirepb.Index {
+	if d.totalBytes == 0 && len(d.extents) == 0 && !d.hasSplitConfig() {
+		return nil
+	}
 	w := &wirepb.Index{
 		TotalBytes: uint64(d.totalBytes),
 		Extents:    make([]*wirepb.Extent, len(d.extents)),
@@ -65,14 +72,15 @@ func (d *fileData) toProto() *wirepb.Index {
 
 // fromProto replaces the contents of d from the wire encoding pb.
 func (d *fileData) fromProto(pb *wirepb.Index) {
-	d.totalBytes = int64(pb.TotalBytes)
-	d.extents = make([]*extent, len(pb.Extents))
+	d.totalBytes = int64(pb.GetTotalBytes())
+	d.extents = make([]*extent, len(pb.GetExtents()))
 
-	d.sc.Min = int(pb.SplitConfig.GetMin())
-	d.sc.Size = int(pb.SplitConfig.GetSize())
-	d.sc.Max = int(pb.SplitConfig.GetMax())
+	sc := pb.GetSplitConfig()
+	d.sc.Min = int(sc.GetMin())
+	d.sc.Size = int(sc.GetSize())
+	d.sc.Max = int(sc.GetMax())
 
-	for i, ext := range pb.Extents {
+	for i, ext := range pb.GetExtents() {
 		d.extents[i] = &extent{
 			base:   int64(ext.Base),
 			bytes:  int64(ext.Bytes),
