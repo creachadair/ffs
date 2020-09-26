@@ -20,6 +20,8 @@ import (
 	"bytes"
 	"compress/flate"
 	"compress/zlib"
+	"encoding/binary"
+	"errors"
 	"io"
 )
 
@@ -45,6 +47,12 @@ func NewCodec(level Level) Codec { return Codec{level} }
 
 // Encode compresses src via zlib and writes it to w.
 func (c Codec) Encode(w io.Writer, src []byte) error {
+	var buf [10]byte
+	n := binary.PutUvarint(buf[:], uint64(len(src)))
+	if _, err := w.Write(buf[:n]); err != nil {
+		return err
+	}
+
 	z, err := zlib.NewWriterLevel(w, int(c.level))
 	if err != nil {
 		return err
@@ -56,7 +64,11 @@ func (c Codec) Encode(w io.Writer, src []byte) error {
 
 // Decode decompresses src via zlib and writes it to w.
 func (Codec) Decode(w io.Writer, src []byte) error {
-	z, err := zlib.NewReader(bytes.NewReader(src))
+	_, n := binary.Uvarint(src)
+	if n <= 0 {
+		return errors.New("invalid length prefix")
+	}
+	z, err := zlib.NewReader(bytes.NewReader(src[n:]))
 	if err != nil {
 		return err
 	}
@@ -67,9 +79,9 @@ func (Codec) Decode(w io.Writer, src []byte) error {
 
 // DecodedLen reports the decoded length of src.
 func (c Codec) DecodedLen(src []byte) (int, error) {
-	var buf bytes.Buffer
-	if err := c.Decode(&buf, src); err != nil {
-		return 0, err
+	v, n := binary.Uvarint(src)
+	if n <= 0 {
+		return 0, errors.New("invalid length prefix")
 	}
-	return buf.Len(), nil
+	return int(v), nil
 }
