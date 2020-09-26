@@ -56,7 +56,12 @@ func TestPaths(t *testing.T) {
 		return got
 	}
 	createPath := func(path string, werr error) *file.File {
-		err := fpath.Set(ctx, root, path, &fpath.SetOptions{Create: true})
+		err := fpath.Set(ctx, root, path, &fpath.SetOptions{
+			Create: true,
+			SetStat: func(s *file.Stat) {
+				s.Mode = os.ModeDir | 0755
+			},
+		})
 		if !errorOK(err, werr) {
 			t.Errorf("CreatePath %q: got error %v, want %v", path, err, werr)
 		}
@@ -107,6 +112,20 @@ func TestPaths(t *testing.T) {
 		if got != want {
 			t.Errorf("Open returned the wrong file: got %+v, want %+v", got, want)
 		}
+	}
+
+	// Verify that the stat callback was properly invoked for intermediate paths
+	// components that we created.
+	for _, path := range []string{"/a", "/a/lasting"} {
+		got := openPath(path, nil).Stat().Mode
+		if want := os.ModeDir | 0755; got != want {
+			t.Errorf("Wrong intermediate path mode for %q: got %v, want %v", path, got, want)
+		}
+	}
+
+	// Verify that the stat callback was NOT invoked for the final element.
+	if got, want := openPath("/a/lasting/peace", nil).Stat().Mode, os.FileMode(0); got != want {
+		t.Errorf("Final path mode: got %v, want %v", got, want)
 	}
 
 	// Prefixes of an existing path should exist.

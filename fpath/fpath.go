@@ -70,6 +70,10 @@ type SetOptions struct {
 	// If true, create any path elements that do not exist along the path.
 	Create bool
 
+	// If not nil, this function is called for any intermediate path elements
+	// created along the path. It is not called for the final element.
+	SetStat func(*file.Stat)
+
 	// If not nil, insert this element at the end of the path.  If nil, a new
 	// empty file with default options is created.
 	File *file.File
@@ -82,6 +86,12 @@ func (s *SetOptions) target() *file.File {
 		return nil
 	}
 	return s.File
+}
+
+func (s *SetOptions) setStat(f *file.File) {
+	if s != nil && s.SetStat != nil {
+		f.SetStat(s.SetStat)
+	}
 }
 
 // Set traverses the given slash-separated path sequentially from root and
@@ -111,6 +121,7 @@ func Set(ctx context.Context, root *file.File, path string, opts *SetOptions) er
 		ef: func(fp *foundPath, err error) error {
 			if errors.Is(err, file.ErrChildNotFound) && opts.create() {
 				c := fp.target.New(&file.NewOptions{Name: fp.targetName})
+				opts.setStat(c)
 				fp.target.Set(fp.targetName, c)
 				fp.parent, fp.target = fp.target, c
 				return nil
