@@ -174,7 +174,7 @@ func TestRootRoundTrip(t *testing.T) {
 	// Set up an empty root, flush it out, read it back in, and check that the
 	// results look the same.
 
-	r := file.NewRoot(cas, "ROOT")
+	r := file.NewRoot(cas, nil)
 	rf := r.File()
 	rf.SetStat(func(s *file.Stat) {
 		s.Mode = 0135
@@ -186,7 +186,7 @@ func TestRootRoundTrip(t *testing.T) {
 	}
 	t.Logf("Root key: %x", rk)
 
-	c, err := file.OpenRoot(ctx, cas, "ROOT")
+	c, err := file.OpenRoot(ctx, cas, rk)
 	if err != nil {
 		t.Fatalf("Open root: %v", err)
 	}

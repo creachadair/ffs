@@ -25,32 +25,31 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-// A Root represents the state of a filesystem at a moment in time, including
-// the storage key of its root directory and any snapshots.
+// A Root represents the state of a file tree at a moment in time.  It carries
+// the key of its root file and a named collection of snapshots.
 type Root struct {
 	s    blob.CAS
-	name string       // pointer file name, e.g. "ROOT".
 	msg  *wirepb.Root // current root state
-	file *File        // root file pointer
+	file *File        // root file cache
 }
 
-// NewRoot creates a new empty root stored in s. The name is the storage key of
-// the pointer, which contains the content address of a *wirepb.Root message.
-func NewRoot(s blob.CAS, name string) *Root {
-	return &Root{s: s, name: name, msg: new(wirepb.Root), file: New(s, nil)}
+// NewRoot constructs a root by creating a new file in s. The resulting root
+// has an empty snapshots list.
+func NewRoot(s blob.CAS, opts *NewOptions) *Root {
+	return &Root{
+		s:    s,
+		msg:  new(wirepb.Root),
+		file: New(s, opts),
+	}
 }
 
-// OpenRoot opens the root message indicated by the given pointer name in s.
-func OpenRoot(ctx context.Context, s blob.CAS, name string) (*Root, error) {
-	key, err := s.Get(ctx, name)
+// OpenRoot opens a root from the given storage key in s.
+func OpenRoot(ctx context.Context, s blob.CAS, key string) (*Root, error) {
+	bits, err := s.Get(ctx, key)
 	if err != nil {
-		return nil, fmt.Errorf("reading pointer: %w", err)
+		return nil, fmt.Errorf("reading root: %v", err)
 	}
-	bits, err := s.Get(ctx, string(key))
-	if err != nil {
-		return nil, fmt.Errorf("reading root: %w", err)
-	}
-	out := &Root{s: s, name: name, msg: new(wirepb.Root)}
+	out := &Root{s: s, msg: new(wirepb.Root)}
 	if err := proto.Unmarshal(bits, out.msg); err != nil {
 		return nil, err
 	}
@@ -61,13 +60,23 @@ func OpenRoot(ctx context.Context, s blob.CAS, name string) (*Root, error) {
 	return out, nil
 }
 
-// File returns the root directory of r.
+// File returns the root file of r.
 func (r *Root) File() *File { return r.file }
 
-// Snapshot adds a snapshot with the specified label pointing to the current
-// filesystem root.  This has the side-effect of flushing the root directory.
-// The storage key of the updated root is returned.
-func (r *Root) Snapshot(ctx context.Context, name string) (string, error) {
+// Snapshot reports whether r has a snapshot with the given name, and if so
+// returns its current contents.
+func (r *Root) Snapshot(name string) (snap Snapshot, ok bool) {
+	if i := r.findSnapshot(name); i >= 0 {
+		snap.fromProto(r.msg.Snapshots[i])
+		return snap, true
+	}
+	return
+}
+
+// SetSnapshot creates or updates a snapshot with the given name, pointing to
+// the current state of the root file. This has the side-effect of flushing the
+// root file. It returns the storage key of the root file that was saved.
+func (r *Root) SetSnapshot(ctx context.Context, name string) (string, error) {
 	key, err := r.file.Flush(ctx)
 	if err != nil {
 		return "", err
@@ -77,7 +86,7 @@ func (r *Root) Snapshot(ctx context.Context, name string) (string, error) {
 		Name:    name,
 		Updated: time.Now(),
 	}.toProto())
-	return r.Flush(ctx)
+	return key, nil
 }
 
 // RemoveSnapshot removes a snapshot with the specified label from r, and
@@ -90,13 +99,13 @@ func (r *Root) RemoveSnapshot(name string) bool {
 	return false
 }
 
-// ListSnapshots returns the snapshots defined on r.
-func (r *Root) ListSnapshots() []Snapshot {
-	snaps := make([]Snapshot, len(r.msg.Snapshots))
+// Snapshots returns a slice of the snapshots of r.
+func (r *Root) Snapshots() []Snapshot {
+	out := make([]Snapshot, len(r.msg.Snapshots))
 	for i, snap := range r.msg.Snapshots {
-		snaps[i].fromProto(snap)
+		out[i].fromProto(snap)
 	}
-	return snaps
+	return out
 }
 
 // findSnapshot reports the location of the first snapshot with the specified
@@ -128,8 +137,9 @@ func (r *Root) addSnapshot(snap *wirepb.Root_Snapshot) {
 	r.msg.Snapshots = append(r.msg.Snapshots, snap)
 }
 
-// Flush flushes the root directory of r, writes the current state of the root
-// to storage, and updates the pointer. The storage key of the root is returned.
+// Flush writes the current contents of r to its associated storage key.  This
+// has the side-effect of flushing the root file. It returns the storage key of
+// the root blob.
 func (r *Root) Flush(ctx context.Context) (string, error) {
 	// Flush the root directory.
 	key, err := r.file.Flush(ctx)
@@ -137,23 +147,13 @@ func (r *Root) Flush(ctx context.Context) (string, error) {
 		return "", err
 	}
 
-	// Update the root message and obtain its storage key.
+	// Update the root storage key with the new state.
 	r.msg.Key = []byte(key)
 	bits, err := proto.Marshal(r.msg)
 	if err != nil {
 		return "", err
 	}
-	rkey, err := r.s.PutCAS(ctx, bits)
-	if err != nil {
-		return "", err
-	}
-
-	// Update the pointer and return the storage key.
-	return rkey, r.s.Put(ctx, blob.PutOptions{
-		Key:     r.name,
-		Data:    []byte(rkey),
-		Replace: true,
-	})
+	return r.s.PutCAS(ctx, bits)
 }
 
 // A Snapshot represents a point-in-time snapshot of the root.
