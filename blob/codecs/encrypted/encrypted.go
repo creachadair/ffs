@@ -149,13 +149,10 @@ type block struct {
 // parseBlock parses the binary encoding of a block, reporting an error if the
 // structure of the block is invalid.
 func parseBlock(from []byte) (block, error) {
-	if len(from) < 5 {
+	if len(from) == 0 || len(from) < 1+int(from[0])+4 {
 		return block{}, errors.New("parse: invalid block format")
 	}
 	ivLen := int(from[0])
-	if len(from) < 5+ivLen {
-		return block{}, errors.New("parse: invalid initialization vector")
-	}
 
 	// Copy the input data so that we do not clobber the caller's data.
 	return block{
