@@ -228,13 +228,13 @@ func (d *fileData) writeAt(ctx context.Context, s blob.CAS, data []byte, offset 
 	}
 
 	// Check whether we have created contiguous extents, and merge them if so.
-	if n := len(pre); n > 0 && pre[n-1].base+pre[n-1].bytes == merged.base {
+	if n := len(pre); n > 0 && pre[n-1].abuts(merged) {
 		merged.base = pre[n-1].base
 		merged.bytes += pre[n-1].bytes
 		merged.blocks = append(pre[n-1].blocks, merged.blocks...)
 		pre = pre[:n]
 	}
-	if len(post) > 0 && merged.base+merged.bytes == post[0].base {
+	if len(post) > 0 && merged.abuts(post[0]) {
 		merged.bytes += post[0].bytes
 		merged.blocks = append(merged.blocks, post[0].blocks...)
 		post = post[1:]
@@ -408,6 +408,9 @@ func (e *extent) findBlock(offset int64) (int, int64) {
 	}
 	return -1, -1
 }
+
+// abuts reports whether the end of e is contiguous with the beginning of o.
+func (e *extent) abuts(o *extent) bool { return e.base+e.bytes == o.base }
 
 // A block represents a single content-addressable block of file data.
 type block struct {
