@@ -512,7 +512,12 @@ func (x XAttr) Get(key string) (string, bool) { s, ok := x.f.xattr[key]; return 
 func (x XAttr) Set(key, value string) { defer x.f.inval(); x.f.xattr[key] = value }
 
 // Remove removes the specified xattr.
-func (x XAttr) Remove(key string) { defer x.f.inval(); delete(x.f.xattr, key) }
+func (x XAttr) Remove(key string) {
+	if _, ok := x.f.xattr[key]; ok {
+		delete(x.f.xattr, key)
+		x.f.inval()
+	}
+}
 
 // List calls attr with the key and value of each xattr in unspecified order.
 func (x XAttr) List(attr func(key, value string)) {
