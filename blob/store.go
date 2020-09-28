@@ -48,6 +48,10 @@ type Store interface {
 	// without error; otherwise Put must report an ErrKeyExists error.
 	Put(ctx context.Context, opts PutOptions) error
 
+	// Delete atomically removes a blob from the store. If the key is not found
+	// in the store, Delete must report an ErrKeyNotFound error.
+	Delete(ctx context.Context, key string) error
+
 	// Size reports the size in bytes of the value stored for key. If the key is
 	// not found in the store, Size must report an ErrKeyNotFound error.
 	Size(ctx context.Context, key string) (int64, error)
@@ -60,14 +64,6 @@ type Store interface {
 
 	// Len reports the number of keys currently in the store.
 	Len(ctx context.Context) (int64, error)
-}
-
-// Deleter is an optional interface that a store may implement if it supports
-// the ability to delete keys.
-type Deleter interface {
-	// Delete atomically removes a blob from the store. If the key is not found
-	// in the store, Delete must report an ErrKeyNotFound error.
-	Delete(ctx context.Context, key string) error
 }
 
 // Closer is an optional interface that a store may implement if it needs an

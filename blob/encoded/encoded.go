@@ -85,6 +85,12 @@ func (s *Store) Put(ctx context.Context, opts blob.PutOptions) error {
 	return s.real.Put(ctx, opts)
 }
 
+// Delete implements part of the blob.Store interface.
+// It delegates directly to the underlying store.
+func (s *Store) Delete(ctx context.Context, key string) error {
+	return s.real.Delete(ctx, key)
+}
+
 // Size implements part of the blob.Store interface. This implementation
 // requires access to the blob content, since the stored size of an encrypted
 // blob is not equivalent to the original.

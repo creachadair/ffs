@@ -93,7 +93,7 @@ func (s *Store) Size(_ context.Context, key string) (int64, error) {
 	return 0, fmt.Errorf("size %q: %w", key, blob.ErrKeyNotFound)
 }
 
-// Delete implements the blob.Deleter interface.
+// Delete implements part of blob.Store.
 func (s *Store) Delete(_ context.Context, key string) error {
 	s.μ.Lock()
 	defer s.μ.Unlock()

@@ -139,11 +139,7 @@ func opSize(key string, want int64, werr error) op {
 
 func opDelete(key string, werr error) op {
 	return func(ctx context.Context, t *testing.T, s blob.Store) {
-		d, ok := s.(blob.Deleter)
-		if !ok {
-			return
-		}
-		err := d.Delete(ctx, key)
+		err := s.Delete(ctx, key)
 		if !errorOK(err, werr) {
 			t.Errorf("s.Delete(%q): got error: %v, want: %v", key, err, werr)
 		}
@@ -192,13 +188,8 @@ func Run(t *testing.T, s blob.Store) {
 	for _, op := range script {
 		op(ctx, t, s)
 	}
-	del, ok := s.(blob.Deleter)
-	if ok {
-		for _, op := range delScript {
-			op(ctx, t, s)
-		}
-	} else {
-		t.Log("Skipped deletion tests: store does not support deletion")
+	for _, op := range delScript {
+		op(ctx, t, s)
 	}
 
 	// Exercise concurrency.
@@ -253,12 +244,10 @@ func Run(t *testing.T, s blob.Store) {
 				}
 			}
 
-			if ok {
-				for k := 1; k <= numKeys; k++ {
-					key := taskKey(i, k)
-					if err := del.Delete(ctx, key); err != nil {
-						t.Errorf("Task %d: s.Delete(%q) failed: %v", i, key, err)
-					}
+			for k := 1; k <= numKeys; k++ {
+				key := taskKey(i, k)
+				if err := s.Delete(ctx, key); err != nil {
+					t.Errorf("Task %d: s.Delete(%q) failed: %v", i, key, err)
 				}
 			}
 		}()
