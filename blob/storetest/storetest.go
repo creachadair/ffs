@@ -104,6 +104,7 @@ var delScript = []op{
 
 func opGet(key, want string, werr error) op {
 	return func(ctx context.Context, t *testing.T, s blob.Store) {
+		t.Helper()
 		got, err := s.Get(ctx, key)
 		if !errorOK(err, werr) {
 			t.Errorf("s.Get(%q): got error: %v, want: %v", key, err, werr)
@@ -115,6 +116,7 @@ func opGet(key, want string, werr error) op {
 
 func opPut(key, data string, replace bool, werr error) op {
 	return func(ctx context.Context, t *testing.T, s blob.Store) {
+		t.Helper()
 		err := s.Put(ctx, blob.PutOptions{
 			Key:     key,
 			Data:    []byte(data),
@@ -128,6 +130,7 @@ func opPut(key, data string, replace bool, werr error) op {
 
 func opSize(key string, want int64, werr error) op {
 	return func(ctx context.Context, t *testing.T, s blob.Store) {
+		t.Helper()
 		got, err := s.Size(ctx, key)
 		if !errorOK(err, werr) {
 			t.Errorf("s.Size(%q): got error: %v, want: %v", key, err, werr)
@@ -139,6 +142,7 @@ func opSize(key string, want int64, werr error) op {
 
 func opDelete(key string, werr error) op {
 	return func(ctx context.Context, t *testing.T, s blob.Store) {
+		t.Helper()
 		err := s.Delete(ctx, key)
 		if !errorOK(err, werr) {
 			t.Errorf("s.Delete(%q): got error: %v, want: %v", key, err, werr)
@@ -148,6 +152,7 @@ func opDelete(key string, werr error) op {
 
 func opList(from string, want ...string) op {
 	return func(ctx context.Context, t *testing.T, s blob.Store) {
+		t.Helper()
 		var got []string
 		err := s.List(ctx, from, func(key string) error {
 			got = append(got, key)
@@ -164,6 +169,7 @@ func opList(from string, want ...string) op {
 
 func opLen(want int64) op {
 	return func(ctx context.Context, t *testing.T, s blob.Store) {
+		t.Helper()
 		got, err := s.Len(ctx)
 		if err != nil {
 			t.Errorf("s.Len(): unexpected error: %v", err)
