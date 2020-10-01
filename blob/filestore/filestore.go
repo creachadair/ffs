@@ -134,7 +134,6 @@ func (s *Store) Delete(_ context.Context, key string) error {
 	if os.IsNotExist(err) {
 		return fmt.Errorf("key %q: %w", key, blob.ErrKeyNotFound)
 	}
-	_ = os.Remove(filepath.Dir(path)) // best effort, if empty
 	return err
 }
 
