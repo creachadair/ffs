@@ -65,8 +65,18 @@ func (d *fileData) toProto() *wirepb.Index {
 				Key:   []byte(blk.key),
 			}
 		}
+		// Special case: A single-block extent inherits its size from the extent.
+		if len(ext.blocks) == 1 {
+			x.Blocks[0].Bytes = 0
+		}
 		w.Extents[i] = x
 	}
+
+	// Special case: A single-extent index inherits its length from the total.
+	if len(d.extents) == 1 {
+		w.Extents[0].Bytes = 0 // inherit
+	}
+
 	return w
 }
 
@@ -91,6 +101,18 @@ func (d *fileData) fromProto(pb *wirepb.Index) {
 				bytes: int64(blk.Bytes),
 				key:   string(blk.Key),
 			}
+		}
+	}
+
+	// Special case: A single-extent index inherits its size from the total.
+	if len(d.extents) == 1 {
+		d.extents[0].bytes = d.totalBytes
+	}
+
+	// Special case: A single-block extent inherits its size from the extent.
+	for _, ext := range d.extents {
+		if len(ext.blocks) == 1 {
+			ext.blocks[0].bytes = ext.bytes
 		}
 	}
 }
