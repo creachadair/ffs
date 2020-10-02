@@ -44,8 +44,8 @@ var (
 
 // A Config contains the settings to construct a splitter.
 type Config struct {
-	// The rolling hash to use for splitting. If nil, DefaultHash is used.
-	Hash RollingHash
+	// Construct a rolling hash to use for splitting. If nil, use DefaultHash.
+	Hash func() RollingHash
 
 	// Minimum block size, in bytes. The splitter will not split a block until
 	// it is at least this size.
@@ -58,6 +58,13 @@ type Config struct {
 	// Maximum block size, in bytes. The splitter will split any block that
 	// exceeds this size, even if the rolling hash does not find a break.
 	Max int
+}
+
+func (c *Config) newHash() RollingHash {
+	if c == nil || c.Hash == nil {
+		return DefaultHash()
+	}
+	return c.Hash()
 }
 
 func (c *Config) min() int {
@@ -85,19 +92,13 @@ func (c *Config) max() int {
 // blocks using the rolling hash from c. A nil *Config is ready for use with
 // default sizes and hash settings.
 func New(r io.Reader, c *Config) *Splitter {
-	s := &Splitter{
+	return &Splitter{
 		reader: r,
+		hash:   c.newHash(),
 		min:    c.min(),
 		exp:    c.size(),
 		buf:    make([]byte, c.max()),
 	}
-	if c == nil || c.Hash == nil {
-		s.hash = DefaultHash()
-	} else {
-		s.hash = c.Hash
-		s.hash.Reset()
-	}
-	return s
 }
 
 // A Splitter wraps an underlying io.Reader to split the data from the reader

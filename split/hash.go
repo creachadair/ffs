@@ -16,9 +16,6 @@ package split
 
 // A RollingHash implements a rolling hash function over a window of byte data.
 type RollingHash interface {
-	// Reset restores the hash to its initial state.
-	Reset()
-
 	// Update shifts b into the window and returns the updated hash value.
 	Update(b byte) uint
 
@@ -47,12 +44,6 @@ func RabinKarpHash(base, modulus, windowSize int) RollingHash {
 		inv:  exptmod(base, windowSize-1, modulus),
 		buf:  make([]byte, windowSize),
 	}
-}
-
-// Reset resets m to its initial configuration.
-func (m *modHash) Reset() {
-	m.hash = 0
-	m.next = 0
 }
 
 // Update implements a required method of the RollingHash interface.
