@@ -113,7 +113,7 @@ type NewOptions struct {
 	// The block splitter configuration to use. If omitted, the default values
 	// from the split package are used. The block size limits are persisted in
 	// storage.
-	Split split.Config
+	Split *split.Config
 }
 
 // Open opens an existing file given its storage key in s.

@@ -19,6 +19,7 @@ import (
 	"context"
 	"crypto/sha1"
 	"io"
+	"math/rand"
 	"testing"
 
 	"github.com/creachadair/ffs/blob"
@@ -38,7 +39,7 @@ func TestIndex(t *testing.T) {
 	mem := memstore.New()
 	cas := blob.NewCAS(mem, sha1.New)
 	d := &fileData{
-		sc: split.Config{Min: 1024}, // in effect, "don't split"
+		sc: &split.Config{Min: 1024}, // in effect, "don't split"
 	}
 	ctx := context.Background()
 	writeString := func(s string, at int64) {
@@ -162,11 +163,19 @@ func TestReblocking(t *testing.T) {
 	mem := memstore.New()
 	cas := blob.NewCAS(mem, sha1.New)
 	d := &fileData{
-		sc: split.Config{Min: 100, Size: 512, Max: 8192},
+		sc: &split.Config{Min: 200, Size: 1024, Max: 8192},
 	}
-	ctx := context.Background()
-	fileData := bytes.Repeat([]byte("0123456789abcdef"), 285)
 
+	rand.Seed(1) // change to update test data
+
+	const alphabet = "0123456789abcdef"
+	var buf bytes.Buffer
+	for buf.Len() < 4000 {
+		buf.WriteByte(alphabet[rand.Intn(len(alphabet))])
+	}
+	fileData := buf.Bytes()
+
+	ctx := context.Background()
 	// Write the data in a bunch of small contiguous chunks, and verify that the
 	// result reblocks adjacent chunks.
 	i, nb := 0, 0
@@ -198,15 +207,20 @@ func TestReblocking(t *testing.T) {
 			t.Errorf("Wrong total size: got %d, want %d", total, len(fileData))
 		}
 	}
-	check(2977, 485, 595, 503) // manually checked
+	check(481, 2329, 413, 255, 522) // manually checked
 	t.Log("Index 1:\n", prototext.Format(d.toProto()))
 
 	// Now exactly overwrite one block, and verify that it updated its neighbor.
 	// Note that the tail of the original blocks should not be modified.
-	if _, err := d.writeAt(ctx, cas, bytes.Repeat([]byte("A"), 2977), 0); err != nil {
+	//
+	// Before: xxxx xxxxxxxxxxxxxxxxxxxxxxx xxxx xx xxxxx
+	// After:  AAAAAAAAAAAAAAAAAAAAxxxxxxxx xxxx xx xxxxx
+	// Write:  ^^^^^^^^^^^^^^^^^^^^         \----\--\---- unchanged
+	//
+	if _, err := d.writeAt(ctx, cas, bytes.Repeat([]byte("A"), 2000), 0); err != nil {
 		t.Fatalf("writeAt(ctx, A*2977, 0): unexpected error: %v", err)
 	}
-	check(771, 216, 2164, 311, 595, 503) // manually checked
+	check(2810, 413, 255, 522) // manually checked; note tail is stable
 	t.Log("Index 2:\n", prototext.Format(d.toProto()))
 
 	t.Log("Block manifest:")

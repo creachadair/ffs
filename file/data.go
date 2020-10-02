@@ -28,25 +28,21 @@ import (
 // Other than length, no metadata are preserved. File data are recorded as a
 // flat array of discontiguous extents.
 type fileData struct {
-	sc         split.Config
+	sc         *split.Config
 	totalBytes int64
 	extents    []*extent
 }
 
-func (d *fileData) hasSplitConfig() bool {
-	return d.sc.Min != 0 || d.sc.Size != 0 || d.sc.Max != 0
-}
-
 // toProto converts d to wire encoding.
 func (d *fileData) toProto() *wirepb.Index {
-	if d.totalBytes == 0 && len(d.extents) == 0 && !d.hasSplitConfig() {
+	if d.totalBytes == 0 && len(d.extents) == 0 && d.sc == nil {
 		return nil
 	}
 	w := &wirepb.Index{
 		TotalBytes: uint64(d.totalBytes),
 		Extents:    make([]*wirepb.Extent, len(d.extents)),
 	}
-	if d.sc.Min != 0 || d.sc.Size != 0 || d.sc.Max != 0 {
+	if d.sc != nil {
 		w.SplitConfig = &wirepb.SplitConfig{
 			Min:  int32(d.sc.Min),
 			Size: int32(d.sc.Size),
@@ -85,10 +81,13 @@ func (d *fileData) fromProto(pb *wirepb.Index) {
 	d.totalBytes = int64(pb.GetTotalBytes())
 	d.extents = make([]*extent, len(pb.GetExtents()))
 
-	sc := pb.GetSplitConfig()
-	d.sc.Min = int(sc.GetMin())
-	d.sc.Size = int(sc.GetSize())
-	d.sc.Max = int(sc.GetMax())
+	if sc := pb.GetSplitConfig(); sc != nil {
+		d.sc = &split.Config{
+			Min:  int(sc.Min),
+			Size: int(sc.Size),
+			Max:  int(sc.Max),
+		}
+	}
 
 	for i, ext := range pb.GetExtents() {
 		d.extents[i] = &extent{
@@ -348,7 +347,7 @@ func (d *fileData) splitBlobs(ctx context.Context, s blob.CAS, blobs ...[]byte) 
 	}
 
 	var blks []block
-	if err := d.sc.New(io.MultiReader(rs...)).Split(func(blk []byte) error {
+	if err := split.New(io.MultiReader(rs...), d.sc).Split(func(blk []byte) error {
 		key, err := s.PutCAS(ctx, blk)
 		if err != nil {
 			return err

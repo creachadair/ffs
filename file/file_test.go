@@ -38,7 +38,7 @@ func TestRoundTrip(t *testing.T) {
 	// verify that the original state was correctly restored.
 	f := file.New(cas, &file.NewOptions{
 		Stat:  file.Stat{Mode: 0640},
-		Split: split.Config{Min: 17, Size: 84, Max: 500},
+		Split: &split.Config{Min: 17, Size: 84, Max: 500},
 	})
 	if n := f.Size(); n != 0 {
 		t.Errorf("Size: got %d, want 0", n)
