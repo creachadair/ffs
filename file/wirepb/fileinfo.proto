@@ -98,22 +98,3 @@ message SplitConfig {
 
   // next id: 4
 }
-
-// A Root records the current state of a filesystem and its snapshots.
-message Root {
-  // The storage key of the current filesystem root.
-  bytes key = 1;
-
-  // Reverse time-ordered snapshots.
-  repeated Snapshot snapshots = 2;
-
-  // next id: 3
-
-  message Snapshot {
-    bytes key = 1;   // the storage key of the snapshot root
-    string name = 2; // an optional human-readable label for the snapshot
-
-    // When this snapshot was created or updated.
-    google.protobuf.Timestamp snap_time = 3;
-  }
-}
