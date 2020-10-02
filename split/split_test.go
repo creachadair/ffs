@@ -12,13 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package split
+package split_test
 
 import (
+	"bytes"
 	"io"
+	"math/rand"
 	"reflect"
 	"strings"
 	"testing"
+
+	"github.com/creachadair/ffs/split"
 )
 
 // burstyReader implements io.Reader, returning chunks from r whose size is
@@ -53,7 +57,7 @@ type dummyHash struct {
 	size  int
 }
 
-func (dummyHash) Reset() {}
+func (d dummyHash) cons() split.RollingHash { return d }
 
 func (d dummyHash) Update(in byte) uint {
 	if in == d.magic {
@@ -71,8 +75,11 @@ func TestSplitterMin(t *testing.T) {
 		hash:  12345,
 		size:  1,
 	}
-	c := Config{Hash: d, Min: minBytes}
-	s := c.New(strings.NewReader("abc|def|ghi|jkl|mno"))
+	r := strings.NewReader("abc|def|ghi|jkl|mno")
+	s := split.New(r, &split.Config{
+		Hash: d.cons,
+		Min:  minBytes,
+	})
 	b, err := s.Next()
 	if err != nil {
 		t.Fatal(err)
@@ -89,8 +96,11 @@ func TestSplitterMax(t *testing.T) {
 		hash: 12345,
 		size: 1,
 	}
-	c := Config{Hash: d, Max: maxBytes}
-	s := c.New(strings.NewReader("abc|def|ghi|jkl|mno"))
+	r := strings.NewReader("abc|def|ghi|jkl|mno")
+	s := split.New(r, &split.Config{
+		Hash: d.cons,
+		Max:  maxBytes,
+	})
 	b, err := s.Next()
 	if err != nil {
 		t.Fatal(err)
@@ -126,8 +136,12 @@ func TestSplitterBlocks(t *testing.T) {
 		size:  5,
 	}
 	for _, test := range tests {
-		c := Config{Hash: d, Min: test.min, Max: test.max}
-		s := c.New(newBurstyReader(test.input, 3, 5, 1, 4, 17, 20))
+		r := newBurstyReader(test.input, 3, 5, 1, 4, 17, 20)
+		s := split.New(r, &split.Config{
+			Hash: d.cons,
+			Min:  test.min,
+			Max:  test.max,
+		})
 		var bs []string
 		if err := s.Split(func(b []byte) error {
 			bs = append(bs, string(b))
@@ -138,5 +152,41 @@ func TestSplitterBlocks(t *testing.T) {
 		if !reflect.DeepEqual(bs, test.blocks) {
 			t.Errorf("split %q: got %+q, want %+q", test.input, bs, test.blocks)
 		}
+	}
+}
+
+func TestLongValue(t *testing.T) {
+	rand.Seed(1) // change to update test data
+
+	const alphabet = "abcdefghijklmnopqrstuvwxyz 0123456789"
+	const inputLen = 32000
+	var buf bytes.Buffer
+	for buf.Len() < inputLen {
+		buf.WriteByte(alphabet[rand.Intn(len(alphabet))])
+	}
+	cfg := &split.Config{
+		Min:  200,
+		Size: 800,
+		Max:  20000,
+	}
+	s := split.New(&buf, cfg)
+	var i, total int
+	if err := s.Split(func(blk []byte) error {
+		i++
+		total += len(blk)
+		t.Logf("Block %d :: %d bytes", i, len(blk))
+		if len(blk) < cfg.Min {
+			t.Errorf("Block too short: %d bytes < %d", len(blk), cfg.Min)
+
+			// N.B. This could legitimately happen at end of input.
+		} else if len(blk) > cfg.Max {
+			t.Errorf("Block too long: %d bytes > %d", len(blk), cfg.Max)
+		}
+		return nil
+	}); err != nil {
+		t.Errorf("Split failed: %v", err)
+	}
+	if total != inputLen {
+		t.Errorf("Total size of blocks: got %d, want %d", total, inputLen)
 	}
 }

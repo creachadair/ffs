@@ -60,31 +60,44 @@ type Config struct {
 	Max int
 }
 
-func pick(value, fallback int) int {
-	if value <= 0 {
-		return fallback
+func (c *Config) min() int {
+	if c == nil || c.Min <= 0 {
+		return DefaultMin
 	}
-	return value
+	return c.Min
 }
 
-func (c Config) min() int  { return pick(c.Min, DefaultMin) }
-func (c Config) size() int { return pick(c.Size, DefaultSize) }
-func (c Config) max() int  { return pick(c.Max, DefaultMax) }
+func (c *Config) size() int {
+	if c == nil || c.Size <= 0 {
+		return DefaultSize
+	}
+	return c.Size
+}
+
+func (c *Config) max() int {
+	if c == nil || c.Max <= 0 {
+		return DefaultMax
+	}
+	return c.Max
+}
 
 // New returns a splitter that reads its data from r and partitions it into
-// blocks using the rolling hash from c.
-func (c *Config) New(r io.Reader) *Splitter {
-	if c.Hash == nil {
-		c.Hash = DefaultHash()
-	}
-	c.Hash.Reset()
-	return &Splitter{
+// blocks using the rolling hash from c. A nil *Config is ready for use with
+// default sizes and hash settings.
+func New(r io.Reader, c *Config) *Splitter {
+	s := &Splitter{
 		reader: r,
-		hash:   c.Hash,
 		min:    c.min(),
 		exp:    c.size(),
 		buf:    make([]byte, c.max()),
 	}
+	if c == nil || c.Hash == nil {
+		s.hash = DefaultHash()
+	} else {
+		s.hash = c.Hash
+		s.hash.Reset()
+	}
+	return s
 }
 
 // A Splitter wraps an underlying io.Reader to split the data from the reader
