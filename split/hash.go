@@ -27,7 +27,7 @@ type RollingHash interface {
 func DefaultHash() RollingHash { return RabinKarpHash(1031, 2147483659, 48) }
 
 type modHash struct {
-	hash uint   // Current hash state.
+	hash int    // Current hash state.
 	base int    // Base for exponentiation.
 	mod  int    // Modulus, should usually be prime.
 	inv  int    // Base shifted by size-1 bytes, for subtraction.
@@ -52,13 +52,12 @@ func (m *modHash) Update(b byte) uint {
 	m.buf[m.next] = b
 	m.next = (m.next + 1) % len(m.buf)
 
-	h := m.base*(int(m.hash)-m.inv*int(out)) + int(b)
-	h %= m.mod
+	h := (m.base*(m.hash-m.inv*int(out)) + int(b)) % m.mod
+	m.hash = h
 	if h < 0 {
-		h += m.mod
+		return uint(h + m.mod)
 	}
-	m.hash = uint(h)
-	return m.hash
+	return uint(h)
 }
 
 // Size implements a required method of the RollingHash interface.
