@@ -115,3 +115,6 @@ func (s *Store) List(ctx context.Context, start string, f func(string) error) er
 // Len implements part of the blob.Store interface.
 // It delegates directly to the underlying store.
 func (s *Store) Len(ctx context.Context) (int64, error) { return s.real.Len(ctx) }
+
+// Close implements the blob.Closer interface.
+func (s *Store) Close(ctx context.Context) error { return blob.CloseStore(ctx, s.real) }
