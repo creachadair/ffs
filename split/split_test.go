@@ -170,11 +170,11 @@ func TestLongValue(t *testing.T) {
 		Max:  20000,
 	}
 	s := split.New(&buf, cfg)
-	var i, total int
+	var total int
+	var sizes []int
 	if err := s.Split(func(blk []byte) error {
-		i++
 		total += len(blk)
-		t.Logf("Block %d :: %d bytes", i, len(blk))
+		sizes = append(sizes, len(blk))
 		if len(blk) < cfg.Min {
 			t.Errorf("Block too short: %d bytes < %d", len(blk), cfg.Min)
 
@@ -186,6 +186,7 @@ func TestLongValue(t *testing.T) {
 	}); err != nil {
 		t.Errorf("Split failed: %v", err)
 	}
+	t.Logf("Split: %d blocks, %d bytes total :: %+v", len(sizes), total, sizes)
 	if total != inputLen {
 		t.Errorf("Total size of blocks: got %d, want %d", total, inputLen)
 	}
