@@ -24,12 +24,12 @@ import (
 
 // Stat records file stat metadata.
 type Stat struct {
-	Mode      os.FileMode
-	ModTime   time.Time
-	OwnerID   int    // numeric ID of file owner
-	OwnerName string // name of file owner
-	GroupID   int    // numeric ID of the file's primary group
-	GroupName string // name of the file's primary group
+	Mode      os.FileMode `json:"mode,omitempty"`
+	ModTime   time.Time   `json:"mod_time,omitempty"`
+	OwnerID   int         `json:"owner_id,omitempty"`   // numeric ID of file owner
+	OwnerName string      `json:"owner_name,omitempty"` // name of file owner
+	GroupID   int         `json:"group_id,omitempty"`   // numeric ID of the file's primary group
+	GroupName string      `json:"group_name,omitempty"` // name of the file's primary group
 
 	// To add additional metadata, add a field to this type and a corresponding
 	// field to the wirepb.Stat message, then update the toProto and fromProto
