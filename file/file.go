@@ -395,6 +395,7 @@ func (f *File) recFlush(ctx context.Context, path []*File) (string, error) {
 // Truncate modifies the length of f to end at offset, extending or contracting
 // it as necessary.
 func (f *File) Truncate(ctx context.Context, offset int64) error {
+	defer f.modify()
 	return f.data.truncate(ctx, f.s, offset)
 }
 
