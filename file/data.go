@@ -141,6 +141,7 @@ func (d *fileData) truncate(ctx context.Context, s blob.CAS, offset int64) error
 	if len(span) != 0 {
 		n := len(span) - 1
 		last := span[n]
+		span = span[:n]
 
 		// If the offset transects a block, read that block and write back its
 		// prefix. If the offset is exactly at the start of the block, we can
@@ -155,7 +156,7 @@ func (d *fileData) truncate(ctx context.Context, s blob.CAS, offset int64) error
 			if err != nil {
 				return err
 			}
-			span = append(span[:n], &extent{
+			span = append(span, &extent{
 				base:   last.base,
 				bytes:  offset - last.base,
 				blocks: append(keep, blks...),
