@@ -108,7 +108,7 @@ func TestRoundTrip(t *testing.T) {
 	}
 
 	// Exercise the scanner.
-	if err := g.Scan(ctx, func(key string, isFile bool) bool {
+	if err := f.Scan(ctx, func(key string, isFile bool) bool {
 		if isFile && key != fkey {
 			t.Errorf("File key: got %x, want %x", key, fkey)
 		} else {
