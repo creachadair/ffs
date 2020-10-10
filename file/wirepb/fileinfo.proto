@@ -50,8 +50,8 @@ message Stat {
 message Index {
   uint64 total_bytes = 1;
   repeated Extent extents = 2;
-  SplitConfig split_config = 3;
 
+  reserved 3;
   // next id: 4
 }
 
@@ -88,13 +88,4 @@ message Child {
   bytes key = 2;
 
   // next id: 3
-}
-
-// A SplitConfig records the block splitter preferences.
-message SplitConfig {
-  int32 min = 1;  // minimum block size
-  int32 size = 2; // target block size
-  int32 max = 3;  // maximum block size
-
-  // next id: 4
 }
