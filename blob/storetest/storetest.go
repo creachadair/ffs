@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package storetest provides correctness tests for impelmentations of the
+// Package storetest provides correctness tests for implementations of the
 // blob.Store interface.
 package storetest
 
