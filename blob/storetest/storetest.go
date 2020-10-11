@@ -260,6 +260,13 @@ func Run(t *testing.T, s blob.Store) {
 	}
 	wg.Wait()
 
+	// Verify that everything was properly cleaned up.
+	if n, err := s.Len(ctx); err != nil {
+		t.Errorf("Len failed: %v", err)
+	} else if n != 0 {
+		t.Errorf("Len at end: got %d, want 0", n)
+	}
+
 	if err := blob.CloseStore(ctx, s); err != nil {
 		t.Errorf("CloseStore failed: %v", err)
 	}
