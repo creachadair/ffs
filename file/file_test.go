@@ -17,7 +17,6 @@ package file_test
 import (
 	"context"
 	"crypto/sha1"
-	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -165,79 +164,4 @@ func TestCycleCheck(t *testing.T) {
 	} else {
 		t.Logf("Cyclic flush correctly failed: %v", err)
 	}
-}
-
-func TestView(t *testing.T) {
-	cas := blob.NewCAS(memstore.New(), sha1.New)
-	ctx := context.Background()
-	mustFlush := func(tag string, f *file.File) string {
-		key, err := f.Flush(ctx)
-		if err != nil {
-			t.Fatalf("Flush %s: %v", tag, err)
-		}
-		return key
-	}
-
-	// Create and store a file to manipulate in the tests below.
-	const fileText = "Hello, is there anybody in there?"
-
-	f := file.New(cas, nil)
-	if _, err := fmt.Fprintln(f.IO(ctx), fileText); err != nil {
-		t.Fatalf("Writing test file: %v", err)
-	}
-	fkey := mustFlush("test file", f)
-	t.Logf("Created test file %x", fkey)
-
-	// Open a view on the test file, make some changes, and verify that the
-	// changes are not persisted.
-	view, err := file.View(ctx, cas, fkey)
-	if err != nil {
-		t.Fatalf("Viewing: %v", err)
-	}
-	if _, err := fmt.Fprintln(view.IO(ctx), "Somebody that I used to know"); err != nil {
-		t.Fatalf("Writing view: %v", err)
-	}
-	viewKey := mustFlush("view", view)
-	if viewKey != fkey {
-		t.Errorf("Flush view: got key %x, want %x", viewKey, fkey)
-	}
-
-	// Create a view-only (virtual) file to use below.
-	// Flushing the file must not fail, but should not result in a key that can
-	// be fetched from our CAS.
-	virt := file.New(cas, &file.NewOptions{Virtual: true})
-	virt.Set("A", f)
-	virtKey, err := virt.Flush(ctx)
-	if err != nil {
-		t.Errorf("Flush virtual: unexpected error: %v", err)
-	}
-	if c, err := file.Open(ctx, cas, virtKey); err == nil {
-		t.Errorf("Open virtual: got %v, %v; want error", c, err)
-	}
-
-	// Create a file with v as its child.
-	g := file.New(cas, nil)
-	g.Set("view kid", view)
-	g.Set("virtual kid", virt)
-	g.Set("other", file.New(cas, nil)) // a non-view child
-	gkey := mustFlush("parent", g)
-
-	// Verify that the view chilren were not persisted, the other was.
-	h, err := file.Open(ctx, cas, gkey)
-	if err != nil {
-		t.Fatalf("Opening parent: %v", err)
-	}
-
-	if c, err := h.Open(ctx, "view kid"); !errors.Is(err, file.ErrChildNotFound) {
-		t.Errorf("Open view kid: got %v, %v; want error %v", c, err, file.ErrChildNotFound)
-	}
-	if c, err := h.Open(ctx, "virtual kid"); !errors.Is(err, file.ErrChildNotFound) {
-		t.Errorf("Open virtual kid: got %v, %v; want error %v", c, err, file.ErrChildNotFound)
-	}
-	if c, err := h.Open(ctx, "other"); err != nil {
-		t.Errorf("Open other: unexpected error: %v", err)
-	} else {
-		t.Logf("Open other succeeded for %x", mustFlush("other", c))
-	}
-
 }
