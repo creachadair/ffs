@@ -24,8 +24,13 @@ import (
 	"github.com/creachadair/ffs/blob"
 )
 
-// Store implements the blob.Store interface that delegates to an underlying
-// store through an in-memory cache.
+// Store implements a blob.Store that delegates to an underlying store through
+// an in-memory cache. This is appropriate for a high-latency or quota-limited
+// remote store (such as a GCS or S3 bucket) that will not be concurrently
+// written by other processes; concurrent readers are fine.
+//
+// Both reads and writes are cached, and the store writes through to the
+// underlying store.  Negative hits from Get and Size are also cached.
 type Store struct {
 	base blob.Store
 
@@ -76,16 +81,16 @@ func (s *Store) Put(ctx context.Context, opts blob.PutOptions) error {
 	return nil
 }
 
-// Delete implements a method of blob.Store.
+// Delete implements a method of blob.Store.  Although a successful Delete
+// certifies the key does not exist, deletes are not cached as negative hits.
+// This avoids cluttering the cache with keys for blobs whose content are not
+// interesting enough to fetch.
 func (s *Store) Delete(ctx context.Context, key string) error {
 	s.μ.Lock()
 	defer s.μ.Unlock()
 	if err := s.base.Delete(ctx, key); err != nil {
 		return err
 	}
-	// N.B. Although a successful Delete certifies the key does not exist, don't
-	// record it here. We don't want to wind up with every key in the store,
-	// just the ones that were interesting enough to fetch.
 	s.cache.drop(key)
 	return nil
 }
@@ -104,12 +109,12 @@ func (s *Store) Size(ctx context.Context, key string) (int64, error) {
 	return size, err
 }
 
-// List implements a method of blob.Store.
+// List implements a method of blob.Store. The results are not cached.
 func (s *Store) List(ctx context.Context, start string, f func(string) error) error {
 	return s.base.List(ctx, start, f)
 }
 
-// Len implements a method of blob.Store.
+// Len implements a method of blob.Store. This result is not cached.
 func (s *Store) Len(ctx context.Context) (int64, error) {
 	return s.base.Len(ctx)
 }
