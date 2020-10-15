@@ -20,7 +20,7 @@ import (
 	"io"
 
 	"github.com/creachadair/ffs/blob"
-	"github.com/creachadair/ffs/file/wirepb"
+	"github.com/creachadair/ffs/file/wiretype"
 	"github.com/creachadair/ffs/split"
 )
 
@@ -33,23 +33,23 @@ type fileData struct {
 	extents    []*extent
 }
 
-// toProto converts d to wire encoding.
-func (d *fileData) toProto() *wirepb.Index {
+// toWireType converts d to wire encoding.
+func (d *fileData) toWireType() *wiretype.Index {
 	if d.totalBytes == 0 && len(d.extents) == 0 {
 		return nil
 	}
-	w := &wirepb.Index{
+	w := &wiretype.Index{
 		TotalBytes: uint64(d.totalBytes),
-		Extents:    make([]*wirepb.Extent, len(d.extents)),
+		Extents:    make([]*wiretype.Extent, len(d.extents)),
 	}
 	for i, ext := range d.extents {
-		x := &wirepb.Extent{
+		x := &wiretype.Extent{
 			Base:   uint64(ext.base),
 			Bytes:  uint64(ext.bytes),
-			Blocks: make([]*wirepb.Block, len(ext.blocks)),
+			Blocks: make([]*wiretype.Block, len(ext.blocks)),
 		}
 		for j, blk := range ext.blocks {
-			x.Blocks[j] = &wirepb.Block{
+			x.Blocks[j] = &wiretype.Block{
 				Bytes: uint64(blk.bytes),
 				Key:   []byte(blk.key),
 			}
@@ -69,8 +69,8 @@ func (d *fileData) toProto() *wirepb.Index {
 	return w
 }
 
-// fromProto replaces the contents of d from the wire encoding pb.
-func (d *fileData) fromProto(pb *wirepb.Index) {
+// fromWireType replaces the contents of d from the wire encoding pb.
+func (d *fileData) fromWireType(pb *wiretype.Index) {
 	d.totalBytes = int64(pb.GetTotalBytes())
 	d.extents = make([]*extent, len(pb.GetExtents()))
 

@@ -18,51 +18,56 @@ import (
 	"os"
 	"time"
 
-	"github.com/creachadair/ffs/file/wirepb"
-	"google.golang.org/protobuf/types/known/timestamppb"
+	"github.com/creachadair/ffs/file/wiretype"
 )
 
 // Stat records file stat metadata.
 type Stat struct {
-	Mode      os.FileMode `json:"mode,omitempty"`
-	ModTime   time.Time   `json:"mod_time,omitempty"`
-	OwnerID   int         `json:"owner_id,omitempty"`   // numeric ID of file owner
-	OwnerName string      `json:"owner_name,omitempty"` // name of file owner
-	GroupID   int         `json:"group_id,omitempty"`   // numeric ID of the file's primary group
-	GroupName string      `json:"group_name,omitempty"` // name of the file's primary group
+	Mode    os.FileMode `json:"mode,omitempty"`
+	ModTime time.Time   `json:"mod_time,omitempty"`
+
+	// Numeric ID and name of file owner.
+	OwnerID   int    `json:"owner_id,omitempty"`
+	OwnerName string `json:"owner_name,omitempty"`
+
+	// Numeric ID and name of file group.
+	GroupID   int    `json:"group_id,omitempty"`
+	GroupName string `json:"group_name,omitempty"`
 
 	// To add additional metadata, add a field to this type and a corresponding
-	// field to the wirepb.Stat message, then update the toProto and fromProto
+	// field to wiretype.Stat, then update the toWireType and fromWireType
 	// methods to encode and decode the value.
 }
 
-func (s Stat) toProto() *wirepb.Stat {
-	pb := &wirepb.Stat{
+// toWireType encodes s as an equivalent wiretype.Stat.
+func (s Stat) toWireType() *wiretype.Stat {
+	pb := &wiretype.Stat{
 		Mode:      uint32(s.Mode),
-		OwnerId:   uint64(s.OwnerID),
+		OwnerID:   uint64(s.OwnerID),
 		OwnerName: s.OwnerName,
-		GroupId:   uint64(s.GroupID),
+		GroupID:   uint64(s.GroupID),
 		GroupName: s.GroupName,
 	}
 	if !s.ModTime.IsZero() {
-		pb.ModTime = &timestamppb.Timestamp{
-			Seconds: int64(s.ModTime.Unix()),
-			Nanos:   int32(s.ModTime.Nanosecond()),
+		pb.ModTime = &wiretype.Time{
+			Seconds: s.ModTime.Unix(),
+			Nanos:   int64(s.ModTime.Nanosecond()),
 		}
 	}
 	return pb
 }
 
-func (s *Stat) fromProto(pb *wirepb.Stat) {
+// fromWireType decodes pb into s.
+func (s *Stat) fromWireType(pb *wiretype.Stat) {
 	if pb == nil {
 		return // no stat was persisted for this file
 	}
-	s.Mode = os.FileMode(pb.GetMode())
-	s.OwnerID = int(pb.GetOwnerId())
-	s.OwnerName = pb.GetOwnerName()
-	s.GroupID = int(pb.GetGroupId())
-	s.GroupName = pb.GetGroupName()
-	if pb.ModTime != nil {
-		s.ModTime = time.Unix(pb.ModTime.Seconds, int64(pb.ModTime.Nanos))
+	s.Mode = os.FileMode(pb.Mode)
+	s.OwnerID = int(pb.OwnerID)
+	s.OwnerName = pb.OwnerName
+	s.GroupID = int(pb.GroupID)
+	s.GroupName = pb.GroupName
+	if t := pb.ModTime; t != nil {
+		s.ModTime = time.Unix(t.Seconds, t.Nanos)
 	}
 }

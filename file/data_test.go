@@ -26,7 +26,6 @@ import (
 	"github.com/creachadair/ffs/blob/memstore"
 	"github.com/creachadair/ffs/split"
 	"github.com/google/go-cmp/cmp"
-	"google.golang.org/protobuf/encoding/prototext"
 )
 
 func hashOf(s string) string {
@@ -208,7 +207,6 @@ func TestReblocking(t *testing.T) {
 		}
 	}
 	check(481, 2329, 413, 255, 522) // manually checked
-	t.Log("Index 1:\n", prototext.Format(d.toProto()))
 
 	// Now exactly overwrite one block, and verify that it updated its neighbor.
 	// Note that the tail of the original blocks should not be modified.
@@ -221,7 +219,6 @@ func TestReblocking(t *testing.T) {
 		t.Fatalf("writeAt(ctx, A*2977, 0): unexpected error: %v", err)
 	}
 	check(2810, 413, 255, 522) // manually checked; note tail is stable
-	t.Log("Index 2:\n", prototext.Format(d.toProto()))
 
 	t.Log("Block manifest:")
 	d.blocks(func(size int64, key string) {
