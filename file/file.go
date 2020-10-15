@@ -19,8 +19,8 @@
 // a directory, which can contain other files in a Merkle tree structure.
 //
 // A File is addressed by a storage key, corresponding to the current state of
-// its content and metadata. File metadata are stored as wire-format protocol
-// buffer messages using the wirepb.Node message in file/wirepb/wire.proto.
+// its content and metadata. File metadata are stored as a binpack message
+// defined in file/wiretype/types.go.
 //
 // Basic usage:
 //
@@ -64,10 +64,10 @@ import (
 	"sort"
 	"time"
 
+	"github.com/creachadair/binpack"
 	"github.com/creachadair/ffs/blob"
-	"github.com/creachadair/ffs/file/wirepb"
+	"github.com/creachadair/ffs/file/wiretype"
 	"github.com/creachadair/ffs/split"
-	"google.golang.org/protobuf/proto"
 )
 
 // New constructs a new, empty File with the given options and backed by s. The
@@ -106,12 +106,12 @@ type NewOptions struct {
 
 // Open opens an existing file given its storage key in s.
 func Open(ctx context.Context, s blob.CAS, key string) (*File, error) {
-	var node wirepb.Node
-	if err := loadProto(ctx, s, key, &node); err != nil {
+	var node wiretype.Node
+	if err := loadWireType(ctx, s, key, &node); err != nil {
 		return nil, fmt.Errorf("loading file %q: %w", key, err)
 	}
 	f := &File{s: s, key: key}
-	f.fromProto(&node)
+	f.fromWireType(&node)
 	return f, nil
 }
 
@@ -119,7 +119,7 @@ func Open(ctx context.Context, s blob.CAS, key string) (*File, error) {
 type File struct {
 	s    blob.CAS
 	name string // if this file is a child, its attributed name
-	key  string // the storage key for the file record (wirepb.Node)
+	key  string // the storage key for the file record (wiretype.Node)
 
 	offset   int64 // current seek position (≥ 0)
 	stat     Stat  // file metadata
@@ -345,7 +345,7 @@ func (f *File) recFlush(ctx context.Context, path []*File) (string, error) {
 	}
 
 	if needsUpdate {
-		key, err := saveProto(ctx, f.s, f.toProto())
+		key, err := saveWireType(ctx, f.s, f.toWireType())
 		if err != nil {
 			return "", fmt.Errorf("flushing file %q: %w", key, err)
 		}
@@ -414,22 +414,22 @@ func (f *File) IO(ctx context.Context) IO { return IO{ctx: ctx, f: f} }
 // XAttr returns a view of the extended attributes of f.
 func (f *File) XAttr() XAttr { return XAttr{f: f} }
 
-func (f *File) fromProto(pb *wirepb.Node) {
+func (f *File) fromWireType(pb *wiretype.Node) {
 	f.data = fileData{} // reset
-	f.data.fromProto(pb.Index)
-	f.stat.fromProto(pb.Stat)
+	f.data.fromWireType(pb.Index)
+	f.stat.fromWireType(pb.Stat)
 	f.saveStat = pb.Stat != nil
 
 	f.xattr = make(map[string]string)
 	for _, xa := range pb.XAttrs {
-		f.xattr[xa.GetName()] = string(xa.GetValue())
+		f.xattr[xa.Name] = string(xa.Value)
 	}
 
 	f.kids = nil
 	for _, kid := range pb.Children {
 		f.kids = append(f.kids, child{
-			Name: kid.GetName(),
-			Key:  string(kid.GetKey()),
+			Name: kid.Name,
+			Key:  string(kid.Key),
 		})
 	}
 	sort.Slice(f.kids, func(i, j int) bool {
@@ -437,13 +437,13 @@ func (f *File) fromProto(pb *wirepb.Node) {
 	})
 }
 
-func (f *File) toProto() *wirepb.Node {
-	n := &wirepb.Node{Index: f.data.toProto()}
+func (f *File) toWireType() *wiretype.Node {
+	n := &wiretype.Node{Index: f.data.toWireType()}
 	if f.saveStat {
-		n.Stat = f.stat.toProto()
+		n.Stat = f.stat.toWireType()
 	}
 	for name, value := range f.xattr {
-		n.XAttrs = append(n.XAttrs, &wirepb.XAttr{
+		n.XAttrs = append(n.XAttrs, &wiretype.XAttr{
 			Name:  name,
 			Value: []byte(value),
 		})
@@ -452,7 +452,7 @@ func (f *File) toProto() *wirepb.Node {
 		return n.XAttrs[i].Name < n.XAttrs[j].Name
 	})
 	for _, kid := range f.kids {
-		n.Children = append(n.Children, &wirepb.Child{
+		n.Children = append(n.Children, &wiretype.Child{
 			Name: kid.Name,
 			Key:  []byte(kid.Key),
 		})
@@ -486,18 +486,18 @@ func (x XAttr) List(attr func(key, value string)) {
 	}
 }
 
-func saveProto(ctx context.Context, s blob.CAS, msg proto.Message) (string, error) {
-	bits, err := proto.Marshal(msg)
+func saveWireType(ctx context.Context, s blob.CAS, msg interface{}) (string, error) {
+	bits, err := binpack.Marshal(msg)
 	if err != nil {
 		return "", fmt.Errorf("encoding message: %w", err)
 	}
 	return s.PutCAS(ctx, bits)
 }
 
-func loadProto(ctx context.Context, s blob.CAS, key string, msg proto.Message) error {
+func loadWireType(ctx context.Context, s blob.CAS, key string, msg interface{}) error {
 	bits, err := s.Get(ctx, key)
 	if err != nil {
 		return fmt.Errorf("loading message: %w", err)
 	}
-	return proto.Unmarshal(bits, msg)
+	return binpack.Unmarshal(bits, msg)
 }
