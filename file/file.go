@@ -417,7 +417,7 @@ func (f *File) XAttr() XAttr { return XAttr{f: f} }
 func (f *File) fromWireType(pb *wiretype.Node) {
 	f.data = fileData{} // reset
 	f.data.fromWireType(pb.Index)
-	f.stat.fromWireType(pb.Stat)
+	f.stat.FromWireType(pb.Stat)
 	f.saveStat = pb.Stat != nil
 
 	f.xattr = make(map[string]string)
