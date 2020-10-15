@@ -43,20 +43,6 @@ type Index struct {
 	// next id: 3
 }
 
-func (x *Index) GetTotalBytes() uint64 {
-	if x == nil {
-		return 0
-	}
-	return x.TotalBytes
-}
-
-func (x *Index) GetExtents() []*Extent {
-	if x == nil {
-		return nil
-	}
-	return x.Extents
-}
-
 // An Extent describes a single contiguous span of stored data.
 type Extent struct {
 	Base   uint64   `binpack:"tag=1" json:"base"`

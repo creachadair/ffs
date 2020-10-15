@@ -71,19 +71,21 @@ func (d *fileData) toWireType() *wiretype.Index {
 
 // fromWireType replaces the contents of d from the wire encoding pb.
 func (d *fileData) fromWireType(pb *wiretype.Index) {
-	d.totalBytes = int64(pb.GetTotalBytes())
-	d.extents = make([]*extent, len(pb.GetExtents()))
+	if pb != nil {
+		d.totalBytes = int64(pb.TotalBytes)
+		d.extents = make([]*extent, len(pb.Extents))
 
-	for i, ext := range pb.GetExtents() {
-		d.extents[i] = &extent{
-			base:   int64(ext.Base),
-			bytes:  int64(ext.Bytes),
-			blocks: make([]block, len(ext.Blocks)),
-		}
-		for j, blk := range ext.Blocks {
-			d.extents[i].blocks[j] = block{
-				bytes: int64(blk.Bytes),
-				key:   string(blk.Key),
+		for i, ext := range pb.Extents {
+			d.extents[i] = &extent{
+				base:   int64(ext.Base),
+				bytes:  int64(ext.Bytes),
+				blocks: make([]block, len(ext.Blocks)),
+			}
+			for j, blk := range ext.Blocks {
+				d.extents[i].blocks[j] = block{
+					bytes: int64(blk.Bytes),
+					key:   string(blk.Key),
+				}
 			}
 		}
 	}
