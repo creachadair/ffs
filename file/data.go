@@ -54,51 +54,32 @@ func (d *fileData) toWireType() *wiretype.Index {
 				Key:   []byte(blk.key),
 			}
 		}
-		// Special case: A single-block extent inherits its size from the extent.
-		if len(ext.blocks) == 1 && ext.blocks[0].bytes == ext.bytes {
-			x.Blocks[0].Bytes = 0 // inherit
-		}
 		w.Extents[i] = x
 	}
-
-	// Special case: A single-extent index inherits its length from the total.
-	if len(d.extents) == 1 && d.extents[0].bytes == d.totalBytes {
-		w.Extents[0].Bytes = 0 // inherit
-	}
-
+	w.Normalize()
 	return w
 }
 
 // fromWireType replaces the contents of d from the wire encoding pb.
 func (d *fileData) fromWireType(pb *wiretype.Index) {
-	if pb != nil {
-		d.totalBytes = int64(pb.TotalBytes)
-		d.extents = make([]*extent, len(pb.Extents))
+	if pb == nil {
+		return
+	}
+	pb.Normalize()
+	d.totalBytes = int64(pb.TotalBytes)
+	d.extents = make([]*extent, len(pb.Extents))
 
-		for i, ext := range pb.Extents {
-			d.extents[i] = &extent{
-				base:   int64(ext.Base),
-				bytes:  int64(ext.Bytes),
-				blocks: make([]block, len(ext.Blocks)),
-			}
-			for j, blk := range ext.Blocks {
-				d.extents[i].blocks[j] = block{
-					bytes: int64(blk.Bytes),
-					key:   string(blk.Key),
-				}
-			}
+	for i, ext := range pb.Extents {
+		d.extents[i] = &extent{
+			base:   int64(ext.Base),
+			bytes:  int64(ext.Bytes),
+			blocks: make([]block, len(ext.Blocks)),
 		}
-	}
-
-	// Special case: A single-extent index inherits its size from the total.
-	if len(d.extents) == 1 && d.extents[0].bytes == 0 {
-		d.extents[0].bytes = d.totalBytes
-	}
-
-	// Special case: A single-block extent inherits its size from the extent.
-	for _, ext := range d.extents {
-		if len(ext.blocks) == 1 && ext.blocks[0].bytes == 0 {
-			ext.blocks[0].bytes = ext.bytes
+		for j, blk := range ext.Blocks {
+			d.extents[i].blocks[j] = block{
+				bytes: int64(blk.Bytes),
+				key:   string(blk.Key),
+			}
 		}
 	}
 }
