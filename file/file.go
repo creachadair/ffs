@@ -415,6 +415,7 @@ func (f *File) IO(ctx context.Context) IO { return IO{ctx: ctx, f: f} }
 func (f *File) XAttr() XAttr { return XAttr{f: f} }
 
 func (f *File) fromWireType(pb *wiretype.Node) {
+	pb.Normalize()
 	f.data = fileData{} // reset
 	f.data.fromWireType(pb.Index)
 	f.stat.FromWireType(pb.Stat)
@@ -432,9 +433,6 @@ func (f *File) fromWireType(pb *wiretype.Node) {
 			Key:  string(kid.Key),
 		})
 	}
-	sort.Slice(f.kids, func(i, j int) bool {
-		return f.kids[i].Name < f.kids[j].Name
-	})
 }
 
 func (f *File) toWireType() *wiretype.Node {
@@ -448,15 +446,13 @@ func (f *File) toWireType() *wiretype.Node {
 			Value: []byte(value),
 		})
 	}
-	sort.Slice(n.XAttrs, func(i, j int) bool {
-		return n.XAttrs[i].Name < n.XAttrs[j].Name
-	})
 	for _, kid := range f.kids {
 		n.Children = append(n.Children, &wiretype.Child{
 			Name: kid.Name,
 			Key:  []byte(kid.Key),
 		})
 	}
+	n.Normalize()
 	return n
 }
 
