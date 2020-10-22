@@ -3,6 +3,8 @@
 // These types are annotated for use with the github.com/creachadair/binpack package.
 package wiretype
 
+import "sort"
+
 // A Node is the top-level encoding of a a file.
 type Node struct {
 	Index    *Index   `binpack:"tag=1" json:"index,omitempty"`    // file contents
@@ -11,6 +13,17 @@ type Node struct {
 	Children []*Child `binpack:"tag=4" json:"children,omitempty"` // child file pointers
 
 	// next id: 5
+}
+
+// Normalize updates n in-place so that all fields are in canonical order.
+func (n *Node) Normalize() {
+	n.Index.Normalize()
+	sort.Slice(n.XAttrs, func(i, j int) bool {
+		return n.XAttrs[i].Name < n.XAttrs[j].Name
+	})
+	sort.Slice(n.Children, func(i, j int) bool {
+		return n.Children[i].Name < n.Children[j].Name
+	})
 }
 
 // Stat records POSIX style file metadata. Other than the modification time,
@@ -41,6 +54,16 @@ type Index struct {
 	Extents    []*Extent `binpack:"tag=2" json:"extents,omitempty"`
 
 	// next id: 3
+}
+
+// Normalize updates n in-place so that all fields are in canonical order.
+func (x *Index) Normalize() {
+	if x == nil {
+		return
+	}
+	sort.Slice(x.Extents, func(i, j int) bool {
+		return x.Extents[i].Base < x.Extents[j].Base
+	})
 }
 
 // An Extent describes a single contiguous span of stored data.
