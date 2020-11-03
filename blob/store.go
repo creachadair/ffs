@@ -107,6 +107,12 @@ var (
 	ErrStopListing = errors.New("stop listing keys")
 )
 
+// IsKeyNotFound reports whether err or is or wraps ErrKeyNotFound.
+// It is false if err == nil.
+func IsKeyNotFound(err error) bool {
+	return err != nil && errors.Is(err, ErrKeyNotFound)
+}
+
 // A CAS is a content-addressable wrapper that delegates to a blob.Store.  It
 // adds a PutCAS method that writes blobs keyed by their content.
 type CAS struct {

@@ -18,7 +18,6 @@ package cachestore
 
 import (
 	"context"
-	"errors"
 	"sync"
 
 	"github.com/creachadair/ffs/blob"
@@ -60,7 +59,7 @@ func (s *Store) Get(ctx context.Context, key string) ([]byte, error) {
 	}
 	data, err := s.base.Get(ctx, key)
 	if err != nil {
-		if errors.Is(err, blob.ErrKeyNotFound) {
+		if blob.IsKeyNotFound(err) {
 			s.nexist[key] = true
 		}
 		return nil, err
@@ -103,7 +102,7 @@ func (s *Store) Size(ctx context.Context, key string) (int64, error) {
 		return 0, blob.ErrKeyNotFound
 	}
 	size, err := s.base.Size(ctx, key)
-	if errors.Is(err, blob.ErrKeyNotFound) {
+	if blob.IsKeyNotFound(err) {
 		s.nexist[key] = true
 	}
 	return size, err
