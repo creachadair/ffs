@@ -9,5 +9,3 @@ require (
 	github.com/golang/snappy v0.0.2
 	github.com/google/go-cmp v0.5.2
 )
-
-replace github.com/creachadair/jrpc2 => ../jrpc2
