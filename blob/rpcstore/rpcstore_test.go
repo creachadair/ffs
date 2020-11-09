@@ -16,6 +16,8 @@ package rpcstore_test
 
 import (
 	"context"
+	"crypto/sha1"
+	"fmt"
 	"testing"
 
 	"github.com/creachadair/ffs/blob/memstore"
@@ -28,7 +30,7 @@ import (
 
 func TestStore(t *testing.T) {
 	mem := memstore.New()
-	svc := rpcstore.NewService(mem)
+	svc := rpcstore.NewService(mem, nil)
 
 	loc := server.NewLocal(handler.ServiceMap{
 		"Blob": handler.NewService(svc),
@@ -44,5 +46,27 @@ func TestStore(t *testing.T) {
 	storetest.Run(t, rs)
 	if err := loc.Close(); err != nil {
 		t.Fatalf("Server close: %v", err)
+	}
+}
+
+func TestCAS(t *testing.T) {
+	mem := memstore.New()
+	svc := rpcstore.NewService(mem, &rpcstore.ServiceOpts{
+		Hash: sha1.New,
+	})
+
+	loc := server.NewLocal(handler.NewService(svc), nil)
+	defer loc.Close()
+
+	// echo "abcde" | shasum -a 1
+	const input = "abcde\n"
+	const want = "ec11312386ad561674f724b8cca7cf1796e26d1d"
+
+	rs := rpcstore.NewClient(loc.Client, "")
+	key, err := rs.PutCAS(context.Background(), []byte(input))
+	if err != nil {
+		t.Errorf("PutCAS(%q) failed: %v", input, err)
+	} else if got := fmt.Sprintf("%x", key); got != want {
+		t.Errorf("PutCAS(%q): got key %q, want %q", input, got, want)
 	}
 }

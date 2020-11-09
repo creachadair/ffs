@@ -18,6 +18,8 @@ package rpcstore
 
 import (
 	"context"
+	"errors"
+	"hash"
 
 	"github.com/creachadair/ffs/blob"
 	"github.com/creachadair/jrpc2"
@@ -25,11 +27,29 @@ import (
 
 // Service implements a service that adapts RPC requests to a blob.Store.
 type Service struct {
-	st blob.Store
+	st      blob.Store
+	newHash func() hash.Hash
 }
 
 // NewService constructs a Service that delegates to the given blob.Store.
-func NewService(st blob.Store) Service { return Service{st: st} }
+func NewService(st blob.Store, opts *ServiceOpts) Service {
+	s := Service{st: st}
+	opts.set(&s)
+	return s
+}
+
+// ServiceOpts provides optional settings for constructing a Service.
+type ServiceOpts struct {
+	// Enable content-addressable storage (PutCAS) using this hash.
+	Hash func() hash.Hash
+}
+
+func (o *ServiceOpts) set(s *Service) {
+	if o == nil {
+		return
+	}
+	s.newHash = o.Hash
+}
 
 // Get handles the corresponding method of blob.Store.
 func (s Service) Get(ctx context.Context, req *KeyRequest) ([]byte, error) {
@@ -44,6 +64,16 @@ func (s Service) Put(ctx context.Context, req *PutRequest) error {
 		Data:    req.Data,
 		Replace: req.Replace,
 	}))
+}
+
+// PutCAS implements content-addressable storage if the service has a hash
+// constructor installed.
+func (s Service) PutCAS(ctx context.Context, req *DataRequest) ([]byte, error) {
+	if s.newHash == nil {
+		return nil, errors.New("no content hash is set")
+	}
+	key, err := blob.NewCAS(s.st, s.newHash).PutCAS(ctx, req.Data)
+	return []byte(key), err
 }
 
 // Delete handles the corresponding method of blob.Store.
@@ -108,6 +138,13 @@ func (s Store) Put(ctx context.Context, opts blob.PutOptions) error {
 		Replace: opts.Replace,
 	})
 	return unfilterErr(err)
+}
+
+// PutCAS implements a content-addressable storage wrapper.
+func (s Store) PutCAS(ctx context.Context, data []byte) (string, error) {
+	var key []byte
+	err := s.cli.CallResult(ctx, s.prefix+"PutCAS", &DataRequest{Data: data}, &key)
+	return string(key), err
 }
 
 // Delete implements a method of blob.Store.
