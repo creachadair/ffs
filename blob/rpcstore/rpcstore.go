@@ -76,6 +76,15 @@ func (s Service) PutCAS(ctx context.Context, req *DataRequest) ([]byte, error) {
 	return []byte(key), err
 }
 
+// CASKey computes and returns the hash key for the specified data, if the
+// service has a hash constructor installed.
+func (s Service) CASKey(ctx context.Context, req *DataRequest) ([]byte, error) {
+	if s.newHash == nil {
+		return nil, errors.New("no content hash is set")
+	}
+	return []byte(blob.NewCAS(s.st, s.newHash).Key(req.Data)), nil
+}
+
 // Delete handles the corresponding method of blob.Store.
 func (s Service) Delete(ctx context.Context, req *KeyRequest) error {
 	return filterErr(s.st.Delete(ctx, string(req.Key)))
@@ -140,10 +149,17 @@ func (s Store) Put(ctx context.Context, opts blob.PutOptions) error {
 	return unfilterErr(err)
 }
 
-// PutCAS implements a content-addressable storage wrapper.
+// PutCAS emulates part of the blob.CAS type.
 func (s Store) PutCAS(ctx context.Context, data []byte) (string, error) {
 	var key []byte
 	err := s.cli.CallResult(ctx, s.prefix+"PutCAS", &DataRequest{Data: data}, &key)
+	return string(key), err
+}
+
+// CASKey emulates part of the blob.CAS type.
+func (s Store) CASKey(ctx context.Context, data []byte) (string, error) {
+	var key []byte
+	err := s.cli.CallResult(ctx, s.prefix+"CASKey", &DataRequest{Data: data}, &key)
 	return string(key), err
 }
 

@@ -63,10 +63,20 @@ func TestCAS(t *testing.T) {
 	const want = "ec11312386ad561674f724b8cca7cf1796e26d1d"
 
 	rs := rpcstore.NewClient(loc.Client, "")
-	key, err := rs.PutCAS(context.Background(), []byte(input))
-	if err != nil {
-		t.Errorf("PutCAS(%q) failed: %v", input, err)
-	} else if got := fmt.Sprintf("%x", key); got != want {
-		t.Errorf("PutCAS(%q): got key %q, want %q", input, got, want)
-	}
+	t.Run("PutCAS", func(t *testing.T) {
+		key, err := rs.PutCAS(context.Background(), []byte(input))
+		if err != nil {
+			t.Errorf("PutCAS(%q) failed: %v", input, err)
+		} else if got := fmt.Sprintf("%x", key); got != want {
+			t.Errorf("PutCAS(%q): got key %q, want %q", input, got, want)
+		}
+	})
+	t.Run("CASKey", func(t *testing.T) {
+		key, err := rs.CASKey(context.Background(), []byte(input))
+		if err != nil {
+			t.Errorf("CASKey(%q) failed: %v", input, err)
+		} else if got := fmt.Sprintf("%x", key); got != want {
+			t.Errorf("CASKey(%q): got key %q, want %q", input, got, want)
+		}
+	})
 }
