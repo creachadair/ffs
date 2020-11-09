@@ -40,7 +40,7 @@ func NewService(st blob.Store, opts *ServiceOpts) Service {
 
 // ServiceOpts provides optional settings for constructing a Service.
 type ServiceOpts struct {
-	// Enable content-addressable storage (PutCAS) using this hash.
+	// Enable content-addressable storage methods using this hash.
 	Hash func() hash.Hash
 }
 
@@ -66,9 +66,9 @@ func (s Service) Put(ctx context.Context, req *PutRequest) error {
 	}))
 }
 
-// PutCAS implements content-addressable storage if the service has a hash
+// CASPut implements content-addressable storage if the service has a hash
 // constructor installed.
-func (s Service) PutCAS(ctx context.Context, req *DataRequest) ([]byte, error) {
+func (s Service) CASPut(ctx context.Context, req *DataRequest) ([]byte, error) {
 	if s.newHash == nil {
 		return nil, errors.New("no content hash is set")
 	}
@@ -149,10 +149,10 @@ func (s Store) Put(ctx context.Context, opts blob.PutOptions) error {
 	return unfilterErr(err)
 }
 
-// PutCAS emulates part of the blob.CAS type.
-func (s Store) PutCAS(ctx context.Context, data []byte) (string, error) {
+// CASPut emulates part of the blob.CAS type.
+func (s Store) CASPut(ctx context.Context, data []byte) (string, error) {
 	var key []byte
-	err := s.cli.CallResult(ctx, s.prefix+"PutCAS", &DataRequest{Data: data}, &key)
+	err := s.cli.CallResult(ctx, s.prefix+"CASPut", &DataRequest{Data: data}, &key)
 	return string(key), err
 }
 
