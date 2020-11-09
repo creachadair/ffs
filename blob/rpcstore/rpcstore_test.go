@@ -32,9 +32,7 @@ func TestStore(t *testing.T) {
 	mem := memstore.New()
 	svc := rpcstore.NewService(mem, nil)
 
-	loc := server.NewLocal(handler.ServiceMap{
-		"Blob": handler.NewService(svc),
-	}, nil)
+	loc := server.NewLocal(handler.NewService(svc), nil)
 
 	si, err := jrpc2.RPCServerInfo(context.Background(), loc.Client)
 	if err != nil {
@@ -42,7 +40,7 @@ func TestStore(t *testing.T) {
 	}
 	t.Logf("Server methods: %+q", si.Methods)
 
-	rs := rpcstore.NewClient(loc.Client, "Blob.")
+	rs := rpcstore.NewClient(loc.Client, nil)
 	storetest.Run(t, rs)
 	if err := loc.Close(); err != nil {
 		t.Fatalf("Server close: %v", err)
@@ -62,9 +60,9 @@ func TestCAS(t *testing.T) {
 	const input = "abcde\n"
 	const want = "ec11312386ad561674f724b8cca7cf1796e26d1d"
 
-	rs := rpcstore.NewClient(loc.Client, "")
+	rs := rpcstore.NewClient(loc.Client, nil)
 	t.Run("CASPut", func(t *testing.T) {
-		key, err := rs.CASPut(context.Background(), []byte(input))
+		key, err := rs.PutCAS(context.Background(), []byte(input))
 		if err != nil {
 			t.Errorf("PutCAS(%q) failed: %v", input, err)
 		} else if got := fmt.Sprintf("%x", key); got != want {
@@ -72,7 +70,7 @@ func TestCAS(t *testing.T) {
 		}
 	})
 	t.Run("CASKey", func(t *testing.T) {
-		key, err := rs.CASKey(context.Background(), []byte(input))
+		key, err := rs.Key(context.Background(), []byte(input))
 		if err != nil {
 			t.Errorf("CASKey(%q) failed: %v", input, err)
 		} else if got := fmt.Sprintf("%x", key); got != want {

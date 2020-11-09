@@ -122,26 +122,31 @@ func (s Service) Len(ctx context.Context) (int64, error) { return s.st.Len(ctx) 
 
 // Store implements the blob.Store interface by calling a JSON-RPC service.
 type Store struct {
-	cli    *jrpc2.Client
-	prefix string
+	cli *jrpc2.Client
 }
 
 // NewClient constructs a Store that delegates through the given client.
-// If prefix != "" it is prepended to the service method names.
-func NewClient(cli *jrpc2.Client, prefix string) Store {
-	return Store{cli: cli, prefix: prefix}
+func NewClient(cli *jrpc2.Client, opts *StoreOpts) Store {
+	s := Store{cli: cli}
+	opts.set(&s)
+	return s
 }
+
+// StoreOpts provide optional settings for a Store client.
+type StoreOpts struct{}
+
+func (o *StoreOpts) set(s *Store) {}
 
 // Get implements a method of blob.Store.
 func (s Store) Get(ctx context.Context, key string) ([]byte, error) {
 	var data []byte
-	err := s.cli.CallResult(ctx, s.prefix+"Get", KeyRequest{Key: []byte(key)}, &data)
+	err := s.cli.CallResult(ctx, "Get", KeyRequest{Key: []byte(key)}, &data)
 	return data, unfilterErr(err)
 }
 
 // Put implements a method of blob.Store.
 func (s Store) Put(ctx context.Context, opts blob.PutOptions) error {
-	_, err := s.cli.Call(ctx, s.prefix+"Put", &PutRequest{
+	_, err := s.cli.Call(ctx, "Put", &PutRequest{
 		Key:     []byte(opts.Key),
 		Data:    opts.Data,
 		Replace: opts.Replace,
@@ -149,30 +154,30 @@ func (s Store) Put(ctx context.Context, opts blob.PutOptions) error {
 	return unfilterErr(err)
 }
 
-// CASPut emulates part of the blob.CAS type.
-func (s Store) CASPut(ctx context.Context, data []byte) (string, error) {
+// PutCAS emulates part of the blob.CAS type.
+func (s Store) PutCAS(ctx context.Context, data []byte) (string, error) {
 	var key []byte
-	err := s.cli.CallResult(ctx, s.prefix+"CASPut", &DataRequest{Data: data}, &key)
+	err := s.cli.CallResult(ctx, "CASPut", &DataRequest{Data: data}, &key)
 	return string(key), err
 }
 
-// CASKey emulates part of the blob.CAS type.
-func (s Store) CASKey(ctx context.Context, data []byte) (string, error) {
+// Key emulates part of the blob.CAS type.
+func (s Store) Key(ctx context.Context, data []byte) (string, error) {
 	var key []byte
-	err := s.cli.CallResult(ctx, s.prefix+"CASKey", &DataRequest{Data: data}, &key)
+	err := s.cli.CallResult(ctx, "CASKey", &DataRequest{Data: data}, &key)
 	return string(key), err
 }
 
 // Delete implements a method of blob.Store.
 func (s Store) Delete(ctx context.Context, key string) error {
-	_, err := s.cli.Call(ctx, s.prefix+"Delete", KeyRequest{Key: []byte(key)})
+	_, err := s.cli.Call(ctx, "Delete", KeyRequest{Key: []byte(key)})
 	return unfilterErr(err)
 }
 
 // Size implements a method of blob.Store.
 func (s Store) Size(ctx context.Context, key string) (int64, error) {
 	var size int64
-	err := s.cli.CallResult(ctx, s.prefix+"Size", KeyRequest{Key: []byte(key)}, &size)
+	err := s.cli.CallResult(ctx, "Size", KeyRequest{Key: []byte(key)}, &size)
 	return size, unfilterErr(err)
 }
 
@@ -182,7 +187,7 @@ func (s Store) List(ctx context.Context, start string, f func(string) error) err
 	for {
 		// Fetch another batch of keys.
 		var rsp ListReply
-		err := s.cli.CallResult(ctx, s.prefix+"List", ListRequest{Start: []byte(next)}, &rsp)
+		err := s.cli.CallResult(ctx, "List", ListRequest{Start: []byte(next)}, &rsp)
 		if err != nil {
 			return err
 		} else if len(rsp.Keys) == 0 {
@@ -208,6 +213,6 @@ func (s Store) List(ctx context.Context, start string, f func(string) error) err
 // Len implements a method of blob.Store.
 func (s Store) Len(ctx context.Context) (int64, error) {
 	var count int64
-	err := s.cli.CallResult(ctx, s.prefix+"Len", nil, &count)
+	err := s.cli.CallResult(ctx, "Len", nil, &count)
 	return count, err
 }
