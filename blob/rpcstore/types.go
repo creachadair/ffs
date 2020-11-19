@@ -27,6 +27,9 @@ type KeyRequest struct {
 	Key []byte `json:"key"`
 }
 
+// DisallowUnknownFields enables strict parsing for the jrpc2 package.
+func (KeyRequest) DisallowUnknownFields() {}
+
 // PutRequest is the request to the Put method.
 type PutRequest struct {
 	Key     []byte `json:"key"`
@@ -34,10 +37,16 @@ type PutRequest struct {
 	Replace bool   `json:"replace"`
 }
 
+// DisallowUnknownFields enables strict parsing for the jrpc2 package.
+func (PutRequest) DisallowUnknownFields() {}
+
 // DataRequest is the request to a method that requires blob data.
 type DataRequest struct {
 	Data []byte `json:"data"`
 }
+
+// DisallowUnknownFields enables strict parsing for the jrpc2 package.
+func (DataRequest) DisallowUnknownFields() {}
 
 // ListRequest is the request to the List method.
 type ListRequest struct {
@@ -45,11 +54,17 @@ type ListRequest struct {
 	Count int    `json:"count"`
 }
 
+// DisallowUnknownFields enables strict parsing for the jrpc2 package.
+func (ListRequest) DisallowUnknownFields() {}
+
 // ListReply is the reply from the List method.
 type ListReply struct {
 	Keys [][]byte `json:"keys"`
 	Next []byte   `json:"next,omitempty"`
 }
+
+// DisallowUnknownFields enables strict parsing for the jrpc2 package.
+func (ListReply) DisallowUnknownFields() {}
 
 var (
 	errKeyNotFound = jrpc2.Errorf(-100, "key not found")
