@@ -25,9 +25,9 @@ import (
 
 // A Store represents a mutable blob store in which each blob is identified by
 // a unique, opaque string key.  An implementation of Store is permitted (but
-// not required) to report an error from Put when given an empty key.  Even if
-// the implementation cannot store empty keys, it must report ErrKeyNotFound as
-// described below when given an empty key.
+// not required) to report an error from Put when given an empty key.  If the
+// implementation cannot store empty keys, it must report ErrKeyNotFound when
+// operating on an empty key.
 //
 // A Store implementation may optionally implement the blob.Closer interface.
 // Clients of a Store should call blob.CloseStore on the store value when it is
