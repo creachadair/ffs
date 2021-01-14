@@ -216,3 +216,8 @@ func (s Store) Len(ctx context.Context) (int64, error) {
 	err := s.cli.CallResult(ctx, "Len", nil, &count)
 	return count, err
 }
+
+// ServerInfo returns the JSON-RPC server status message.
+func (s Store) ServerInfo(ctx context.Context) (*jrpc2.ServerInfo, error) {
+	return jrpc2.RPCServerInfo(ctx, s.cli)
+}
