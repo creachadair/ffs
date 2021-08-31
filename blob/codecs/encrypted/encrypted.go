@@ -31,23 +31,23 @@ import (
 // A Codec implements the encoded.Codec interface and encrypts data using a
 // block cipher in CTR mode.
 type Codec struct {
-	blk   cipher.Block       // used to generate the keystream
-	newIV func([]byte) error // generate a fresh initialization vector
+	blk    cipher.Block       // used to generate the keystream
+	random func([]byte) error // generate a buffer of cryptographically random bits
 }
 
 // Options control the construction of a *Codec.
 type Options struct {
-	// Replace the contents of iv with fresh initialization vector.
-	// If nil, the store uses the crypto/rand package to generate random IVs.
-	NewIV func(iv []byte) error
+	// Replace the contents of buf with cryptographically-secure random bytes.
+	// If nil, the store uses the crypto/rand package to generate bytes.
+	Random func(buf []byte) error
 }
 
-func (o *Options) newIV() func([]byte) error {
-	if o != nil && o.NewIV != nil {
-		return o.NewIV
+func (o *Options) random() func([]byte) error {
+	if o != nil && o.Random != nil {
+		return o.Random
 	}
-	return func(iv []byte) error {
-		_, err := rand.Read(iv)
+	return func(buf []byte) error {
+		_, err := rand.Read(buf)
 		return err
 	}
 }
@@ -59,8 +59,8 @@ func New(blk cipher.Block, opts *Options) *Codec {
 		panic("cipher is nil")
 	}
 	return &Codec{
-		blk:   blk,
-		newIV: opts.newIV(),
+		blk:    blk,
+		random: opts.random(),
 	}
 }
 
@@ -106,7 +106,7 @@ func (c *Codec) encrypt(data []byte) ([]byte, error) {
 
 	buf := make([]byte, bufSize)
 	buf[0] = byte(ivLen)
-	if err := c.newIV(buf[1 : 1+ivLen]); err != nil {
+	if err := c.random(buf[1 : 1+ivLen]); err != nil {
 		return nil, fmt.Errorf("encrypt: initialization vector: %w", err)
 	}
 

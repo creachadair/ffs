@@ -27,12 +27,12 @@ func TestRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Creating AES cipher: %v", err)
 	}
-	var ivCalled bool
+	var randomCalled bool
 	e := encrypted.New(aes, &encrypted.Options{
-		NewIV: func(iv []byte) error {
-			ivCalled = true // verify that our hook is used
-			for i := range iv {
-				iv[i] = 1 // dummy value for testing
+		Random: func(buf []byte) error {
+			randomCalled = true // verify that our hook is used
+			for i := range buf {
+				buf[i] = 1 // dummy value for testing
 			}
 			return nil
 		},
@@ -46,8 +46,8 @@ func TestRoundTrip(t *testing.T) {
 		t.Fatalf("Encode %q failed: %v", value, err)
 	}
 
-	if !ivCalled {
-		t.Error("Put did not invoke the initialization vector hook")
+	if !randomCalled {
+		t.Error("Put did not invoke the random generation hook")
 	}
 
 	// Log the stored block for debugging purposes.
