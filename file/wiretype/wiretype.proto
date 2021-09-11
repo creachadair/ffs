@@ -1,0 +1,92 @@
+// Copyright 2021 Michael J. Fromberger. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// This schema defines the encoding types for the ffs package.
+syntax = "proto3";
+
+package ffs.file;
+option go_package = "github.com/creachadair/ffs/file/wiretype";
+
+// A Node is the top-level encoding of a file.
+message Node {
+  Index index = 1;              // file contents
+  Stat stat = 2;                // stat metadata (optional)
+  repeated XAttr x_attrs = 3;   // extended attributes
+  repeated Child children = 4;  // child file pointers
+
+  // next id: 5
+}
+
+// Stat records POSIX style file metadata. Other than the modification time,
+// these metadata are not interpreted by the file plumbing, but are preserved
+// for the benefit of external tools.
+message Stat {
+  uint32 mode = 1;
+  Timestamp mod_time = 2;
+  uint64 owner_id = 3;
+  string owner_name = 4;
+  uint64 group_id = 5;
+  string group_name = 6;
+
+  // next id: 7
+}
+
+// Time is the encoding of a timestamp, in seconds and nanoseconds elapsed
+// since the Unix epoch in UTC.
+message Timestamp {
+  int64 seconds = 1;
+  int64 nanos = 2;
+}
+
+// An Index records the size and storage locations of file data.
+message Index {
+  uint64 total_bytes = 1;
+  repeated Extent extents = 2;
+
+  // next id: 3
+}
+
+// An Extent describes a single contiguous span of stored data.
+message Extent {
+  uint64 base = 1;
+  uint64 bytes = 2;
+  repeated Block blocks = 3;
+
+  // next id: 4
+}
+
+// A Block describes the size and storage key of a data blob.
+message Block {
+  uint64 bytes = 1;
+  bytes key = 2;
+
+  // next id: 3
+}
+
+// An XAttr records the name and value of an extended attribute.
+// The contents of the value are not interpreted.
+message XAttr {
+  string name = 1;
+  bytes value = 2;
+
+  // next id: 3
+}
+
+// A Child records the name and storage key of a child Node.
+message Child {
+  string name = 1;
+  bytes key = 2;
+
+  // next id: 3
+}
