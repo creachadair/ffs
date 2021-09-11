@@ -57,7 +57,7 @@ type dummyHash struct {
 	size  int
 }
 
-func (d dummyHash) cons() block.RollingHash { return d }
+func (d dummyHash) Hash() block.Hash { return d }
 
 func (d dummyHash) Update(in byte) uint {
 	if in == d.magic {
@@ -65,8 +65,6 @@ func (d dummyHash) Update(in byte) uint {
 	}
 	return d.hash
 }
-
-func (d dummyHash) Size() int { return d.size }
 
 func TestSplitterMin(t *testing.T) {
 	const minBytes = 10
@@ -77,8 +75,8 @@ func TestSplitterMin(t *testing.T) {
 	}
 	r := strings.NewReader("abc|def|ghi|jkl|mno")
 	s := block.NewSplitter(r, &block.SplitConfig{
-		Hash: d.cons,
-		Min:  minBytes,
+		Hasher: d,
+		Min:    minBytes,
 	})
 	b, err := s.Next()
 	if err != nil {
@@ -98,8 +96,8 @@ func TestSplitterMax(t *testing.T) {
 	}
 	r := strings.NewReader("abc|def|ghi|jkl|mno")
 	s := block.NewSplitter(r, &block.SplitConfig{
-		Hash: d.cons,
-		Max:  maxBytes,
+		Hasher: d,
+		Max:    maxBytes,
 	})
 	b, err := s.Next()
 	if err != nil {
@@ -138,9 +136,9 @@ func TestSplitterBlocks(t *testing.T) {
 	for _, test := range tests {
 		r := newBurstyReader(test.input, 3, 5, 1, 4, 17, 20)
 		s := block.NewSplitter(r, &block.SplitConfig{
-			Hash: d.cons,
-			Min:  test.min,
-			Max:  test.max,
+			Hasher: d,
+			Min:    test.min,
+			Max:    test.max,
 		})
 		var bs []string
 		if err := block.Split(s, func(b []byte) error {

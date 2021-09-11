@@ -20,8 +20,7 @@
 // As described in the SOSP 2001 paper "A Low-Bandwidth Network File System":
 //  https://pdos.csail.mit.edu/papers/lbfs:sosp01/lbfs.pdf
 //
-// This package provides a rolling hash using the Rabin-Karp construction, and
-// alternative implementations can be plugged in via the RollingHash interface.
+// This package use the Rabin-Karp modular rolling hash algorithm.
 //
 package block
 
@@ -40,10 +39,13 @@ var (
 	DefaultMax = 65536
 )
 
+// DefaultHasher is used by a Splitter if no hasher is set in its config.
+var DefaultHasher = NewHasher(1031, 2147483659, 48)
+
 // A SplitConfig contains the settings to construct a splitter.
 type SplitConfig struct {
-	// Construct a rolling hash to use for splitting. If nil, use DefaultHash.
-	Hash func() RollingHash
+	// The rolling hash to use. If nil, uses DefaultHasher.
+	Hasher
 
 	// Minimum block size, in bytes. The splitter will not split a block until
 	// it is at least this size.
@@ -58,11 +60,12 @@ type SplitConfig struct {
 	Max int
 }
 
-func (c *SplitConfig) newHash() RollingHash {
-	if c == nil || c.Hash == nil {
-		return DefaultHash()
+// Hash implements the Hasher interface for a SplitConfig.
+func (c *SplitConfig) Hash() Hash {
+	if c == nil || c.Hasher == nil {
+		return DefaultHasher.Hash()
 	}
-	return c.Hash()
+	return c.Hasher.Hash()
 }
 
 func (c *SplitConfig) min() int {
@@ -92,7 +95,7 @@ func (c *SplitConfig) max() int {
 func NewSplitter(r io.Reader, c *SplitConfig) *Splitter {
 	return &Splitter{
 		reader: r,
-		hash:   c.newHash(),
+		hash:   c.Hash(),
 		min:    c.min(),
 		exp:    c.size(),
 		buf:    make([]byte, c.max()),
@@ -104,12 +107,12 @@ func NewSplitter(r io.Reader, c *SplitConfig) *Splitter {
 type Splitter struct {
 	reader io.Reader // The underlying source of block data.
 
-	hash RollingHash // The rolling hash used to find breakpoints.
-	min  int         // Minimum block size in bytes.
-	exp  int         // Expected block size in bytes.
-	next int         // Next unused offset in buf.
-	end  int         // End of previous block.
-	buf  []byte      // Incoming data buffer.
+	hash Hash   // The rolling hash used to find breakpoints.
+	min  int    // Minimum block size in bytes.
+	exp  int    // Expected block size in bytes.
+	next int    // Next unused offset in buf.
+	end  int    // End of previous block.
+	buf  []byte // Incoming data buffer.
 }
 
 // Next returns the next available block, or an error.  The slice returned is

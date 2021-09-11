@@ -14,58 +14,79 @@
 
 package block
 
-// A RollingHash implements a rolling hash function over a window of byte data.
-type RollingHash interface {
-	// Update shifts b into the window and returns the updated hash value.
-	Update(b byte) uint
-
-	// Size returns the size of the rolling hash window in bytes.
-	Size() int
+// A Hasher constructs rolling hash instances. Use the Hash method to obtain a
+// fresh instance.
+type Hasher interface {
+	// Hash returns a fresh Hash instance using the settings from the Hasher.
+	// Instances are independent and can be safely used concurrently.
+	Hash() Hash
 }
 
-// DefaultHash is a Rabin-Karp rolling hash with default settings.
-func DefaultHash() RollingHash { return RabinKarpHash(1031, 2147483659, 48) }
-
-type modHash struct {
-	hash int    // Current hash state.
-	base int    // Base for exponentiation.
-	mod  int    // Modulus, should usually be prime.
-	inv  int    // Base shifted by size-1 bytes, for subtraction.
-	buf  []byte // Window buffer.
-	next int    // Offset in window of next free position.
+// A Hash implements a rolling hash.
+type Hash interface {
+	// Add a byte to the rolling hash, and return the updated value.
+	Update(byte) uint
 }
 
-// RabinKarpHash returns a Hasher implementation that uses the Rabin-Karp
-// rolling hash construction with the given base and modulus.
-func RabinKarpHash(base, modulus, windowSize int) RollingHash {
-	return &modHash{
+// rkHasher implements the Hasher interface using the Rabin-Karp construction.
+type rkHasher struct {
+	// hashing rounds compute base^x % mod
+	// mod should be prime, and must be coprime to base.
+	base, mod int64 //
+
+	// precomputed modular inverse of base^(size-1) for quick subtraction
+	inv int64
+
+	// buffer window size
+	size int
+}
+
+// Hash implements the required method of Hasher.
+func (h rkHasher) Hash() Hash {
+	return &rkHash{rkHasher: h, buf: make([]byte, h.size)}
+}
+
+// NewHasher returns a Rabin-Karp rolling hasher using the given base, modulus,
+// and window size. The base and modulus must be coprime and the modulus should
+// be prime (but note that NewHasher does not check this).
+func NewHasher(base, modulus int64, windowSize int) Hasher {
+	return rkHasher{
 		base: base,
 		mod:  modulus,
-		inv:  exptmod(base, windowSize-1, modulus),
-		buf:  make([]byte, windowSize),
+		inv:  exptmod(base, int64(windowSize-1), modulus),
+		size: windowSize,
 	}
 }
 
-// Update implements a required method of the RollingHash interface.
-func (m *modHash) Update(b byte) uint {
-	out := m.buf[m.next]
-	m.buf[m.next] = b
-	m.next = (m.next + 1) % len(m.buf)
+// rkHash implements a rolling hash using the settings from an rkHasher.
+type rkHash struct {
+	rkHasher // base settings shared by all instances
 
-	h := (m.base*(m.hash-m.inv*int(out)) + int(b)) % m.mod
-	m.hash = h
-	if h < 0 {
-		return uint(h + m.mod)
-	}
-	return uint(h)
+	hash uint   // last hash value
+	next int    // next offset in the window buffer
+	buf  []byte // window buffer (per instance)
 }
 
-// Size implements a required method of the RollingHash interface.
-func (m *modHash) Size() int { return len(m.buf) }
+// Update adds b to the rolling hash and returns the updated hash value.
+func (h *rkHash) Update(b byte) uint {
+	old := int64(h.buf[h.next]) // the displaced oldest byte
+	h.buf[h.next] = b
+	h.next = (h.next + 1) % h.size
 
-// exptmod(b, e, m) computes b**e modulo m.
-func exptmod(b, e, m int) int {
-	s := 1
+	// Subtract away the old byte being displaced. Multiplying by h.inv shifts
+	// the value the correct number of digits forward (mod m).
+	newHash := (h.base*(int64(h.hash)-h.inv*old) + int64(b)) % h.mod
+	if newHash < 0 {
+		newHash += h.mod // pin a non-negative representative
+	}
+	h.hash = uint(newHash)
+	return h.hash
+}
+
+// exptmod(b, e, m) computes b**e modulo m. This is an expensive way to compute
+// a modular inverse, but it only needs to be done once per rkHasher.
+func exptmod(b, e, m int64) int64 {
+	s := int64(1)
 	for e != 0 {
 		if e&1 == 1 {
 			s = (s * b) % m

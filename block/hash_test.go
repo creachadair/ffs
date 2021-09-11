@@ -31,7 +31,7 @@ func TestModHashSimple(t *testing.T) {
 	// A trivial validation, make sure we get the expected results when the
 	// base and modulus are round powers of two, so that the hash values will
 	// match an exact suffix of the input bytes.
-	h := block.RabinKarpHash(256, 1<<32, 8)
+	h := block.NewHasher(256, 1<<32, 8).Hash()
 	tests := []struct {
 		in   byte
 		want uint
@@ -76,7 +76,7 @@ func TestModHashComplex(t *testing.T) {
 
 	// Walk through each viable slice of input comparing the rolling hash value
 	// to the expected value computed by brute force without rolling.
-	h := block.RabinKarpHash(base, mod, size)
+	h := block.NewHasher(base, mod, size).Hash()
 	for i := range input {
 		data := input[max(0, i-size):i]
 		if len(data) == 0 {
@@ -99,15 +99,15 @@ func TestModHash(t *testing.T) {
 		maxWindow = 8
 	)
 	for i := 1; i <= maxWindow; i++ {
-		windowTest(t, block.RabinKarpHash(base, mod, i))
+		windowTest(t, block.NewHasher(base, mod, i), i)
 	}
 }
 
-func windowTest(t *testing.T, h block.RollingHash) {
+func windowTest(t *testing.T, h block.Hasher, size int) {
 	// Make sure that we get the same hash value when the window has the same
 	// contents.
 	const keyValue = 22
-	testData := make([]byte, h.Size())
+	testData := make([]byte, size)
 	testData = append(testData, []byte{
 		1, 2, 3, 4, 5, 6, 7, 8, 11, keyValue, 2, 3, 4, 5, 6, 7, 8, 11, 15, 17,
 		33, 44, 55, 66, 77, 88, 3, 5, 7, 11, 13, 17, 19, 23, 3, 4, 5, 6, 7, 8,
@@ -115,8 +115,9 @@ func windowTest(t *testing.T, h block.RollingHash) {
 	}...)
 
 	var keyHash uint
-	for i, in := range testData[h.Size():] {
-		v := h.Update(in)
+	rh := h.Hash()
+	for i, in := range testData[size:] {
+		v := rh.Update(in)
 		if in != keyValue {
 			continue
 		}
