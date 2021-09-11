@@ -32,14 +32,43 @@ message Node {
 // these metadata are not interpreted by the file plumbing, but are preserved
 // for the benefit of external tools.
 message Stat {
-  uint32 mode = 1;
-  Timestamp mod_time = 2;
-  uint64 owner_id = 3;
-  string owner_name = 4;
-  uint64 group_id = 5;
-  string group_name = 6;
+  // The low-order 12 bits of this field hold the standard Unix permissions,
+  // along with the sticky, setuid, and setgid bits. The rest are reserved and
+  // must be set to zero. In binary:
+  //
+  //          owner group other
+  //  ... +-+-+-+-----+-----+-----+
+  //      |S|G|T|r w x|r w x|r w x|
+  //  ... +-+-+-+-----+-----+-----+
+  //       ^ ^ ^     6     3     0  bit
+  //       | | +- sticky
+  //       | +--- setgid
+  //       +----- setuid
+  uint32 permissions = 1;
 
-  // next id: 7
+  FileType file_type = 2;
+  Timestamp mod_time = 3;
+  Ident owner = 4;
+  Ident group = 5;
+
+  // An Ident represents the identity of a user or group.
+  message Ident {
+    uint64 id = 1;    // numeric ID
+    string name = 2;  // human-readable name
+  }
+
+  // A FileType abstracts the type of a file.
+  enum FileType {
+    REGULAR = 0;      // a regular file
+    DIRECTORY = 1;    // a directory
+    SYMLINK = 2;      // a symbolic link
+    SOCKET = 3;       // a Unix-domain socket
+    NAMED_PIPE = 4;   // a named pipe
+    DEVICE = 5;       // a (block) device file
+    CHAR_DEVICE = 6;  // a (character) device file
+    UNKNOWN = 404;    // nothing is known about the type of this file
+  }
+  // next id: 6
 }
 
 // Time is the encoding of a timestamp, in seconds and nanoseconds elapsed
