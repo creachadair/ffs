@@ -98,8 +98,9 @@ type NewOptions struct {
 	Stat Stat
 
 	// The block splitter configuration to use. If omitted, the default values
-	// from the split package are used. The block size limits are persisted in
-	// storage.
+	// from the split package are used. Split configurations are not persisted
+	// in storage, but descendants created from a file (via the New method) will
+	// inherit the parent file config if they do not specify their own.
 	Split *block.SplitConfig
 }
 
@@ -162,6 +163,12 @@ func (f *File) New(opts *NewOptions) *File {
 	out := New(f.s, opts)
 	if f.saveStat {
 		out.saveStat = true
+	}
+
+	// Propagate the parent split settings to the child, if the child did not
+	// have any specifically defined.
+	if opts == nil || opts.Split == nil {
+		out.data.sc = f.data.sc
 	}
 	return out
 }
