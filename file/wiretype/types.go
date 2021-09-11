@@ -15,6 +15,7 @@
 // Package wiretype defines the encoding types for the ffs package.
 package wiretype
 
+// Requires: google.golang.org/protobuf/cmd/protoc-gen-go
 //go:generate protoc --go_out=. --go_opt=paths=source_relative wiretype.proto
 
 import "sort"
