@@ -39,14 +39,27 @@ type Stat struct {
 	// methods to encode and decode the value.
 }
 
+const (
+	bitSetuid = 04000
+	bitSetgid = 02000
+	bitSticky = 01000
+)
+
 // toWireType encodes s as an equivalent wiretype.Stat.
 func (s Stat) toWireType() *wiretype.Stat {
+	perm := s.Mode & os.ModePerm
+	if s.Mode&os.ModeSetuid != 0 {
+		perm |= bitSetuid
+	}
+	if s.Mode&os.ModeSetgid != 0 {
+		perm |= bitSetgid
+	}
+	if s.Mode&os.ModeSticky != 0 {
+		perm |= bitSticky
+	}
 	pb := &wiretype.Stat{
-		Mode:      uint32(s.Mode),
-		OwnerId:   uint64(s.OwnerID),
-		OwnerName: s.OwnerName,
-		GroupId:   uint64(s.GroupID),
-		GroupName: s.GroupName,
+		Permissions: uint32(perm),
+		FileType:    modeToType(s.Mode),
 	}
 	if !s.ModTime.IsZero() {
 		pb.ModTime = &wiretype.Timestamp{
@@ -54,7 +67,58 @@ func (s Stat) toWireType() *wiretype.Stat {
 			Nanos:   int64(s.ModTime.Nanosecond()),
 		}
 	}
+	if s.OwnerID != 0 || s.OwnerName != "" {
+		pb.Owner = &wiretype.Stat_Ident{
+			Id:   uint64(s.OwnerID),
+			Name: s.OwnerName,
+		}
+	}
+	if s.GroupID != 0 || s.GroupName != "" {
+		pb.Group = &wiretype.Stat_Ident{
+			Id:   uint64(s.GroupID),
+			Name: s.GroupName,
+		}
+	}
 	return pb
+}
+
+func modeToType(mode os.FileMode) wiretype.Stat_FileType {
+	switch {
+	case mode&os.ModeType == 0:
+		return wiretype.Stat_REGULAR
+	case mode&os.ModeDir != 0:
+		return wiretype.Stat_DIRECTORY
+	case mode&os.ModeSymlink != 0:
+		return wiretype.Stat_SYMLINK
+	case mode&os.ModeSocket != 0:
+		return wiretype.Stat_SOCKET
+	case mode&os.ModeNamedPipe != 0:
+		return wiretype.Stat_NAMED_PIPE
+	case mode&os.ModeDevice != 0:
+		if mode&os.ModeCharDevice != 0 {
+			return wiretype.Stat_CHAR_DEVICE
+		}
+		return wiretype.Stat_DEVICE
+	default:
+		return wiretype.Stat_UNKNOWN
+	}
+}
+
+var ftypeMode = [...]os.FileMode{
+	wiretype.Stat_REGULAR:     0,
+	wiretype.Stat_DIRECTORY:   os.ModeDir,
+	wiretype.Stat_SYMLINK:     os.ModeSymlink,
+	wiretype.Stat_SOCKET:      os.ModeSocket,
+	wiretype.Stat_NAMED_PIPE:  os.ModeNamedPipe,
+	wiretype.Stat_DEVICE:      os.ModeDevice,
+	wiretype.Stat_CHAR_DEVICE: os.ModeDevice | os.ModeCharDevice,
+}
+
+func typeToMode(ftype wiretype.Stat_FileType) os.FileMode {
+	if n := int(ftype); n >= 0 && n < len(ftypeMode) {
+		return ftypeMode[n]
+	}
+	return os.ModeIrregular
 }
 
 // FromWireType decodes a wiretype.Stat into s. If pb == nil, s is unmodified.
@@ -62,11 +126,25 @@ func (s *Stat) FromWireType(pb *wiretype.Stat) {
 	if pb == nil {
 		return // no stat was persisted for this file
 	}
-	s.Mode = os.FileMode(pb.Mode)
-	s.OwnerID = int(pb.OwnerId)
-	s.OwnerName = pb.OwnerName
-	s.GroupID = int(pb.GroupId)
-	s.GroupName = pb.GroupName
+	mode := os.FileMode(pb.Permissions & 0777)
+	if pb.Permissions&bitSetuid != 0 {
+		mode |= os.ModeSetuid
+	}
+	if pb.Permissions&bitSetgid != 0 {
+		mode |= os.ModeSetgid
+	}
+	if pb.Permissions&bitSticky != 0 {
+		mode |= os.ModeSticky
+	}
+	s.Mode = mode | typeToMode(pb.FileType)
+	if id := pb.Owner; id != nil {
+		s.OwnerID = int(id.Id)
+		s.OwnerName = id.Name
+	}
+	if id := pb.Group; id != nil {
+		s.GroupID = int(id.Id)
+		s.GroupName = id.Name
+	}
 	if t := pb.ModTime; t != nil {
 		s.ModTime = time.Unix(t.Seconds, t.Nanos)
 	}
