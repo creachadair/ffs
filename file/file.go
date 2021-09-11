@@ -19,8 +19,8 @@
 // a directory, which can contain other files in a Merkle tree structure.
 //
 // A File is addressed by a storage key, corresponding to the current state of
-// its content and metadata. File metadata are stored as a binpack message
-// defined in file/wiretype/types.go.
+// its content, metadata, and children (recursively). File metadata are stored
+// as wire-format protocol buffers, as defined in file/wiretype/wiretype.proto.
 //
 // Basic usage:
 //
