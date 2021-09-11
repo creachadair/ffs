@@ -14,12 +14,12 @@
 
 package wiretype
 
-import "github.com/creachadair/ffs/split"
+import "github.com/creachadair/ffs/block"
 
 // NewIndex constructs an Index by consuming blocks from s.  For each data
 // block, NewIndex calls put to store the block and return its key. An error
 // from put stops index construction and is returned to the caller.
-func NewIndex(s *split.Splitter, put func([]byte) (string, error)) (*Index, error) {
+func NewIndex(s *block.Splitter, put func([]byte) (string, error)) (*Index, error) {
 	var idx Index
 	var ext *Extent
 	push := func() {
@@ -33,7 +33,7 @@ func NewIndex(s *split.Splitter, put func([]byte) (string, error)) (*Index, erro
 		ext = nil
 	}
 
-	if err := s.Split(func(data []byte) error {
+	if err := block.Split(s, func(data []byte) error {
 		// A block of zeroes ends the current extent. We count the block against
 		// the total file size, but do not explicitly store it.
 		if isZero(data) {

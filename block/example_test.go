@@ -12,22 +12,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package split_test
+package block_test
 
 import (
 	"fmt"
 	"log"
 	"strings"
 
-	"github.com/creachadair/ffs/split"
+	"github.com/creachadair/ffs/block"
 )
 
 func Example() {
 	// Return blocks no larger than 10 bytes.  Otherwise, use default settings,
 	// which includes a Rabin-Karp rolling hash.
 	r := strings.NewReader("Four score and seven years ago...")
-	s := split.New(r, &split.Config{Max: 10})
-	if err := s.Split(func(data []byte) error {
+	s := block.NewSplitter(r, &block.SplitConfig{Max: 10})
+	if err := block.Split(s, func(data []byte) error {
 		fmt.Println(string(data))
 		return nil
 	}); err != nil {

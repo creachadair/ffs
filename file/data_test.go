@@ -24,7 +24,7 @@ import (
 
 	"github.com/creachadair/ffs/blob"
 	"github.com/creachadair/ffs/blob/memstore"
-	"github.com/creachadair/ffs/split"
+	"github.com/creachadair/ffs/block"
 	"github.com/google/go-cmp/cmp"
 )
 
@@ -38,7 +38,7 @@ func TestIndex(t *testing.T) {
 	mem := memstore.New()
 	cas := blob.NewCAS(mem, sha1.New)
 	d := &fileData{
-		sc: &split.Config{Min: 1024}, // in effect, "don't split"
+		sc: &block.SplitConfig{Min: 1024}, // in effect, "don't split"
 	}
 	ctx := context.Background()
 	writeString := func(s string, at int64) {
@@ -73,7 +73,7 @@ func TestIndex(t *testing.T) {
 	}
 	checkIndex := func(want index) {
 		// We have to tell cmp that it's OK to look at unexported fields on these types.
-		opt := cmp.AllowUnexported(index{}, extent{}, block{})
+		opt := cmp.AllowUnexported(index{}, extent{}, cblock{})
 		got := index{totalBytes: d.totalBytes, extents: d.extents}
 		if diff := cmp.Diff(want, got, opt); diff != "" {
 			t.Errorf("Incorrect index (-want, +got)\n%s", diff)
@@ -101,9 +101,9 @@ func TestIndex(t *testing.T) {
 	checkIndex(index{
 		totalBytes: 27,
 		extents: []*extent{
-			{base: 0, bytes: 6, blocks: []block{{6, hashOf("foobar")}}, starts: []int64{0}},
-			{base: 10, bytes: 6, blocks: []block{{6, hashOf("foobar")}}, starts: []int64{10}},
-			{base: 20, bytes: 7, blocks: []block{{7, hashOf("aliquot")}}, starts: []int64{20}},
+			{base: 0, bytes: 6, blocks: []cblock{{6, hashOf("foobar")}}, starts: []int64{0}},
+			{base: 10, bytes: 6, blocks: []cblock{{6, hashOf("foobar")}}, starts: []int64{10}},
+			{base: 20, bytes: 7, blocks: []cblock{{7, hashOf("aliquot")}}, starts: []int64{20}},
 		},
 	})
 
@@ -119,7 +119,7 @@ func TestIndex(t *testing.T) {
 	checkIndex(index{
 		totalBytes: 6,
 		extents: []*extent{
-			{base: 0, bytes: 6, blocks: []block{{6, hashOf("foobar")}}, starts: []int64{0}},
+			{base: 0, bytes: 6, blocks: []cblock{{6, hashOf("foobar")}}, starts: []int64{0}},
 		},
 	})
 
@@ -130,7 +130,7 @@ func TestIndex(t *testing.T) {
 	checkIndex(index{
 		totalBytes: 11,
 		extents: []*extent{
-			{base: 0, bytes: 11, blocks: []block{{11, hashOf("fookinghell")}}, starts: []int64{0}},
+			{base: 0, bytes: 11, blocks: []cblock{{11, hashOf("fookinghell")}}, starts: []int64{0}},
 		},
 	})
 
@@ -141,7 +141,7 @@ func TestIndex(t *testing.T) {
 	checkIndex(index{
 		totalBytes: 15,
 		extents: []*extent{ // these adjacent blocks should be merged (with no split)
-			{base: 0, bytes: 15, blocks: []block{{15, hashOf("fookinghellmate")}}, starts: []int64{0}},
+			{base: 0, bytes: 15, blocks: []cblock{{15, hashOf("fookinghellmate")}}, starts: []int64{0}},
 		},
 	})
 
@@ -152,8 +152,8 @@ func TestIndex(t *testing.T) {
 	checkIndex(index{
 		totalBytes: 23,
 		extents: []*extent{
-			{base: 0, bytes: 15, blocks: []block{{15, hashOf("fookinghellmate")}}, starts: []int64{0}},
-			{base: 20, bytes: 3, blocks: []block{{3, hashOf("cor")}}, starts: []int64{20}},
+			{base: 0, bytes: 15, blocks: []cblock{{15, hashOf("fookinghellmate")}}, starts: []int64{0}},
+			{base: 20, bytes: 3, blocks: []cblock{{3, hashOf("cor")}}, starts: []int64{20}},
 		},
 	})
 }
@@ -162,7 +162,7 @@ func TestReblocking(t *testing.T) {
 	mem := memstore.New()
 	cas := blob.NewCAS(mem, sha1.New)
 	d := &fileData{
-		sc: &split.Config{Min: 200, Size: 1024, Max: 8192},
+		sc: &block.SplitConfig{Min: 200, Size: 1024, Max: 8192},
 	}
 
 	rand.Seed(1) // change to update test data

@@ -19,14 +19,14 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/creachadair/ffs/block"
 	"github.com/creachadair/ffs/file/wiretype"
-	"github.com/creachadair/ffs/split"
 	"github.com/google/go-cmp/cmp"
 )
 
 type lineHash struct{}
 
-func newLineHash() split.RollingHash { return lineHash{} }
+func newLineHash() block.RollingHash { return lineHash{} }
 
 func (lineHash) Update(b byte) uint {
 	if b == '\x00' {
@@ -44,7 +44,7 @@ func TestNewIndex(t *testing.T) {
 		"\x00\x00\x00\x00\x00" + // zeroes (not stored)
 		"\x00And the fourth line then beckoned" // ext 2, block 1
 
-	s := split.New(strings.NewReader(input), &split.Config{
+	s := block.NewSplitter(strings.NewReader(input), &block.SplitConfig{
 		Hash: newLineHash,
 		Min:  5,
 		Max:  100,

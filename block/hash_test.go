@@ -12,9 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package split
+package block_test
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/creachadair/ffs/block"
+)
 
 func max(a, b int) int {
 	if a < b {
@@ -27,7 +31,7 @@ func TestModHashSimple(t *testing.T) {
 	// A trivial validation, make sure we get the expected results when the
 	// base and modulus are round powers of two, so that the hash values will
 	// match an exact suffix of the input bytes.
-	h := RabinKarpHash(256, 1<<32, 8)
+	h := block.RabinKarpHash(256, 1<<32, 8)
 	tests := []struct {
 		in   byte
 		want uint
@@ -72,7 +76,7 @@ func TestModHashComplex(t *testing.T) {
 
 	// Walk through each viable slice of input comparing the rolling hash value
 	// to the expected value computed by brute force without rolling.
-	h := RabinKarpHash(base, mod, size)
+	h := block.RabinKarpHash(base, mod, size)
 	for i := range input {
 		data := input[max(0, i-size):i]
 		if len(data) == 0 {
@@ -95,11 +99,11 @@ func TestModHash(t *testing.T) {
 		maxWindow = 8
 	)
 	for i := 1; i <= maxWindow; i++ {
-		windowTest(t, RabinKarpHash(base, mod, i))
+		windowTest(t, block.RabinKarpHash(base, mod, i))
 	}
 }
 
-func windowTest(t *testing.T, h RollingHash) {
+func windowTest(t *testing.T, h block.RollingHash) {
 	// Make sure that we get the same hash value when the window has the same
 	// contents.
 	const keyValue = 22

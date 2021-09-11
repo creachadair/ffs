@@ -64,8 +64,8 @@ import (
 	"time"
 
 	"github.com/creachadair/ffs/blob"
+	"github.com/creachadair/ffs/block"
 	"github.com/creachadair/ffs/file/wiretype"
-	"github.com/creachadair/ffs/split"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -100,7 +100,7 @@ type NewOptions struct {
 	// The block splitter configuration to use. If omitted, the default values
 	// from the split package are used. The block size limits are persisted in
 	// storage.
-	Split *split.Config
+	Split *block.SplitConfig
 }
 
 // Open opens an existing file given its storage key in s.

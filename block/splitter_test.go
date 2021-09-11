@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package split_test
+package block_test
 
 import (
 	"bytes"
@@ -22,7 +22,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/creachadair/ffs/split"
+	"github.com/creachadair/ffs/block"
 )
 
 // burstyReader implements io.Reader, returning chunks from r whose size is
@@ -49,15 +49,15 @@ func newBurstyReader(s string, sizes ...int) io.Reader {
 	return &burstyReader{strings.NewReader(s), sizes, 0}
 }
 
-// dummyHash is a mock Hash implementation used for testing Splitter.  It
-// returns a fixed value for all updates except a designated value.
+// dummyHash is a mock Hash implementation used for testing a block.Splitter.
+// It returns a fixed value for all updates except a designated value.
 type dummyHash struct {
 	magic byte
 	hash  uint
 	size  int
 }
 
-func (d dummyHash) cons() split.RollingHash { return d }
+func (d dummyHash) cons() block.RollingHash { return d }
 
 func (d dummyHash) Update(in byte) uint {
 	if in == d.magic {
@@ -76,7 +76,7 @@ func TestSplitterMin(t *testing.T) {
 		size:  1,
 	}
 	r := strings.NewReader("abc|def|ghi|jkl|mno")
-	s := split.New(r, &split.Config{
+	s := block.NewSplitter(r, &block.SplitConfig{
 		Hash: d.cons,
 		Min:  minBytes,
 	})
@@ -97,7 +97,7 @@ func TestSplitterMax(t *testing.T) {
 		size: 1,
 	}
 	r := strings.NewReader("abc|def|ghi|jkl|mno")
-	s := split.New(r, &split.Config{
+	s := block.NewSplitter(r, &block.SplitConfig{
 		Hash: d.cons,
 		Max:  maxBytes,
 	})
@@ -137,13 +137,13 @@ func TestSplitterBlocks(t *testing.T) {
 	}
 	for _, test := range tests {
 		r := newBurstyReader(test.input, 3, 5, 1, 4, 17, 20)
-		s := split.New(r, &split.Config{
+		s := block.NewSplitter(r, &block.SplitConfig{
 			Hash: d.cons,
 			Min:  test.min,
 			Max:  test.max,
 		})
 		var bs []string
-		if err := s.Split(func(b []byte) error {
+		if err := block.Split(s, func(b []byte) error {
 			bs = append(bs, string(b))
 			return nil
 		}); err != nil {
@@ -164,15 +164,15 @@ func TestLongValue(t *testing.T) {
 	for buf.Len() < inputLen {
 		buf.WriteByte(alphabet[rand.Intn(len(alphabet))])
 	}
-	cfg := &split.Config{
+	cfg := &block.SplitConfig{
 		Min:  200,
 		Size: 800,
 		Max:  20000,
 	}
-	s := split.New(&buf, cfg)
+	s := block.NewSplitter(&buf, cfg)
 	var total int
 	var sizes []int
-	if err := s.Split(func(blk []byte) error {
+	if err := block.Split(s, func(blk []byte) error {
 		total += len(blk)
 		sizes = append(sizes, len(blk))
 		if len(blk) < cfg.Min {

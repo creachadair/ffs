@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package split implements a content-sensitive block splitter based on a
-// rolling hash function.
+// Package block implements content-sensitive partitioning of a stream of byte
+// data into blocks rolling hash function.
 //
 // The algorithm used to split data into blocks is based on the one from LBFS:
 //  http://pdos.csail.mit.edu/lbfs/
@@ -23,11 +23,9 @@
 // This package provides a rolling hash using the Rabin-Karp construction, and
 // alternative implementations can be plugged in via the RollingHash interface.
 //
-package split
+package block
 
-import (
-	"io"
-)
+import "io"
 
 // These values are the defaults used if none are specified in the config.
 // They are exported as variables so that they can be overridden with flags.
@@ -42,8 +40,8 @@ var (
 	DefaultMax = 65536
 )
 
-// A Config contains the settings to construct a splitter.
-type Config struct {
+// A SplitConfig contains the settings to construct a splitter.
+type SplitConfig struct {
 	// Construct a rolling hash to use for splitting. If nil, use DefaultHash.
 	Hash func() RollingHash
 
@@ -60,38 +58,38 @@ type Config struct {
 	Max int
 }
 
-func (c *Config) newHash() RollingHash {
+func (c *SplitConfig) newHash() RollingHash {
 	if c == nil || c.Hash == nil {
 		return DefaultHash()
 	}
 	return c.Hash()
 }
 
-func (c *Config) min() int {
+func (c *SplitConfig) min() int {
 	if c == nil || c.Min <= 0 {
 		return DefaultMin
 	}
 	return c.Min
 }
 
-func (c *Config) size() int {
+func (c *SplitConfig) size() int {
 	if c == nil || c.Size <= 0 {
 		return DefaultSize
 	}
 	return c.Size
 }
 
-func (c *Config) max() int {
+func (c *SplitConfig) max() int {
 	if c == nil || c.Max <= 0 {
 		return DefaultMax
 	}
 	return c.Max
 }
 
-// New returns a splitter that reads its data from r and partitions it into
-// blocks using the rolling hash from c. A nil *Config is ready for use with
-// default sizes and hash settings.
-func New(r io.Reader, c *Config) *Splitter {
+// NewSplitter constructs a Splitter that reads its data from r and partitions
+// it into blocks using the rolling hash from c. A nil *SplitConfig is ready
+// for use with default sizes and hash settings.
+func NewSplitter(r io.Reader, c *SplitConfig) *Splitter {
 	return &Splitter{
 		reader: r,
 		hash:   c.newHash(),
@@ -171,7 +169,7 @@ func (s *Splitter) Next() ([]byte, error) {
 //
 // The slice passed to f is only valid while f is active; if f wishes to store
 // a block for later use, it must be copied.
-func (s *Splitter) Split(f func(data []byte) error) error {
+func Split(s *Splitter, f func(data []byte) error) error {
 	for {
 		block, err := s.Next()
 		if err == io.EOF {

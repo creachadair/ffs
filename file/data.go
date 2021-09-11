@@ -20,15 +20,15 @@ import (
 	"io"
 
 	"github.com/creachadair/ffs/blob"
+	"github.com/creachadair/ffs/block"
 	"github.com/creachadair/ffs/file/wiretype"
-	"github.com/creachadair/ffs/split"
 )
 
 // A data value represents an ordered sequence of bytes stored in a blob.Store.
 // Other than length, no metadata are preserved. File data are recorded as a
 // flat array of discontiguous extents.
 type fileData struct {
-	sc         *split.Config
+	sc         *block.SplitConfig
 	totalBytes int64
 	extents    []*extent
 }
@@ -73,10 +73,10 @@ func (d *fileData) fromWireType(pb *wiretype.Index) {
 		d.extents[i] = &extent{
 			base:   int64(ext.Base),
 			bytes:  int64(ext.Bytes),
-			blocks: make([]block, len(ext.Blocks)),
+			blocks: make([]cblock, len(ext.Blocks)),
 		}
 		for j, blk := range ext.Blocks {
-			d.extents[i].blocks[j] = block{
+			d.extents[i].blocks[j] = cblock{
 				bytes: int64(blk.Bytes),
 				key:   string(blk.Key),
 			}
@@ -146,7 +146,7 @@ func (d *fileData) writeAt(ctx context.Context, s blob.CAS, data []byte, offset 
 	end := offset + int64(len(data))
 	pre, span, post := d.splitSpan(offset, end)
 
-	var left, right []block
+	var left, right []cblock
 	var parts [][]byte
 	newBase := offset
 	newEnd := end
@@ -309,19 +309,19 @@ func (d *fileData) readAt(ctx context.Context, s blob.CAS, data []byte, offset i
 	return nr, nil
 }
 
-func (d *fileData) splitBlobs(ctx context.Context, s blob.CAS, blobs ...[]byte) ([]block, error) {
+func (d *fileData) splitBlobs(ctx context.Context, s blob.CAS, blobs ...[]byte) ([]cblock, error) {
 	rs := make([]io.Reader, len(blobs))
 	for i, b := range blobs {
 		rs[i] = bytes.NewReader(b)
 	}
 
-	var blks []block
-	if err := split.New(io.MultiReader(rs...), d.sc).Split(func(blk []byte) error {
+	var blks []cblock
+	if err := block.Split(block.NewSplitter(io.MultiReader(rs...), d.sc), func(blk []byte) error {
 		key, err := s.PutCAS(ctx, blk)
 		if err != nil {
 			return err
 		}
-		blks = append(blks, block{bytes: int64(len(blk)), key: key})
+		blks = append(blks, cblock{bytes: int64(len(blk)), key: key})
 		return nil
 	}); err != nil {
 		return nil, err
@@ -360,10 +360,10 @@ func (d *fileData) splitSpan(lo, hi int64) (pre, span, post []*extent) {
 // An extent represents a single contiguous stored subrange of a file. The
 // blocks record the offsets and block storage keys for the extent.
 type extent struct {
-	base   int64   // offset of the first byte within the file
-	bytes  int64   // number of bytes in the extent
-	blocks []block // continguous extent blocks
-	starts []int64 // block starting offsets, for search
+	base   int64    // offset of the first byte within the file
+	bytes  int64    // number of bytes in the extent
+	blocks []cblock // continguous extent blocks
+	starts []int64  // block starting offsets, for search
 }
 
 // findBlock returns the index and base offset of the first block in e that
@@ -411,7 +411,7 @@ func (e *extent) findBlock(offset int64) (int, int64) {
 func (e *extent) abuts(o *extent) bool { return e.base+e.bytes == o.base }
 
 // A block represents a single content-addressable block of file data.
-type block struct {
+type cblock struct {
 	bytes int64  // number of bytes in the block
 	key   string // storage key for this block
 }
