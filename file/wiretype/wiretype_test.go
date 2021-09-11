@@ -26,7 +26,7 @@ import (
 
 type lineHash struct{}
 
-func newLineHash() block.RollingHash { return lineHash{} }
+func (h lineHash) Hash() block.Hash { return h }
 
 func (lineHash) Update(b byte) uint {
 	if b == '\x00' {
@@ -34,8 +34,6 @@ func (lineHash) Update(b byte) uint {
 	}
 	return 2
 }
-
-func (lineHash) Size() int { return 1 }
 
 func TestNewIndex(t *testing.T) {
 	const input = "This is the first line" + // ext 1, block 1
@@ -45,10 +43,10 @@ func TestNewIndex(t *testing.T) {
 		"\x00And the fourth line then beckoned" // ext 2, block 1
 
 	s := block.NewSplitter(strings.NewReader(input), &block.SplitConfig{
-		Hash: newLineHash,
-		Min:  5,
-		Max:  100,
-		Size: 16,
+		Hasher: lineHash{},
+		Min:    5,
+		Max:    100,
+		Size:   16,
 	})
 	idx, err := wiretype.NewIndex(s, func(data []byte) (string, error) {
 		t.Logf("Block: %q", string(data))
