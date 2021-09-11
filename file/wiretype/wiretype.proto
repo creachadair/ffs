@@ -36,14 +36,12 @@ message Stat {
   // along with the sticky, setuid, and setgid bits. The rest are reserved and
   // must be set to zero. In binary:
   //
-  //          owner group other
-  //  ... +-+-+-+-----+-----+-----+
-  //      |S|G|T|r w x|r w x|r w x|
-  //  ... +-+-+-+-----+-----+-----+
-  //       ^ ^ ^     6     3     0  bit
-  //       | | +- sticky
-  //       | +--- setgid
-  //       +----- setuid
+  //             owner group other
+  //  ... +-+-+-+-----+-----+-----+   S: setuid
+  //      |S|G|T|r w x|r w x|r w x|   G: setgid
+  //  ... +-+-+-+-----+-----+-----+   T: sticky
+  //       B A 9     6     3     0  « bit
+  //
   uint32 permissions = 1;
 
   FileType file_type = 2;

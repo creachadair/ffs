@@ -185,14 +185,12 @@ type Stat struct {
 	// along with the sticky, setuid, and setgid bits. The rest are reserved and
 	// must be set to zero. In binary:
 	//
-	//          owner group other
-	//  ... +-+-+-+-----+-----+-----+
-	//      |S|G|T|r w x|r w x|r w x|
-	//  ... +-+-+-+-----+-----+-----+
-	//       ^ ^ ^     6     3     0  bit
-	//       | | +- sticky
-	//       | +--- setgid
-	//       +----- setuid
+	//             owner group other
+	//  ... +-+-+-+-----+-----+-----+   S: setuid
+	//      |S|G|T|r w x|r w x|r w x|   G: setgid
+	//  ... +-+-+-+-----+-----+-----+   T: sticky
+	//       B A 9     6     3     0  « bit
+	//
 	Permissions uint32        `protobuf:"varint,1,opt,name=permissions,proto3" json:"permissions,omitempty"`
 	FileType    Stat_FileType `protobuf:"varint,2,opt,name=file_type,json=fileType,proto3,enum=ffs.file.Stat_FileType" json:"file_type,omitempty"`
 	ModTime     *Timestamp    `protobuf:"bytes,3,opt,name=mod_time,json=modTime,proto3" json:"mod_time,omitempty"`
