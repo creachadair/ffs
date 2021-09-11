@@ -314,9 +314,10 @@ func (d *fileData) splitBlobs(ctx context.Context, s blob.CAS, blobs ...[]byte) 
 	for i, b := range blobs {
 		rs[i] = bytes.NewReader(b)
 	}
+	data := io.MultiReader(rs...)
 
 	var blks []cblock
-	if err := block.Split(block.NewSplitter(io.MultiReader(rs...), d.sc), func(blk []byte) error {
+	if err := block.Split(block.NewSplitter(data, d.sc), func(blk []byte) error {
 		key, err := s.PutCAS(ctx, blk)
 		if err != nil {
 			return err
