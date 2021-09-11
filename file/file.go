@@ -69,16 +69,10 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// CAS is the interface to a content-addressable blob store.
-type CAS interface {
-	blob.Store
-	PutCAS(context.Context, []byte) (string, error)
-}
-
 // New constructs a new, empty File with the given options and backed by s. The
 // caller must call the new file's Flush method to ensure it is written to
 // storage. If opts == nil, defaults are chosen.
-func New(s CAS, opts *NewOptions) *File {
+func New(s blob.CAS, opts *NewOptions) *File {
 	if opts == nil {
 		opts = new(NewOptions)
 	}
@@ -110,7 +104,7 @@ type NewOptions struct {
 }
 
 // Open opens an existing file given its storage key in s.
-func Open(ctx context.Context, s CAS, key string) (*File, error) {
+func Open(ctx context.Context, s blob.CAS, key string) (*File, error) {
 	var node wiretype.Node
 	if err := loadWireType(ctx, s, key, &node); err != nil {
 		return nil, fmt.Errorf("loading file %q: %w", key, err)
@@ -122,7 +116,7 @@ func Open(ctx context.Context, s CAS, key string) (*File, error) {
 
 // A File represents a writable file stored in a content-addressable blobstore.
 type File struct {
-	s    CAS
+	s    blob.CAS
 	name string // if this file is a child, its attributed name
 	key  string // the storage key for the file record (wiretype.Node)
 
@@ -449,7 +443,7 @@ func (x XAttr) List(attr func(key, value string)) {
 	}
 }
 
-func saveWireType(ctx context.Context, s CAS, msg proto.Message) (string, error) {
+func saveWireType(ctx context.Context, s blob.CAS, msg proto.Message) (string, error) {
 	bits, err := proto.Marshal(msg)
 	if err != nil {
 		return "", fmt.Errorf("encoding message: %w", err)
@@ -457,7 +451,7 @@ func saveWireType(ctx context.Context, s CAS, msg proto.Message) (string, error)
 	return s.PutCAS(ctx, bits)
 }
 
-func loadWireType(ctx context.Context, s CAS, key string, msg proto.Message) error {
+func loadWireType(ctx context.Context, s blob.CAS, key string, msg proto.Message) error {
 	bits, err := s.Get(ctx, key)
 	if err != nil {
 		return fmt.Errorf("loading message: %w", err)
