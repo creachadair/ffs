@@ -248,7 +248,11 @@ func (f *File) Flush(ctx context.Context) (string, error) {
 // path of nodes from the root to the current flush target, and is used to
 // verify that there are no cycles in the graph.
 func (f *File) recFlush(ctx context.Context, path []*File) (string, error) {
-	// Check for direct or indirect cycles.
+	// Check for direct or indirect cycles. This check is quadratic in the
+	// height of the DAG over the whole scan in the worst case. In practice,
+	// this doesn't cause any real issues, since it's not common for file
+	// structures to be very deep. Compared to the cost of marshaling and
+	// writing back invalid entries to storage, the array scan is minor.
 	for _, elt := range path {
 		if elt == f {
 			return "", fmt.Errorf("flush: cycle in path at %p", elt)
