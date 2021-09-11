@@ -27,7 +27,7 @@
 //   ctx := context.Background()
 //
 //   f := file.New(cas, nil)   // create a new, empty file
-//   f.Write(ctx, data)        // write some data to the file
+//   f.WriteAt(ctx, data, 0)   // write some data to the file
 //   key, err := f.Flush(ctx)  // commit the file to storage
 //
 // To open an existing file,
@@ -36,12 +36,12 @@
 //
 // The I/O methods of a File require a context argument. For compatibility with
 // the standard interfaces in the io package, a File provides a wrapper for a
-// request scoped context:
+// request-scoped context:
 //
-//    _, err := io.Copy(f.IO(ctx), src)
+//    _, err := io.Copy(f.Cursor(ctx), src)
 //
-// A value of the file.IO type should not be retained beyond the dynamic extent
-// of the request whose context it captures.
+// A value of the file.Cursor type should not be used outside the dynamic
+// extent of the request whose context it captures.
 //
 // Metadata
 //
@@ -60,7 +60,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"io"
 	"sort"
 	"time"
 
@@ -127,9 +126,8 @@ type File struct {
 	name string // if this file is a child, its attributed name
 	key  string // the storage key for the file record (wiretype.Node)
 
-	offset   int64 // current seek position (≥ 0)
-	stat     Stat  // file metadata
-	saveStat bool  // whether to persist file metadata
+	stat     Stat // file metadata
+	saveStat bool // whether to persist file metadata
 
 	data  fileData          // binary file data
 	kids  []child           // ordered lexicographically by name
@@ -267,43 +265,6 @@ func (f *File) Children() []string {
 	return out
 }
 
-// Seek sets the starting offset for the next Read or Write, as io.Seeker.
-func (f *File) Seek(ctx context.Context, offset int64, whence int) (int64, error) {
-	target := offset
-	switch whence {
-	case io.SeekStart:
-		// use offset as written
-	case io.SeekCurrent:
-		target += f.offset
-	case io.SeekEnd:
-		target += f.data.size()
-	default:
-		return 0, fmt.Errorf("seek: invalid offset relation %v", whence)
-	}
-	if target < 0 {
-		return 0, fmt.Errorf("seek: invalid target offset %d", target)
-	}
-	f.offset = target
-	return f.offset, nil
-}
-
-// Read reads up to len(data) bytes into data from the current offset of f, and
-// reports the number of bytes successfully read, as io.Reader.
-func (f *File) Read(ctx context.Context, data []byte) (int, error) {
-	nr, err := f.data.readAt(ctx, f.s, data, f.offset)
-	f.offset += int64(nr)
-	return nr, err
-}
-
-// Write writes len(data) bytes from data to the f at its current offset,
-// and reports the number of bytes successfully written, as io.Writer.
-func (f *File) Write(ctx context.Context, data []byte) (int, error) {
-	defer f.modify()
-	nw, err := f.data.writeAt(ctx, f.s, data, f.offset)
-	f.offset += int64(nw)
-	return nw, err
-}
-
 // ReadAt reads up to len(data) bytes into data from the given offset, and
 // reports the number of bytes successfully read, as io.ReaderAt.
 func (f *File) ReadAt(ctx context.Context, data []byte, offset int64) (int, error) {
@@ -412,10 +373,10 @@ func (f *File) Scan(ctx context.Context, visit ScanFunc) error {
 	return nil
 }
 
-// IO binds f with a context so that it can be used to satisfy the standard
-// interfaces defined by the io package.  The resulting values hould be used
-// only during the lifetime of the request whose context it binds.
-func (f *File) IO(ctx context.Context) IO { return IO{ctx: ctx, f: f} }
+// Cursor binds f with a context so that it can be used to satisfy the standard
+// interfaces defined by the io package.  The resulting cursor may be used only
+// during the lifetime of the request whose context it binds.
+func (f *File) Cursor(ctx context.Context) *Cursor { return &Cursor{ctx: ctx, file: f} }
 
 // XAttr returns a view of the extended attributes of f.
 func (f *File) XAttr() XAttr { return XAttr{f: f} }

@@ -53,7 +53,7 @@ func TestRoundTrip(t *testing.T) {
 	}
 
 	const testMessage = "Four fat fennel farmers fell feverishly for Felicia Frances"
-	fmt.Fprint(f.IO(ctx), testMessage)
+	fmt.Fprint(f.Cursor(ctx), testMessage)
 	if n := f.Size(); n != int64(len(testMessage)) {
 		t.Errorf("Size: got %d, want %d", n, len(testMessage))
 	}
@@ -68,7 +68,7 @@ func TestRoundTrip(t *testing.T) {
 	}
 
 	// Verify that file contents were preserved.
-	bits, err := ioutil.ReadAll(g.IO(ctx))
+	bits, err := ioutil.ReadAll(g.Cursor(ctx))
 	if err != nil {
 		t.Errorf("Reading %x: %v", fkey, err)
 	}
@@ -96,11 +96,11 @@ func TestRoundTrip(t *testing.T) {
 	// Verify that seek and truncation work.
 	if err := g.Truncate(ctx, 15); err != nil {
 		t.Errorf("Truncate(15): unexpected error: %v", err)
-	} else if pos, err := g.Seek(ctx, 0, io.SeekStart); err != nil {
+	} else if pos, err := g.Cursor(ctx).Seek(0, io.SeekStart); err != nil {
 		t.Errorf("Seek(0): unexpected error: %v", err)
 	} else if pos != 0 {
 		t.Errorf("Pos after Seek(0): got %d, want 0", pos)
-	} else if bits, err := ioutil.ReadAll(g.IO(ctx)); err != nil {
+	} else if bits, err := ioutil.ReadAll(g.Cursor(ctx)); err != nil {
 		t.Errorf("Read failed: %v", err)
 	} else if got, want := string(bits), testMessage[:15]; got != want {
 		t.Errorf("Truncated message: got %q, want %q", got, want)
