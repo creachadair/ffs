@@ -123,7 +123,7 @@ func Set(ctx context.Context, root *file.File, path string, opts *SetOptions) er
 		ef: func(fp *foundPath, err error) error {
 			if errors.Is(err, file.ErrChildNotFound) && opts.create() {
 				c := opts.setStat(fp.target.New(&file.NewOptions{Name: fp.targetName}))
-				fp.target.Set(fp.targetName, c)
+				fp.target.Child().Set(fp.targetName, c)
 				fp.parent, fp.target = fp.target, c
 				return nil
 			}
@@ -134,9 +134,9 @@ func Set(ctx context.Context, root *file.File, path string, opts *SetOptions) er
 		return err
 	}
 	if last := opts.target(); last != nil {
-		fp.target.Set(base, last)
+		fp.target.Child().Set(base, last)
 	} else {
-		fp.target.Set(base, opts.setStat(root.New(nil)))
+		fp.target.Child().Set(base, opts.setStat(root.New(nil)))
 	}
 	return nil
 }
@@ -148,7 +148,7 @@ func Remove(ctx context.Context, root *file.File, path string) error {
 	if err != nil {
 		return err
 	} else if fp.parent != nil {
-		fp.parent.Remove(fp.targetName)
+		fp.parent.Child().Remove(fp.targetName)
 	}
 	return nil
 }
@@ -185,7 +185,7 @@ func Walk(ctx context.Context, root *file.File, visit func(Entry) error) error {
 			if f == nil {
 				continue // the error was suppressed
 			}
-			kids := f.Children()
+			kids := f.Child().Names()
 			for i, name := range kids {
 				kids[i] = path.Join(next, name)
 			}

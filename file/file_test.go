@@ -119,21 +119,21 @@ func TestRoundTrip(t *testing.T) {
 	}
 }
 
-func TestChildren(t *testing.T) {
+func TestChild(t *testing.T) {
 	cas := blob.NewCAS(memstore.New(), sha1.New)
 	ctx := context.Background()
 	root := file.New(cas, nil)
 
 	names := []string{"all.txt", "your.go", "base.exe"}
 	for _, name := range names {
-		root.Set(name, root.New(nil))
+		root.Child().Set(name, root.New(nil))
 	}
 
 	// Names should come out in lexicographic order.
 	sort.Strings(names)
 
 	// Child names should be correct even without a flush.
-	if diff := cmp.Diff(names, root.Children()); diff != "" {
+	if diff := cmp.Diff(names, root.Child().Names()); diff != "" {
 		t.Errorf("Wrong children (-want, +got):\n%s", diff)
 	}
 
@@ -144,7 +144,7 @@ func TestChildren(t *testing.T) {
 	}
 	t.Logf("Flushed root to %x", rkey)
 
-	if diff := cmp.Diff(names, root.Children()); diff != "" {
+	if diff := cmp.Diff(names, root.Child().Names()); diff != "" {
 		t.Errorf("Wrong children (-want, +got):\n%s", diff)
 	}
 }
@@ -155,8 +155,8 @@ func TestCycleCheck(t *testing.T) {
 	root := file.New(cas, nil)
 
 	kid := file.New(cas, nil)
-	root.Set("harmless", kid)
-	kid.Set("harmful", root)
+	root.Child().Set("harmless", kid)
+	kid.Child().Set("harmful", root)
 
 	key, err := root.Flush(ctx)
 	if err == nil {

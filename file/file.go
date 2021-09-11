@@ -198,42 +198,6 @@ func (f *File) SetStat(set func(*Stat)) {
 // persistence for the file.
 func (f *File) ClearStat() { defer f.inval(); f.stat = Stat{}; f.saveStat = false }
 
-// HasChild reports whether f has a child with the given name.
-func (f *File) HasChild(name string) bool { _, ok := f.findChild(name); return ok }
-
-// Set makes c a child of f under the given name. Set will panic if c == nil.
-func (f *File) Set(name string, c *File) {
-	if c == nil {
-		panic("set: nil file")
-	}
-	defer f.modify()
-	c.name = name
-	if i, ok := f.findChild(name); ok {
-		f.kids[i].File = c
-		return
-	}
-	f.kids = append(f.kids, child{Name: name, File: c})
-
-	// Restore lexicographic order.
-	for i := len(f.kids) - 1; i > 0; i-- {
-		if f.kids[i].Name >= f.kids[i-1].Name {
-			break
-		}
-		f.kids[i], f.kids[i-1] = f.kids[i-1], f.kids[i]
-	}
-}
-
-// Remove removes name as a child of f if present, and reports whether any
-// change was made.
-func (f *File) Remove(name string) bool {
-	if i, ok := f.findChild(name); ok {
-		defer f.modify()
-		f.kids = append(f.kids[:i], f.kids[i+1:]...)
-		return true
-	}
-	return false
-}
-
 var (
 	// ErrChildNotFound indicates that a requested child file does not exist.
 	ErrChildNotFound = errors.New("child file not found")
@@ -257,14 +221,8 @@ func (f *File) Open(ctx context.Context, name string) (*File, error) {
 	return c, err
 }
 
-// Children returns a slice of the names of the children of f.
-func (f *File) Children() []string {
-	out := make([]string, len(f.kids))
-	for i, kid := range f.kids {
-		out[i] = kid.Name
-	}
-	return out
-}
+// Child returns a view of the children of f.
+func (f *File) Child() Child { return Child{f: f} }
 
 // ReadAt reads up to len(data) bytes into data from the given offset, and
 // reports the number of bytes successfully read, as io.ReaderAt.
@@ -425,9 +383,7 @@ func (f *File) toWireType() *wiretype.Node {
 }
 
 // XAttr provides access to the extended attributes of a file.
-type XAttr struct {
-	f *File
-}
+type XAttr struct{ f *File }
 
 // Get reports whether the specified key is set, and if so returns its value.
 func (x XAttr) Get(key string) (string, bool) { s, ok := x.f.xattr[key]; return s, ok }
@@ -448,6 +404,54 @@ func (x XAttr) List(attr func(key, value string)) {
 	for key, val := range x.f.xattr {
 		attr(key, val)
 	}
+}
+
+// Child provides access to the children of a file.
+type Child struct{ f *File }
+
+// Has reports whether the file has a child with the given name.
+func (c Child) Has(name string) bool { _, ok := c.f.findChild(name); return ok }
+
+// Set makes kid a child of f under the given name. Set will panic if kid == nil.
+func (c Child) Set(name string, kid *File) {
+	if kid == nil {
+		panic("set: nil file")
+	}
+	defer c.f.modify()
+	kid.name = name
+	if i, ok := c.f.findChild(name); ok {
+		c.f.kids[i].File = kid // replace an existing child
+		return
+	}
+	c.f.kids = append(c.f.kids, child{Name: name, File: kid})
+
+	// Restore lexicographic order.
+	for i := len(c.f.kids) - 1; i > 0; i-- {
+		if c.f.kids[i].Name >= c.f.kids[i-1].Name {
+			break
+		}
+		c.f.kids[i], c.f.kids[i-1] = c.f.kids[i-1], c.f.kids[i]
+	}
+}
+
+// Remove removes name as a child of f, and reports whether a change was made.
+func (c Child) Remove(name string) bool {
+	if i, ok := c.f.findChild(name); ok {
+		defer c.f.modify()
+		c.f.kids = append(c.f.kids[:i], c.f.kids[i+1:]...)
+		return true
+	}
+	return false
+}
+
+// Names returns a lexicographically ordered slice of the names of all the
+// children of the file.
+func (c Child) Names() []string {
+	out := make([]string, len(c.f.kids))
+	for i, kid := range c.f.kids {
+		out[i] = kid.Name
+	}
+	return out
 }
 
 func saveWireType(ctx context.Context, s blob.CAS, msg proto.Message) (string, error) {
