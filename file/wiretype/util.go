@@ -23,23 +23,32 @@ func NewIndex(s *split.Splitter, put func([]byte) (string, error)) (*Index, erro
 	var idx Index
 	var ext *Extent
 	push := func() {
-		if ext != nil {
-			for _, b := range ext.Blocks {
-				ext.Bytes += b.Bytes
-			}
-			idx.Extents = append(idx.Extents, ext)
-			ext = nil
+		if ext == nil {
+			return
 		}
+		for _, b := range ext.Blocks {
+			ext.Bytes += b.Bytes
+		}
+		idx.Extents = append(idx.Extents, ext)
+		ext = nil
 	}
 
 	if err := s.Split(func(data []byte) error {
+		// A block of zeroes ends the current extent. We count the block against
+		// the total file size, but do not explicitly store it.
 		if isZero(data) {
 			push()
 			idx.TotalBytes += uint64(len(data))
 			return nil
-		} else if ext == nil {
+		}
+
+		// Otherwise, we have real data to store. Start a fresh extent if do not
+		// already have one, store the block, and append it to the extent.
+		if ext == nil {
+			// N.B. We need the total from BEFORE the new block is added.
 			ext = &Extent{Base: idx.TotalBytes}
 		}
+
 		idx.TotalBytes += uint64(len(data))
 		key, err := put(data)
 		if err != nil {
