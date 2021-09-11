@@ -43,13 +43,13 @@ type Stat struct {
 func (s Stat) toWireType() *wiretype.Stat {
 	pb := &wiretype.Stat{
 		Mode:      uint32(s.Mode),
-		OwnerID:   uint64(s.OwnerID),
+		OwnerId:   uint64(s.OwnerID),
 		OwnerName: s.OwnerName,
-		GroupID:   uint64(s.GroupID),
+		GroupId:   uint64(s.GroupID),
 		GroupName: s.GroupName,
 	}
 	if !s.ModTime.IsZero() {
-		pb.ModTime = &wiretype.Time{
+		pb.ModTime = &wiretype.Timestamp{
 			Seconds: s.ModTime.Unix(),
 			Nanos:   int64(s.ModTime.Nanosecond()),
 		}
@@ -63,9 +63,9 @@ func (s *Stat) FromWireType(pb *wiretype.Stat) {
 		return // no stat was persisted for this file
 	}
 	s.Mode = os.FileMode(pb.Mode)
-	s.OwnerID = int(pb.OwnerID)
+	s.OwnerID = int(pb.OwnerId)
 	s.OwnerName = pb.OwnerName
-	s.GroupID = int(pb.GroupID)
+	s.GroupID = int(pb.GroupId)
 	s.GroupName = pb.GroupName
 	if t := pb.ModTime; t != nil {
 		s.ModTime = time.Unix(t.Seconds, t.Nanos)

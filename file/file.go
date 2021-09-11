@@ -64,10 +64,10 @@ import (
 	"sort"
 	"time"
 
-	"github.com/creachadair/binpack"
 	"github.com/creachadair/ffs/blob"
 	"github.com/creachadair/ffs/file/wiretype"
 	"github.com/creachadair/ffs/split"
+	"google.golang.org/protobuf/proto"
 )
 
 // CAS is the interface to a content-addressable blob store.
@@ -488,18 +488,18 @@ func (x XAttr) List(attr func(key, value string)) {
 	}
 }
 
-func saveWireType(ctx context.Context, s CAS, msg interface{}) (string, error) {
-	bits, err := binpack.Marshal(msg)
+func saveWireType(ctx context.Context, s CAS, msg proto.Message) (string, error) {
+	bits, err := proto.Marshal(msg)
 	if err != nil {
 		return "", fmt.Errorf("encoding message: %w", err)
 	}
 	return s.PutCAS(ctx, bits)
 }
 
-func loadWireType(ctx context.Context, s CAS, key string, msg interface{}) error {
+func loadWireType(ctx context.Context, s CAS, key string, msg proto.Message) error {
 	bits, err := s.Get(ctx, key)
 	if err != nil {
 		return fmt.Errorf("loading message: %w", err)
 	}
-	return binpack.Unmarshal(bits, msg)
+	return proto.Unmarshal(bits, msg)
 }
