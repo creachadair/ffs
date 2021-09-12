@@ -93,7 +93,7 @@ func (s *Store) Get(_ context.Context, key string) ([]byte, error) {
 	bits, err := ioutil.ReadFile(s.keyPath(key))
 	if err != nil {
 		if os.IsNotExist(err) {
-			err = blob.ErrKeyNotFound
+			err = blob.KeyNotFound(key)
 		}
 		return nil, fmt.Errorf("key %q: %w", key, err)
 	}
@@ -106,7 +106,7 @@ func (s *Store) Get(_ context.Context, key string) ([]byte, error) {
 func (s *Store) Put(_ context.Context, opts blob.PutOptions) error {
 	path := s.keyPath(opts.Key)
 	if _, err := os.Stat(path); err == nil && !opts.Replace {
-		return fmt.Errorf("key %q: %w", opts.Key, blob.ErrKeyExists)
+		return blob.KeyExists(opts.Key)
 	} else if err := os.MkdirAll(filepath.Dir(path), 0700); err != nil {
 		return err
 	}
@@ -119,7 +119,7 @@ func (s *Store) Size(_ context.Context, key string) (int64, error) {
 	f, err := os.Open(s.keyPath(key))
 	if err != nil {
 		if os.IsNotExist(err) {
-			err = blob.ErrKeyNotFound
+			err = blob.KeyNotFound(key)
 		}
 		return 0, fmt.Errorf("key %q: %w", key, err)
 	}
@@ -132,7 +132,7 @@ func (s *Store) Delete(_ context.Context, key string) error {
 	path := s.keyPath(key)
 	err := os.Remove(path)
 	if os.IsNotExist(err) {
-		return fmt.Errorf("key %q: %w", key, blob.ErrKeyNotFound)
+		return blob.KeyNotFound(key)
 	}
 	return err
 }

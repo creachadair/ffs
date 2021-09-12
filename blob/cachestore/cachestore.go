@@ -53,7 +53,7 @@ func (s *Store) Get(ctx context.Context, key string) ([]byte, error) {
 	s.μ.Lock()
 	defer s.μ.Unlock()
 	if s.nexist[key] {
-		return nil, blob.ErrKeyNotFound
+		return nil, blob.KeyNotFound(key)
 	} else if data, ok := s.cache.get(key); ok {
 		return data, nil
 	}
@@ -99,7 +99,7 @@ func (s *Store) Size(ctx context.Context, key string) (int64, error) {
 	s.μ.Lock()
 	defer s.μ.Unlock()
 	if s.nexist[key] {
-		return 0, blob.ErrKeyNotFound
+		return 0, blob.KeyNotFound(key)
 	}
 	size, err := s.base.Size(ctx, key)
 	if blob.IsKeyNotFound(err) {

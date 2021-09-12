@@ -18,7 +18,6 @@ package memstore
 import (
 	"context"
 	"errors"
-	"fmt"
 	"sort"
 	"sync"
 
@@ -67,7 +66,7 @@ func (s *Store) Get(_ context.Context, key string) ([]byte, error) {
 	if v, ok := s.m[key]; ok {
 		return []byte(v), nil
 	}
-	return nil, fmt.Errorf("get %q: %w", key, blob.ErrKeyNotFound)
+	return nil, blob.KeyNotFound(key)
 }
 
 // Put implements part of blob.Store.
@@ -76,7 +75,7 @@ func (s *Store) Put(_ context.Context, opts blob.PutOptions) error {
 	defer s.μ.Unlock()
 
 	if _, ok := s.m[opts.Key]; ok && !opts.Replace {
-		return fmt.Errorf("put %q: %w", opts.Key, blob.ErrKeyExists)
+		return blob.KeyExists(opts.Key)
 	}
 	s.m[opts.Key] = string(opts.Data)
 	return nil
@@ -90,7 +89,7 @@ func (s *Store) Size(_ context.Context, key string) (int64, error) {
 	if v, ok := s.m[key]; ok {
 		return int64(len(v)), nil
 	}
-	return 0, fmt.Errorf("size %q: %w", key, blob.ErrKeyNotFound)
+	return 0, blob.KeyNotFound(key)
 }
 
 // Delete implements part of blob.Store.
@@ -99,7 +98,7 @@ func (s *Store) Delete(_ context.Context, key string) error {
 	defer s.μ.Unlock()
 
 	if _, ok := s.m[key]; !ok {
-		return fmt.Errorf("delete %q: %w", key, blob.ErrKeyNotFound)
+		return blob.KeyNotFound(key)
 	}
 	delete(s.m, key)
 	return nil
