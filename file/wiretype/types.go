@@ -18,7 +18,16 @@ package wiretype
 // Requires: google.golang.org/protobuf/cmd/protoc-gen-go
 //go:generate protoc --go_out=. --go_opt=paths=source_relative wiretype.proto
 
-import "sort"
+import (
+	"sort"
+
+	"google.golang.org/protobuf/encoding/protojson"
+)
+
+// MarshalJSON implements the json.Marshaler interface for a *Node, by
+// delegating to the protojson marshaler. This allows a node to be encoded
+// using the encoding/json package transparently.
+func (n *Node) MarshalJSON() ([]byte, error) { return protojson.Marshal(n) }
 
 // Normalize updates n in-place so that all fields are in canonical order.
 func (n *Node) Normalize() {
