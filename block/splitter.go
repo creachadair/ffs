@@ -29,6 +29,9 @@
 //
 package block
 
+// TODO(Sep 2021): The LBFS paper seems to be inaccessible from MIT.
+// There's a presentation about it here: http://www.scs.stanford.edu/nyu/02fa/notes/l15.pdf
+
 import "io"
 
 // These values are the defaults used if none are specified in the config.
