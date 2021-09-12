@@ -72,7 +72,7 @@ import (
 // New constructs a new, empty File with the given options and backed by s. The
 // caller must call the new file's Flush method to ensure it is written to
 // storage. If opts == nil, defaults are chosen.
-func New(s blob.CAS, opts *NewOptions) *File {
+func New(s CAS, opts *NewOptions) *File {
 	if opts == nil {
 		opts = new(NewOptions)
 	}
@@ -84,6 +84,16 @@ func New(s blob.CAS, opts *NewOptions) *File {
 		data:     fileData{sc: opts.Split},
 		xattr:    make(map[string]string),
 	}
+}
+
+// A CAS is the storage interface used by a File. This is trivially satisfied
+// by a blob.CAS, but other implementations are useful.
+type CAS interface {
+	blob.Store
+
+	// Write data to a content-addressed blob in the underlying store and return
+	// the assigned key.
+	PutCAS(context.Context, []byte) (string, error)
 }
 
 // NewOptions control the creation of new files.
@@ -105,7 +115,7 @@ type NewOptions struct {
 }
 
 // Open opens an existing file given its storage key in s.
-func Open(ctx context.Context, s blob.CAS, key string) (*File, error) {
+func Open(ctx context.Context, s CAS, key string) (*File, error) {
 	var node wiretype.Node
 	if err := loadWireType(ctx, s, key, &node); err != nil {
 		return nil, fmt.Errorf("loading file %q: %w", key, err)
@@ -117,7 +127,7 @@ func Open(ctx context.Context, s blob.CAS, key string) (*File, error) {
 
 // A File represents a writable file stored in a content-addressable blobstore.
 type File struct {
-	s    blob.CAS
+	s    CAS
 	name string // if this file is a child, its attributed name
 	key  string // the storage key for the file record (wiretype.Node)
 
@@ -461,7 +471,7 @@ func (c Child) Names() []string {
 // Len returns the number of children of the file.
 func (c Child) Len() int { return len(c.f.kids) }
 
-func saveWireType(ctx context.Context, s blob.CAS, msg proto.Message) (string, error) {
+func saveWireType(ctx context.Context, s CAS, msg proto.Message) (string, error) {
 	bits, err := proto.Marshal(msg)
 	if err != nil {
 		return "", fmt.Errorf("encoding message: %w", err)
@@ -469,7 +479,7 @@ func saveWireType(ctx context.Context, s blob.CAS, msg proto.Message) (string, e
 	return s.PutCAS(ctx, bits)
 }
 
-func loadWireType(ctx context.Context, s blob.CAS, key string, msg proto.Message) error {
+func loadWireType(ctx context.Context, s CAS, key string, msg proto.Message) error {
 	bits, err := s.Get(ctx, key)
 	if err != nil {
 		return fmt.Errorf("loading message: %w", err)
