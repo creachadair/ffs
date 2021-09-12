@@ -177,7 +177,7 @@ the head of the encrypted blob, to allow answering size queries without having
 to fully decrypt and decompress the blob data.
 
 Block data are compressed with https://github.com/google/snappy.
-Encrpytion is done with AES en CTR mode.
+Encryption is done with AES en CTR mode.
 
 A minimal blob is 5 bytes in length, consisting of a 1-byte zero IV tag and
 four bytes of encrypted length.
