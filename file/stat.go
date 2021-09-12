@@ -21,8 +21,10 @@ import (
 	"github.com/creachadair/ffs/file/wiretype"
 )
 
-// Stat records file stat metadata.
+// A Stat is a view into the stat metadata for a file.
 type Stat struct {
+	f *File // set for stat views of an existing file; nil OK
+
 	Mode    os.FileMode `json:"mode,omitempty"`
 	ModTime time.Time   `json:"mod_time,omitempty"`
 
@@ -37,6 +39,30 @@ type Stat struct {
 	// To add additional metadata, add a field to this type and a corresponding
 	// field to wiretype.Stat, then update the toWireType and fromWireType
 	// methods to encode and decode the value.
+}
+
+// copyWith returns a shallow copy of s with its file pointer set to f.
+func (s Stat) copyWith(f *File) Stat { cp := s; cp.f = f; return cp }
+
+// Clear clears the current stat metadata for the file associated with s, and
+// disables stat persistence for that file. Calling this method does not change
+// the current contents of s, so it is safe to then call Update on the same s.
+func (s Stat) Clear() {
+	if s.f != nil {
+		defer s.f.inval()
+		s.f.stat = Stat{}
+		s.f.saveStat = false
+	}
+}
+
+// Update updates the stat metadata for the file associated with s to the
+// current contents of s, and enables stat persistence for that file.
+func (s Stat) Update() {
+	if s.f != nil {
+		defer s.f.inval()
+		s.f.stat = s.copyWith(nil)
+		s.f.saveStat = true
+	}
 }
 
 const (

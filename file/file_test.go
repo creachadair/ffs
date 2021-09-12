@@ -28,6 +28,7 @@ import (
 	"github.com/creachadair/ffs/block"
 	"github.com/creachadair/ffs/file"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
 func TestRoundTrip(t *testing.T) {
@@ -89,7 +90,8 @@ func TestRoundTrip(t *testing.T) {
 	}
 
 	// Verify that file stat was preserved.
-	if diff := cmp.Diff(f.Stat(), g.Stat()); diff != "" {
+	ignoreUnexported := cmpopts.IgnoreUnexported(file.Stat{})
+	if diff := cmp.Diff(f.Stat(), g.Stat(), ignoreUnexported); diff != "" {
 		t.Errorf("Stat (-want, +got)\n%s", diff)
 	}
 

@@ -51,9 +51,9 @@
 //
 // By default, a File does not persist stat metadata. To enable stat
 // persistence, you may either set initial values in the Stat field of
-// file.NewOptions when the File is created, or use the SetStat method to
-// modify the fields. To disable stat persistence, use ClearStat.  The
-// file.Stat type defines the stat attributes that are retained.
+// file.NewOptions when the File is created, or use the Set and Update methods
+// of the Stat value to enable or disable persistence. The file.Stat type
+// defines the stat attributes that can be persisted.
 package file
 
 import (
@@ -76,11 +76,12 @@ func New(s CAS, opts *NewOptions) *File {
 	if opts == nil {
 		opts = new(NewOptions)
 	}
+	stat := opts.Stat.copyWith(nil)
 	return &File{
 		s:        s,
 		name:     opts.Name,
-		stat:     opts.Stat,
-		saveStat: opts.Stat != Stat{},
+		stat:     stat,
+		saveStat: stat != Stat{},
 		data:     fileData{sc: opts.Split},
 		xattr:    make(map[string]string),
 	}
@@ -186,27 +187,10 @@ func (f *File) New(opts *NewOptions) *File {
 // Size returns the effective size of the file content in bytes.
 func (f *File) Size() int64 { return f.data.totalBytes }
 
-// Stat returns the current stat metadata for f.
-func (f *File) Stat() Stat { return f.stat }
-
-// SetStat calls set with the current stat metadata for f, and enables stat
-// persistence for the file. Any changes made by set are preserved.
-// If set == nil, SetStat enables stat persistence but does not modify the
-// existing values.
-func (f *File) SetStat(set func(*Stat)) {
-	defer f.inval()
-
-	if set != nil {
-		cp := f.stat // copy so the pointer does not outlive the call
-		set(&cp)
-		f.stat = cp
-	}
-	f.saveStat = true
-}
-
-// ClearStat clears the current stat metadata for f, and disables stat
-// persistence for the file.
-func (f *File) ClearStat() { defer f.inval(); f.stat = Stat{}; f.saveStat = false }
+// Stat returns the current stat metadata for f. Calling this method does not
+// change stat persistence for f, use the Clear and Update methods of the Stat
+// value to do that.
+func (f *File) Stat() Stat { return f.stat.copyWith(f) }
 
 var (
 	// ErrChildNotFound indicates that a requested child file does not exist.
