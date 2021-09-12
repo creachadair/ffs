@@ -458,6 +458,9 @@ func (c Child) Names() []string {
 	return out
 }
 
+// Len returns the number of children of the file.
+func (c Child) Len() int { return len(c.f.kids) }
+
 func saveWireType(ctx context.Context, s blob.CAS, msg proto.Message) (string, error) {
 	bits, err := proto.Marshal(msg)
 	if err != nil {
