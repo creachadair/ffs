@@ -13,14 +13,19 @@
 // limitations under the License.
 
 // Package block implements content-sensitive partitioning of a stream of byte
-// data into blocks rolling hash function.
+// data into blocks, using a rolling hash function.
 //
 // The algorithm used to split data into blocks is based on the one from LBFS:
+//
 //  http://pdos.csail.mit.edu/lbfs/
+//
 // As described in the SOSP 2001 paper "A Low-Bandwidth Network File System":
+//
 //  https://pdos.csail.mit.edu/papers/lbfs:sosp01/lbfs.pdf
 //
-// This package use the Rabin-Karp modular rolling hash algorithm.
+// This package provides an implementation of the Rabin-Karp modular rolling
+// hash algorithm; other algorithms can be plugged in by implementing the
+// Hasher and Hash interfaces.
 //
 package block
 
