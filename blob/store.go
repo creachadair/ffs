@@ -113,6 +113,29 @@ func IsKeyNotFound(err error) bool {
 	return err != nil && errors.Is(err, ErrKeyNotFound)
 }
 
+// KeyError is the concrete type of errors involving a blob key.
+// The caller may type-assert to *blob.KeyError to recover the key.
+type KeyError struct {
+	Err error  // the underlying error
+	Key string // the key implicated by the error
+}
+
+// Error implements the error interface for KeyError.
+// The default error string does not include the key, since error values are
+// often logged by default and keys may be sensitive.
+func (k *KeyError) Error() string { return k.Err.Error() }
+
+// Unwrap returns the underlying error from k, to support error wrapping.
+func (k *KeyError) Unwrap() error { return k.Err }
+
+// KeyNotFound returns an ErrKeyNotFound error reporting that key was not found.
+// The concrete type is *blob.KeyError.
+func KeyNotFound(key string) error { return &KeyError{Key: key, Err: ErrKeyNotFound} }
+
+// KeyExists returns an ErrKeyExists error reporting that key exists in the store.
+// The concrete type is *blob.KeyError.
+func KeyExists(key string) error { return &KeyError{Key: key, Err: ErrKeyExists} }
+
 // A CAS is a content-addressable wrapper that delegates to a blob.Store.  It
 // adds a PutCAS method that writes blobs keyed by their content.
 type CAS struct {
