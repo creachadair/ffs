@@ -65,6 +65,9 @@ func (s Stat) Update() {
 	}
 }
 
+// Edit calls f to edit the contents of s in-place. It returns the modified s.
+func (s Stat) Edit(edit func(*Stat)) Stat { edit(&s); return s }
+
 const (
 	bitSetuid = 04000
 	bitSetgid = 02000
