@@ -103,17 +103,20 @@ func (c *SplitConfig) max() int {
 func NewSplitter(r io.Reader, c *SplitConfig) *Splitter {
 	return &Splitter{
 		reader: r,
-		hash:   c.Hash(),
-		min:    c.min(),
-		exp:    c.size(),
-		buf:    make([]byte, c.max()),
+		config: c,
+
+		hash: c.Hash(),
+		min:  c.min(),
+		exp:  c.size(),
+		buf:  make([]byte, c.max()),
 	}
 }
 
 // A Splitter wraps an underlying io.Reader to split the data from the reader
 // into blocks using a rolling hash.
 type Splitter struct {
-	reader io.Reader // The underlying source of block data.
+	reader io.Reader    // The underlying source of block data.
+	config *SplitConfig // a saved copy of the config
 
 	hash Hash   // The rolling hash used to find breakpoints.
 	min  int    // Minimum block size in bytes.
@@ -122,6 +125,9 @@ type Splitter struct {
 	end  int    // End of previous block.
 	buf  []byte // Incoming data buffer.
 }
+
+// Config returns the SplitConfig used to construct s, which may be nil.
+func (s *Splitter) Config() *SplitConfig { return s.config }
 
 // Next returns the next available block, or an error.  The slice returned is
 // only valid until a subsequent call of Next.  Returns nil, io.EOF when no

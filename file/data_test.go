@@ -20,6 +20,7 @@ import (
 	"crypto/sha1"
 	"io"
 	"math/rand"
+	"strings"
 	"testing"
 
 	"github.com/creachadair/ffs/blob"
@@ -224,4 +225,66 @@ func TestReblocking(t *testing.T) {
 	d.blocks(func(size int64, key string) {
 		t.Logf("%-4d\t%x", size, []byte(key))
 	})
+}
+
+type lineHash struct{}
+
+func (h lineHash) Hash() block.Hash { return h }
+
+func (lineHash) Update(b byte) uint {
+	if b == '\x00' {
+		return 1
+	}
+	return 2
+}
+
+func TestNewFileData(t *testing.T) {
+	const input = "This is the first line" + // ext 1, block 1
+		"\x00This is the second" + // ext 1, block 2
+		"\x00This is the third" + // ext 1, block 3
+		"\x00\x00\x00\x00\x00" + // zeroes (not stored)
+		"\x00And the fourth line then beckoned" // ext 2, block 1
+
+	s := block.NewSplitter(strings.NewReader(input), &block.SplitConfig{
+		Hasher: lineHash{},
+		Min:    5,
+		Max:    100,
+		Size:   16,
+	})
+	fd, err := newFileData(s, func(data []byte) (string, error) {
+		t.Logf("Block: %q", string(data))
+		h := sha1.New()
+		h.Write(data)
+		return string(h.Sum(nil)), nil
+	})
+	if err != nil {
+		t.Fatalf("newFileData failed: %v", err)
+	}
+	t.Logf("Input size: %d, total bytes: %d", len(input), fd.totalBytes)
+	if fd.totalBytes != int64(len(input)) {
+		t.Errorf("TotalBytes: got %d, want %d", fd.totalBytes, len(input))
+	}
+
+	type extinfo struct {
+		Base, Bytes int64
+		Blocks      int
+	}
+	want := []extinfo{
+		{0, 59, 3},
+		{64, 34, 1},
+	}
+	var got []extinfo
+	for i, ext := range fd.extents {
+		got = append(got, extinfo{
+			Base:   ext.base,
+			Bytes:  ext.bytes,
+			Blocks: len(ext.blocks),
+		})
+		for j, b := range ext.blocks {
+			t.Logf("Extent %d block %d: %d bytes, key=%x", i+1, j+1, b.bytes, b.key)
+		}
+	}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("Wrong extents: (-want, +got):\n%s", diff)
+	}
 }

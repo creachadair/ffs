@@ -329,11 +329,22 @@ func (d *fileData) splitBlobs(ctx context.Context, s CAS, blobs ...[]byte) ([]cb
 	return blks, nil
 }
 
+// zero sets all of data to zeroes and returns its length.
 func zero(data []byte) int {
 	for i := range data {
 		data[i] = 0
 	}
 	return len(data)
+}
+
+// isZero reports whether data is all zeroes.
+func isZero(data []byte) bool {
+	for _, b := range data {
+		if b != 0 {
+			return false
+		}
+	}
+	return true
 }
 
 // splitSpan returns three subslices of the extents of d, those which end
@@ -355,6 +366,59 @@ func (d *fileData) splitSpan(lo, hi int64) (pre, span, post []*extent) {
 	}
 
 	return
+}
+
+// newfileData constructs a new fileData value containing exactly the data from
+// s.  For each data block, newFileData calls put to store the block and return
+// its key. An error from put stops construction and is reported to the caller.
+func newFileData(s *block.Splitter, put func([]byte) (string, error)) (*fileData, error) {
+	fd := fileData{sc: s.Config()}
+
+	var ext *extent
+	push := func() {
+		if ext == nil {
+			return
+		}
+		for _, b := range ext.blocks {
+			ext.bytes += b.bytes
+		}
+		fd.extents = append(fd.extents, ext)
+		ext = nil
+	}
+
+	err := block.Split(s, func(data []byte) error {
+		// A block of zeroes ends the current extent. We count the block against
+		// the total file size, but do not explicitly store it.
+		if isZero(data) {
+			push()
+			fd.totalBytes += int64(len(data))
+			return nil
+		}
+
+		// Otherwise, we have real data to store. Start a fresh extent if do not
+		// already have one, store the block, and append it to the extent.
+		if ext == nil {
+			// N.B. We need the total from BEFORE the new block is added.
+			ext = &extent{base: fd.totalBytes}
+		}
+
+		fd.totalBytes += int64(len(data))
+		key, err := put(data)
+		if err != nil {
+			return err
+		}
+		ext.blocks = append(ext.blocks, cblock{
+			bytes: int64(len(data)),
+			key:   key,
+		})
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	push() // flush any trailing extent
+
+	return &fd, nil
 }
 
 // An extent represents a single contiguous stored subrange of a file. The
