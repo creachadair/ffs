@@ -150,8 +150,8 @@ func typeToMode(ftype wiretype.Stat_FileType) os.FileMode {
 	return os.ModeIrregular
 }
 
-// FromWireType decodes a wiretype.Stat into s. If pb == nil, s is unmodified.
-func (s *Stat) FromWireType(pb *wiretype.Stat) {
+// fromWireType decodes a wiretype.Stat into s. If pb == nil, s is unmodified.
+func (s *Stat) fromWireType(pb *wiretype.Stat) {
 	if pb == nil {
 		return // no stat was persisted for this file
 	}

@@ -362,7 +362,7 @@ func (f *File) fromWireType(pb *wiretype.Node) {
 	pb.Normalize()
 	f.data = fileData{} // reset
 	f.data.fromWireType(pb.Index)
-	f.stat.FromWireType(pb.Stat)
+	f.stat.fromWireType(pb.Stat)
 	f.saveStat = pb.Stat != nil
 
 	f.xattr = make(map[string]string)
