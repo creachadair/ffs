@@ -55,8 +55,7 @@ func TestPrefixes(t *testing.T) {
 	mustPut(t, p1, "xyzzy", "plugh")
 	mustPut(t, p2, "foo", "quux")
 
-	snap := make(map[string]string)
-	m.Snapshot(snap)
+	snap := m.Snapshot(make(map[string]string))
 
 	if diff := cmp.Diff(map[string]string{
 		"A:foo":   "bar",
