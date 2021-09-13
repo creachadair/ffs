@@ -184,6 +184,14 @@ func TestSetData(t *testing.T) {
 		},
 	})
 
+	// Flush out the block, so that we can check below that updating the content
+	// invalidates the key.
+	okey, err := root.Flush(ctx)
+	if err != nil {
+		t.Fatalf("Flush failed: %v", err)
+	}
+	t.Logf("Old root key: %x", okey)
+
 	const input = `My name is Ozymandias
 King of Kings!
 Look up on my works, ye mighty
@@ -196,6 +204,11 @@ and despair!`
 		t.Errorf("Flush failed: %v", err)
 	}
 	t.Logf("Root key: %x", key)
+
+	// Make sure we invalidated the file key by setting its data.
+	if okey == key {
+		t.Errorf("File data was not invalidated: key is %x", key)
+	}
 
 	// As a reality check, read the node back in and check that we got the right
 	// number of blocks.
