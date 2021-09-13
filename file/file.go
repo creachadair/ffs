@@ -60,6 +60,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"sort"
 	"time"
 
@@ -283,6 +284,22 @@ func (f *File) recFlush(ctx context.Context, path []*File) (string, error) {
 func (f *File) Truncate(ctx context.Context, offset int64) error {
 	defer f.modify()
 	return f.data.truncate(ctx, f.s, offset)
+}
+
+// SetData fully reads r replaces the binary contents of f with its data.
+// On success, any existing data for f are discarded. In case of error, the
+// contents of f are not changed.
+func (f *File) SetData(ctx context.Context, r io.Reader) error {
+	s := block.NewSplitter(r, f.data.sc)
+	fd, err := newFileData(s, func(data []byte) (string, error) {
+		return f.s.PutCAS(ctx, data)
+	})
+	if err != nil {
+		return err
+	}
+	f.inval()
+	f.data = fd
+	return nil
 }
 
 // Name reports the attributed name of f, which may be "" if f is not a child

@@ -371,7 +371,7 @@ func (d *fileData) splitSpan(lo, hi int64) (pre, span, post []*extent) {
 // newfileData constructs a new fileData value containing exactly the data from
 // s.  For each data block, newFileData calls put to store the block and return
 // its key. An error from put stops construction and is reported to the caller.
-func newFileData(s *block.Splitter, put func([]byte) (string, error)) (*fileData, error) {
+func newFileData(s *block.Splitter, put func([]byte) (string, error)) (fileData, error) {
 	fd := fileData{sc: s.Config()}
 
 	var ext *extent
@@ -414,11 +414,11 @@ func newFileData(s *block.Splitter, put func([]byte) (string, error)) (*fileData
 		return nil
 	})
 	if err != nil {
-		return nil, err
+		return fileData{}, err
 	}
 	push() // flush any trailing extent
 
-	return &fd, nil
+	return fd, nil
 }
 
 // An extent represents a single contiguous stored subrange of a file. The

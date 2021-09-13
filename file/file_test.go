@@ -21,14 +21,18 @@ import (
 	"io"
 	"io/ioutil"
 	"sort"
+	"strings"
 	"testing"
 
 	"github.com/creachadair/ffs/blob"
 	"github.com/creachadair/ffs/blob/memstore"
 	"github.com/creachadair/ffs/block"
 	"github.com/creachadair/ffs/file"
+	"github.com/creachadair/ffs/file/wiretype"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"google.golang.org/protobuf/encoding/prototext"
+	"google.golang.org/protobuf/proto"
 )
 
 func TestRoundTrip(t *testing.T) {
@@ -166,4 +170,70 @@ func TestCycleCheck(t *testing.T) {
 	} else {
 		t.Logf("Cyclic flush correctly failed: %v", err)
 	}
+}
+
+func TestSetData(t *testing.T) {
+	cas := blob.NewCAS(memstore.New(), sha1.New)
+	ctx := context.Background()
+	root := file.New(cas, &file.NewOptions{
+		Split: &block.SplitConfig{
+			Hasher: lineHash{},
+			Min:    5,
+			Max:    100,
+			Size:   16,
+		},
+	})
+
+	const input = `My name is Ozymandias
+King of Kings!
+Look up on my works, ye mighty
+and despair!`
+	if err := root.SetData(ctx, strings.NewReader(input)); err != nil {
+		t.Fatalf("SetData unexpectedly failed: %v", err)
+	}
+	key, err := root.Flush(ctx)
+	if err != nil {
+		t.Errorf("Flush failed: %v", err)
+	}
+	t.Logf("Root key: %x", key)
+
+	// As a reality check, read the node back in and check that we got the right
+	// number of blocks.
+	data, err := cas.Get(ctx, key)
+	if err != nil {
+		t.Fatalf("Block fetch: %v", err)
+	}
+	var pb wiretype.Node
+	if err := proto.Unmarshal(data, &pb); err != nil {
+		t.Fatalf("Unmarshal node: %v", err)
+	}
+
+	// Make sure we stored the right amount of data.
+	if got, want := pb.Index.TotalBytes, uint64(len(input)); got != want {
+		t.Logf("Stored total bytes: got %d, want %d", got, want)
+	}
+
+	// Make sure we stored the expected number of blocks.
+	// The artificial hasher splits on newlines, so we can just count.
+	var gotBlocks int
+	for _, ext := range pb.Index.Extents {
+		gotBlocks += len(ext.Blocks)
+	}
+	wantBlocks := len(strings.Split(input, "\n"))
+	if gotBlocks != wantBlocks {
+		t.Errorf("Stored blocks: got %d, want %d", gotBlocks, wantBlocks)
+	}
+
+	t.Logf("Encoded node:\n%s", prototext.Format(&pb))
+}
+
+type lineHash struct{}
+
+func (h lineHash) Hash() block.Hash { return h }
+
+func (lineHash) Update(b byte) uint {
+	if b == '\n' {
+		return 1
+	}
+	return 2
 }
