@@ -50,12 +50,14 @@ func (s *Store) Clear() {
 }
 
 // Snapshot copies a snapshot of the keys and values of s into m.
-func (s *Store) Snapshot(m map[string]string) {
+// It returns m to allow chaining with construction.
+func (s *Store) Snapshot(m map[string]string) map[string]string {
 	s.μ.Lock()
 	defer s.μ.Unlock()
 	for key, val := range s.m {
 		m[key] = val
 	}
+	return m
 }
 
 // Get implements part of blob.Store.
