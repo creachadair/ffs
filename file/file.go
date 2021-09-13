@@ -50,10 +50,10 @@
 // interpreted by the API, but will be persisted if they are set.
 //
 // By default, a File does not persist stat metadata. To enable stat
-// persistence, you may either set initial values in the Stat field of
-// file.NewOptions when the File is created, or use the Clear and Update
-// methods of the Stat value to enable or disable persistence.
-// The file.Stat type defines the stat attributes that can be persisted.
+// persistence, you may either set the Stat field of file.NewOptions when the
+// File is created, or use the Clear and Update methods of the Stat value to
+// enable or disable persistence.  The file.Stat type defines the stat
+// attributes that can be persisted.
 package file
 
 import (
@@ -77,15 +77,18 @@ func New(s CAS, opts *NewOptions) *File {
 	if opts == nil {
 		opts = new(NewOptions)
 	}
-	stat := opts.Stat.copyWith(nil)
-	return &File{
+	f := &File{
 		s:        s,
 		name:     opts.Name,
-		stat:     stat,
-		saveStat: stat != Stat{},
+		saveStat: opts.Stat != nil,
 		data:     fileData{sc: opts.Split},
 		xattr:    make(map[string]string),
 	}
+	// If we got metadata to persist, copy it.
+	if opts.Stat != nil {
+		f.stat = *opts.Stat
+	}
+	return f
 }
 
 // A CAS is the storage interface used by a File. This is trivially satisfied
@@ -104,10 +107,10 @@ type NewOptions struct {
 	// persisted in storage.
 	Name string
 
-	// Initial file metadata to associate with the file. If this field is
-	// nonzero, the new file will persist stat metadata to storage.  However,
-	// the contents are not otherwise interpreted.
-	Stat Stat
+	// Initial file metadata to associate with the file. If not nil, the new
+	// file will persist stat metadata to storage. However, the contents are not
+	// otherwise interpreted.
+	Stat *Stat
 
 	// The block splitter configuration to use. If omitted, the default values
 	// from the split package are used. Split configurations are not persisted
