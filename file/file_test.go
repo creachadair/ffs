@@ -98,6 +98,9 @@ func TestRoundTrip(t *testing.T) {
 	if diff := cmp.Diff(f.Stat(), g.Stat(), ignoreUnexported); diff != "" {
 		t.Errorf("Stat (-want, +got)\n%s", diff)
 	}
+	if got, want := g.Stat().Persistent(), f.Stat().Persistent(); got != want {
+		t.Errorf("Stat persist: got %v, want %v", got, want)
+	}
 
 	// Verify that seek and truncation work.
 	if err := g.Truncate(ctx, 15); err != nil {

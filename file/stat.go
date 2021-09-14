@@ -41,32 +41,26 @@ type Stat struct {
 	// methods to encode and decode the value.
 }
 
-// copyWith returns a shallow copy of s with its file pointer set to f.
-func (s Stat) copyWith(f *File) Stat { cp := s; cp.f = f; return cp }
-
-// Clear clears the current stat metadata for the file associated with s, and
-// disables stat persistence for that file. Calling this method does not change
-// the current contents of s, so it is safe to then call Update on the same s.
-func (s Stat) Clear() {
-	if s.f != nil {
-		defer s.f.inval()
-		s.f.stat = Stat{}
-		s.f.saveStat = false
-	}
-}
+// Clear clears the current stat metadata for the file associated with s.
+// Calling this method does not change whether stat is persisted, nor does it
+// modify the current contents of s, so calling Update on the same s will
+// restore the cleared values.
+func (s Stat) Clear() { s.f.setStat(Stat{}) }
 
 // Update updates the stat metadata for the file associated with s to the
-// current contents of s, and enables stat persistence for that file.
-func (s Stat) Update() {
-	if s.f != nil {
-		defer s.f.inval()
-		s.f.stat = s.copyWith(nil)
-		s.f.saveStat = true
-	}
-}
+// current contents of s. Calling this method does not change whether stat is
+// persisted.
+func (s Stat) Update() { s.f.setStat(s) }
 
 // Edit calls f to edit the contents of s in-place. It returns the modified s.
 func (s Stat) Edit(edit func(*Stat)) Stat { edit(&s); return s }
+
+// Persist enables (ok == true) or disables (ok == false) stat persistence for
+// the file associated with s. The contents of s are not changed. It returns s.
+func (s Stat) Persist(ok bool) Stat { s.f.saveStat = ok; s.f.inval(); return s }
+
+// Persistent reports whether the file associated with s persists stat.
+func (s Stat) Persistent() bool { return s.f.saveStat }
 
 const (
 	bitSetuid = 04000

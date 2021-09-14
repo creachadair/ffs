@@ -85,8 +85,10 @@ func New(s CAS, opts *NewOptions) *File {
 		xattr:    make(map[string]string),
 	}
 	// If we got metadata to persist, copy it.
-	if opts.Stat != nil {
-		f.stat = *opts.Stat
+	if opts.Stat == nil {
+		f.setStat(Stat{})
+	} else {
+		f.setStat(*opts.Stat)
 	}
 	return f
 }
@@ -127,6 +129,7 @@ func Open(ctx context.Context, s CAS, key string) (*File, error) {
 	}
 	f := &File{s: s, key: key}
 	f.fromWireType(&node)
+	f.stat.f = f
 	return f, nil
 }
 
@@ -168,6 +171,14 @@ func (f *File) findChild(name string) (int, bool) {
 	return -1, false
 }
 
+func (f *File) setStat(s Stat) {
+	f.stat = s
+	f.stat.f = f
+	if f.saveStat {
+		f.inval()
+	}
+}
+
 func (f *File) inval() { f.key = "" }
 
 func (f *File) modify() { f.inval(); f.stat.ModTime = time.Now() }
@@ -194,7 +205,7 @@ func (f *File) Size() int64 { return f.data.totalBytes }
 // Stat returns the current stat metadata for f. Calling this method does not
 // change stat persistence for f, use the Clear and Update methods of the Stat
 // value to do that.
-func (f *File) Stat() Stat { return f.stat.copyWith(f) }
+func (f *File) Stat() Stat { return f.stat }
 
 var (
 	// ErrChildNotFound indicates that a requested child file does not exist.
