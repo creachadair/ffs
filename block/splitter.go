@@ -48,7 +48,7 @@ var (
 )
 
 // DefaultHasher is used by a Splitter if no hasher is set in its config.
-var DefaultHasher = NewHasher(1031, 2147483659, 48)
+var DefaultHasher = RabinKarpHasher(1031, 2147483659, 48)
 
 // A SplitConfig contains the settings to construct a splitter.
 type SplitConfig struct {

@@ -46,10 +46,10 @@ func (h rkHasher) Hash() Hash {
 	return &rkHash{rkHasher: h, buf: make([]byte, h.size)}
 }
 
-// NewHasher returns a Rabin-Karp rolling hasher using the given base, modulus,
-// and window size. The base and modulus must be coprime and the modulus should
-// be prime (but note that NewHasher does not check this).
-func NewHasher(base, modulus int64, windowSize int) Hasher {
+// RabinKarpHasher returns a Rabin-Karp rolling hasher using the given base,
+// modulus, and window size. The base and modulus must be coprime and the
+// modulus should be prime (but note that NewHasher does not check this).
+func RabinKarpHasher(base, modulus int64, windowSize int) Hasher {
 	return rkHasher{
 		base: base,
 		mod:  modulus,
