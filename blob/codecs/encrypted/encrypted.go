@@ -12,15 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package encrypted implements an encrypted blob store in which blobs are
-// encrypted with a block cipher in CTR mode. Blob storage is delegated to an
-// underlying blob.Store implementation, to which the encryption is opaque.
+// Package encrypted implements an encryption codec which encodes data by
+// encrypting and authenticating with a block cipher in Galois Counter Mode
+// (GCM).
 package encrypted
 
 import (
 	"crypto/cipher"
 	"crypto/rand"
-	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -28,11 +27,11 @@ import (
 	"github.com/golang/snappy"
 )
 
-// A Codec implements the encoded.Codec interface and encrypts data using a
-// block cipher in CTR mode.
+// A Codec implements the encoded.Codec interface and encrypts and
+// authenticates data using a block cipher in CTR mode.
 type Codec struct {
-	blk    cipher.Block       // used to generate the keystream
-	random func([]byte) error // generate a buffer of cryptographically random bits
+	aead   cipher.AEAD        // the encryption context
+	random func([]byte) error // used to generate nonce values
 }
 
 // Options control the construction of a *Codec.
@@ -52,16 +51,17 @@ func (o *Options) random() func([]byte) error {
 	}
 }
 
-// New constructs a new encrypted store that delegates to s.  If opts == nil,
-// default options are used.  New will panic if s == nil or blk == nil.
-func New(blk cipher.Block, opts *Options) *Codec {
-	if blk == nil {
-		panic("cipher is nil")
+// New constructs an encryption codec that uses the given block cipher.
+// If opts == nil, default options are used.  New will panic if blk == nil.
+func New(blk cipher.Block, opts *Options) (*Codec, error) {
+	aead, err := cipher.NewGCM(blk)
+	if err != nil {
+		return nil, err
 	}
 	return &Codec{
-		blk:    blk,
+		aead:   aead,
 		random: opts.random(),
-	}
+	}, nil
 }
 
 // Encode implements part of the codec interface. It encrypts src with the
@@ -86,79 +86,88 @@ func (c *Codec) Decode(w io.Writer, src []byte) error {
 	return c.decrypt(blk, w)
 }
 
+// lengthWriter is an io.Writer that discards all data written to it, but
+// counts the total number of bytes written.
+type lengthWriter struct{ length *int }
+
+func (w lengthWriter) Write(data []byte) (int, error) {
+	*w.length += len(data)
+	return len(data), nil
+}
+
 // DecodedLen implements part of the codec interface. It decodes src from a
 // wrapper block, decrypts the original size, and returns it.
 func (c *Codec) DecodedLen(src []byte) (int, error) {
-	enc, err := parseBlock(src)
+	blk, err := parseBlock(src)
 	if err != nil {
 		return 0, err
 	}
-
-	ctr := cipher.NewCTR(c.blk, enc.IV)
-	ctr.XORKeyStream(enc.Len, enc.Len)
-	return int(binary.BigEndian.Uint32(enc.Len)), nil
+	var nbytes int
+	if err := c.decrypt(blk, lengthWriter{&nbytes}); err != nil {
+		return 0, err
+	}
+	return nbytes, nil
 }
 
 // encrypt compresses and encrypts the given data and returns its encoded block.
 func (c *Codec) encrypt(data []byte) ([]byte, error) {
-	ivLen := c.blk.BlockSize()
-	bufSize := 1 + ivLen + 4 + snappy.MaxEncodedLen(len(data))
+	nlen := c.aead.NonceSize()
 
-	buf := make([]byte, bufSize)
-	buf[0] = byte(ivLen)
-	if err := c.random(buf[1 : 1+ivLen]); err != nil {
-		return nil, fmt.Errorf("encrypt: initialization vector: %w", err)
+	// Preallocate a buffer for the result:
+	//
+	//         [ nlen ][ nonce ... ][ payload ... ]
+	//  bytes:  1       nlen         (see below)
+	//
+	// The payload is compressed, which may expand the plaintext. In addition,
+	// the AEAD adds a tag which we need room for. The preallocation takes both
+	// overheads into account so we only have to allocate once.
+	buf := make([]byte, 1+nlen+snappy.MaxEncodedLen(len(data))+c.aead.Overhead())
+	buf[0] = byte(nlen)
+	nonce := buf[1 : 1+nlen]
+	if err := c.random(nonce); err != nil {
+		return nil, fmt.Errorf("encrypt: generating nonce: %w", err)
 	}
 
-	binary.BigEndian.PutUint32(buf[1+ivLen:], uint32(len(data)))
-	compressed := snappy.Encode(buf[1+ivLen+4:], data)
-	finalLen := 1 + ivLen + 4 + len(compressed)
-
-	ebuf := buf[1+ivLen : finalLen]
-	ctr := cipher.NewCTR(c.blk, buf[1:1+ivLen])
-	ctr.XORKeyStream(ebuf, ebuf)
-
-	return buf[:finalLen], nil
+	// Compress the plaintext into the buffer after the nonce, then encrypt the
+	// compressed data in-place. Both of these will change the length of the
+	// afflicted buffer segment, so we then have to reslice the buffer to get
+	// the final packet.
+	compressed := snappy.Encode(buf[1+nlen:], data)
+	encrypted := c.aead.Seal(compressed[:0], nonce, compressed, nil)
+	return buf[:1+nlen+len(encrypted)], nil
 }
 
 // decrypt decrypts and decompresses the data from a storage wrapper.
-func (c *Codec) decrypt(enc block, w io.Writer) error {
-	ctr := cipher.NewCTR(c.blk, enc.IV)
-
-	ctr.XORKeyStream(enc.Len, enc.Len)
-	ctr.XORKeyStream(enc.Data, enc.Data)
-	decLen := int(binary.BigEndian.Uint32(enc.Len))
-
-	decompressed, err := snappy.Decode(make([]byte, decLen), enc.Data)
+func (c *Codec) decrypt(blk block, w io.Writer) error {
+	plain, err := c.aead.Open(blk.Data[:0], blk.Nonce, blk.Data, nil)
 	if err != nil {
-		return fmt.Errorf("decrypt: decompress: %w", err)
-	} else if len(decompressed) != decLen {
-		return fmt.Errorf("decrypt: wrong size (got %d, want %d)", len(decompressed), decLen)
+		return err
 	}
-
+	decompressed, err := snappy.Decode(nil, plain)
+	if err != nil {
+		return fmt.Errorf("decrypt: decompressing: %w", err)
+	}
 	_, err = w.Write(decompressed)
 	return err
 }
 
 type block struct {
-	IV   []byte
-	Len  []byte
-	Data []byte
+	Nonce []byte
+	Data  []byte
 }
 
 // parseBlock parses the binary encoding of a block, reporting an error if the
 // structure of the block is invalid.
 func parseBlock(from []byte) (block, error) {
-	if len(from) == 0 || len(from) < 1+int(from[0])+4 {
+	if len(from) == 0 || len(from) < int(from[0])+1 {
 		return block{}, errors.New("parse: invalid block format")
 	}
-	ivLen := int(from[0])
+	nonceLen := int(from[0])
 
 	// Copy the input data so that we do not clobber the caller's data.
 	return block{
-		IV:   from[1 : 1+ivLen],
-		Len:  from[1+ivLen : 1+ivLen+4],
-		Data: from[1+ivLen+4:],
+		Nonce: from[1 : 1+nonceLen],
+		Data:  from[1+nonceLen:],
 	}, nil
 }
 
@@ -167,18 +176,10 @@ Implementation notes
 
 An encrypted blob is stored as a buffer with the following structure:
 
-   ilen byte    : initialization vector length       | plaintext
-   iint []byte  : initialization vector (ilen bytes) | plaintext
-   size uint32  : size in bytes of plaintext block   | encrypted
-   data []byte  : block data                         | compressed, encrypted
-
-The size of the original block is encrypted but stored without compression at
-the head of the encrypted blob, to allow answering size queries without having
-to fully decrypt and decompress the blob data.
+   nlen  byte    : nonce length       | plaintext
+   nonce []byte  : nonce (nlen bytes) | plaintext
+   data  []byte  : block data         | compressed, encrypted
 
 Block data are compressed with https://github.com/google/snappy.
-Encryption is done with AES en CTR mode.
-
-A minimal blob is 5 bytes in length, consisting of a 1-byte zero IV tag and
-four bytes of encrypted length.
+Encryption is done with AES in Galois Counter Mode (GCM).
 */

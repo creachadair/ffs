@@ -28,7 +28,7 @@ func TestRoundTrip(t *testing.T) {
 		t.Fatalf("Creating AES cipher: %v", err)
 	}
 	var randomCalled bool
-	e := encrypted.New(aes, &encrypted.Options{
+	e, err := encrypted.New(aes, &encrypted.Options{
 		Random: func(buf []byte) error {
 			randomCalled = true // verify that our hook is used
 			for i := range buf {
@@ -37,8 +37,12 @@ func TestRoundTrip(t *testing.T) {
 			return nil
 		},
 	})
+	if err != nil {
+		t.Fatalf("New codec failed: %v", err)
+	}
 
 	const value = "some of what a fool thinks often remains"
+	t.Logf("Input (%d bytes): %q", len(value), value)
 
 	// Encode the test value through the encrypted codec.
 	var encoded bytes.Buffer
@@ -47,7 +51,7 @@ func TestRoundTrip(t *testing.T) {
 	}
 
 	if !randomCalled {
-		t.Error("Put did not invoke the random generation hook")
+		t.Error("Encode did not invoke the random generation hook")
 	}
 
 	// Log the stored block for debugging purposes.
