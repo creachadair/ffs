@@ -48,7 +48,7 @@ func (h rkHasher) Hash() Hash {
 
 // RabinKarpHasher returns a Rabin-Karp rolling hasher using the given base,
 // modulus, and window size. The base and modulus must be coprime and the
-// modulus should be prime (but note that NewHasher does not check this).
+// modulus should be prime (but note that the constructor does not check this).
 func RabinKarpHasher(base, modulus int64, windowSize int) Hasher {
 	return rkHasher{
 		base: base,

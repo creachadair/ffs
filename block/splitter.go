@@ -35,8 +35,7 @@ package block
 import "io"
 
 // These values are the defaults used if none are specified in the config.
-// They are exported as variables so that they can be overridden with flags.
-var (
+const (
 	// DefaultMin is the default minimum block size, in bytes.
 	DefaultMin = 2048
 
