@@ -13,8 +13,7 @@
 // limitations under the License.
 
 // Package encrypted implements an encryption codec which encodes data by
-// encrypting and authenticating with a block cipher in Galois Counter Mode
-// (GCM).
+// encrypting and authenticating with a cipher.AEAD instance.
 package encrypted
 
 import (
@@ -28,7 +27,7 @@ import (
 )
 
 // A Codec implements the encoded.Codec interface and encrypts and
-// authenticates data using a block cipher in CTR mode.
+// authenticates data using a cipher.AEAD instance.
 type Codec struct {
 	aead   cipher.AEAD        // the encryption context
 	random func([]byte) error // used to generate nonce values
@@ -51,17 +50,16 @@ func (o *Options) random() func([]byte) error {
 	}
 }
 
-// New constructs an encryption codec that uses the given block cipher.
-// If opts == nil, default options are used.  New will panic if blk == nil.
-func New(blk cipher.Block, opts *Options) (*Codec, error) {
-	aead, err := cipher.NewGCM(blk)
-	if err != nil {
-		return nil, err
+// New constructs an encryption codec that uses the given encryption context.
+// If opts == nil, default options are used.  New will panic if aead == nil.
+//
+// For AES-GCM, you can use the cipher.NewGCM constructor.
+// For ChaCha20-Poly1305 (RFC 8439) see golang.org/x/crypto/chacha20poly1304.
+func New(aead cipher.AEAD, opts *Options) *Codec {
+	if aead == nil {
+		panic("aead == nil")
 	}
-	return &Codec{
-		aead:   aead,
-		random: opts.random(),
-	}, nil
+	return &Codec{aead: aead, random: opts.random()}
 }
 
 // Encode implements part of the codec interface. It encrypts src with the
@@ -181,5 +179,5 @@ An encrypted blob is stored as a buffer with the following structure:
    data  []byte  : block data         | compressed, encrypted
 
 Block data are compressed with https://github.com/google/snappy.
-Encryption is done with AES in Galois Counter Mode (GCM).
+Authenticated encryption is managed by a cipher.AEAD instance.
 */

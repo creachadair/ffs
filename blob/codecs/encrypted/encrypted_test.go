@@ -17,6 +17,7 @@ package encrypted_test
 import (
 	"bytes"
 	"crypto/aes"
+	"crypto/cipher"
 	"testing"
 
 	"github.com/creachadair/ffs/blob/codecs/encrypted"
@@ -27,8 +28,13 @@ func TestRoundTrip(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Creating AES cipher: %v", err)
 	}
+	gcm, err := cipher.NewGCM(aes)
+	if err != nil {
+		t.Fatalf("Creating AES-GCM instance: %v", err)
+	}
+
 	var randomCalled bool
-	e, err := encrypted.New(aes, &encrypted.Options{
+	e := encrypted.New(gcm, &encrypted.Options{
 		Random: func(buf []byte) error {
 			randomCalled = true // verify that our hook is used
 			for i := range buf {
@@ -37,9 +43,6 @@ func TestRoundTrip(t *testing.T) {
 			return nil
 		},
 	})
-	if err != nil {
-		t.Fatalf("New codec failed: %v", err)
-	}
 
 	const value = "some of what a fool thinks often remains"
 	t.Logf("Input (%d bytes): %q", len(value), value)
