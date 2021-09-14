@@ -1,6 +1,6 @@
 module github.com/creachadair/ffs
 
-go 1.13
+go 1.17
 
 require (
 	github.com/creachadair/atomicfile v0.2.1
