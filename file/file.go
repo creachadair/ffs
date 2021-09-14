@@ -38,7 +38,7 @@
 // the standard interfaces in the io package, a File provides a wrapper for a
 // request-scoped context:
 //
-//    _, err := io.Copy(f.Cursor(ctx), src)
+//    _, err := io.Copy(dst, f.Cursor(ctx))
 //
 // A value of the file.Cursor type should not be used outside the dynamic
 // extent of the request whose context it captures.
