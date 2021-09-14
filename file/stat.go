@@ -53,7 +53,7 @@ func (s Stat) Clear() { s.f.setStat(Stat{}) }
 func (s Stat) Update() { s.f.setStat(s) }
 
 // Edit calls f to edit the contents of s in-place. It returns the modified s.
-func (s Stat) Edit(edit func(*Stat)) Stat { edit(&s); return s }
+func (s Stat) Edit(edit func(*Stat)) Stat { save := s.f; edit(&s); s.f = save; return s }
 
 // Persist enables (ok == true) or disables (ok == false) stat persistence for
 // the file associated with s. The contents of s are not changed. It returns s.
