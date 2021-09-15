@@ -86,8 +86,8 @@ func (s Stat) toWireType() *wiretype.Stat {
 	}
 	if !s.ModTime.IsZero() {
 		pb.ModTime = &wiretype.Timestamp{
-			Seconds: s.ModTime.Unix(),
-			Nanos:   int64(s.ModTime.Nanosecond()),
+			Seconds: uint64(s.ModTime.Unix()),
+			Nanos:   uint32(s.ModTime.Nanosecond()),
 		}
 	}
 	if s.OwnerID != 0 || s.OwnerName != "" {
@@ -169,6 +169,6 @@ func (s *Stat) fromWireType(pb *wiretype.Stat) {
 		s.GroupName = id.Name
 	}
 	if t := pb.ModTime; t != nil {
-		s.ModTime = time.Unix(t.Seconds, t.Nanos)
+		s.ModTime = time.Unix(int64(t.Seconds), int64(t.Nanos))
 	}
 }
