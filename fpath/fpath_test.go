@@ -57,14 +57,14 @@ func TestPaths(t *testing.T) {
 		return got
 	}
 	createPath := func(path string, werr error) *file.File {
-		err := fpath.Set(ctx, root, path, &fpath.SetOptions{
+		newf, err := fpath.Set(ctx, root, path, &fpath.SetOptions{
 			Create:  true,
 			SetStat: setDir,
 		})
 		if !errorOK(err, werr) {
 			t.Errorf("CreatePath %q: got error %v, want %v", path, err, werr)
 		}
-		return openPath(path, nil)
+		return newf
 	}
 	removePath := func(path string, werr error) {
 		err := fpath.Remove(ctx, root, path)
@@ -73,7 +73,7 @@ func TestPaths(t *testing.T) {
 		}
 	}
 	setPath := func(path string, f *file.File, werr error) {
-		err := fpath.Set(ctx, root, path, &fpath.SetOptions{File: f})
+		_, err := fpath.Set(ctx, root, path, &fpath.SetOptions{File: f})
 		if !errorOK(err, werr) {
 			t.Errorf("SetPath %q: got error %v, want %v", path, err, werr)
 		}
@@ -126,13 +126,13 @@ func TestPaths(t *testing.T) {
 	// we provided the file that is to be inserted.
 	{
 		const path = "/a/lasting/itch"
-		if err := fpath.Set(ctx, root, path, &fpath.SetOptions{
+		if newf, err := fpath.Set(ctx, root, path, &fpath.SetOptions{
 			Create:  true,
 			SetStat: setDir,
 			File:    root.New(nil),
 		}); err != nil {
 			t.Errorf("Create %q: got unexpected error %v", "/a/lasting/itch", err)
-		} else if got, want := openPath(path, nil).Stat().Mode, os.FileMode(0); got != want {
+		} else if got, want := newf.Stat().Mode, os.FileMode(0); got != want {
 			t.Errorf("Wrong mode for %q: got %v, want %v", path, got, want)
 		}
 	}

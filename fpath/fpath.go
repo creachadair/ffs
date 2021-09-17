@@ -106,16 +106,16 @@ func (s *SetOptions) setStat(f *file.File) *file.File {
 // If opts.File != nil, that file is inserted at the end of the path; otherwise
 // if opts.Create is true, a new empty file is inserted. If neither of these is
 // true, Set reports ErrNilFile.
-func Set(ctx context.Context, root *file.File, path string, opts *SetOptions) error {
+func Set(ctx context.Context, root *file.File, path string, opts *SetOptions) (*file.File, error) {
 	if opts.target() == nil && !opts.create() {
-		return fmt.Errorf("set %q: %w", path, ErrNilFile)
+		return nil, fmt.Errorf("set %q: %w", path, ErrNilFile)
 	}
 	dir, base := "", path
 	if i := strings.LastIndex(path, "/"); i >= 0 {
 		dir, base = path[:i], path[i+1:]
 	}
 	if base == "" {
-		return fmt.Errorf("set %q: %w", path, ErrEmptyPath)
+		return nil, fmt.Errorf("set %q: %w", path, ErrEmptyPath)
 	}
 	fp, err := findPath(ctx, query{
 		root: root,
@@ -131,14 +131,15 @@ func Set(ctx context.Context, root *file.File, path string, opts *SetOptions) er
 		},
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if last := opts.target(); last != nil {
 		fp.target.Child().Set(base, last)
-	} else {
-		fp.target.Child().Set(base, opts.setStat(root.New(nil)))
+		return last, nil
 	}
-	return nil
+	newf := root.New(nil)
+	fp.target.Child().Set(base, opts.setStat(newf))
+	return newf, nil
 }
 
 // Remove removes the file at the given slash-separated path beneath root.  If
