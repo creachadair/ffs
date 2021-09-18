@@ -180,10 +180,10 @@ func (r *Root) Save(ctx context.Context, key string) error {
 // Encode encodes r as a protobuf message for storage.
 func Encode(r *Root) *wiretype.Root {
 	return (&wiretype.Root{
-		RootFileKey:  []byte(r.fileKey),
-		Description:  r.Description,
-		BlobIndexKey: []byte(r.indexKey),
-		OwnerKey:     []byte(r.OwnerKey),
+		FileKey:     []byte(r.fileKey),
+		Description: r.Description,
+		IndexKey:    []byte(r.indexKey),
+		OwnerKey:    []byte(r.OwnerKey),
 	}).SetChecksum()
 }
 
@@ -195,8 +195,8 @@ func Decode(s file.CAS, pb *wiretype.Root) *Root {
 
 		OwnerKey:    string(pb.OwnerKey),
 		Description: pb.Description,
-		fileKey:     string(pb.RootFileKey),
-		indexKey:    string(pb.BlobIndexKey),
+		fileKey:     string(pb.FileKey),
+		indexKey:    string(pb.IndexKey),
 	}
 }
 

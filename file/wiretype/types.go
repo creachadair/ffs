@@ -64,7 +64,7 @@ func (x *Index) Normalize() {
 // non-empty root file key and a valid checksum. It returns nil if the message
 // is valid; otherwise a descriptive error.
 func (r *Root) CheckValid() error {
-	if len(r.RootFileKey) == 0 {
+	if len(r.FileKey) == 0 {
 		return errors.New("invalid root: missing file key")
 	}
 	if want := r.ComputeChecksum(); want != r.Checksum {
@@ -79,9 +79,9 @@ func (r *Root) SetChecksum() *Root { r.Checksum = r.ComputeChecksum(); return r 
 // ComputeChecksum computes and returns the checksum of r from its contents.
 func (r *Root) ComputeChecksum() uint32 {
 	crc := crc32.NewIEEE()
-	crc.Write(r.RootFileKey)
+	crc.Write(r.FileKey)
 	crc.Write([]byte(r.Description))
-	crc.Write(r.BlobIndexKey)
+	crc.Write(r.IndexKey)
 	crc.Write(r.OwnerKey)
 	return crc.Sum32()
 }

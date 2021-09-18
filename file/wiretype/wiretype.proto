@@ -23,14 +23,14 @@ message Root {
   // The storage key of the root of the tree.
   // The blob contains a Node message in wire format.
   // This field must be non-empty for a root to be valid.
-  bytes root_file_key = 1;
+  bytes file_key = 1;
 
   // A human-readable descriptive label for the root.
   string description = 2;
 
   // The storage key of the blob index for the tree.
   // The blob contains a ffs.index.EncodedIndex message in wire format.
-  bytes blob_index_key = 3;
+  bytes index_key = 3;
 
   // The storage key of the owner metadata for the root.
   // The blob format is implementation-defined.
