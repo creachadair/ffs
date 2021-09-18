@@ -34,6 +34,11 @@ import (
 // using the encoding/json package transparently.
 func (n *Node) MarshalJSON() ([]byte, error) { return protojson.Marshal(n) }
 
+// MarshalJSON implements the json.Marshaler interface for a *Root, by
+// delegating to the protojson marshaler. This allows a node to be encoded
+// using the encoding/json package transparently.
+func (r *Root) MarshalJSON() ([]byte, error) { return protojson.Marshal(r) }
+
 // Normalize updates n in-place so that all fields are in canonical order.
 func (n *Node) Normalize() {
 	n.Index.Normalize()
