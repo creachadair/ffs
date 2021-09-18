@@ -1,32 +1,33 @@
 package index
 
 import (
+	"io/ioutil"
 	"strings"
 	"testing"
 )
 
 func TestBuilder(t *testing.T) {
-	input := strings.Fields("garbage humans suck penniless nerbleweefers")
-
-	b := NewBuilder(nil)
-	for _, key := range input {
-		b.AddKey(key)
+	keyData, err := ioutil.ReadFile("keys.txt")
+	if err != nil {
+		t.Fatalf("Reading keys: %v", err)
 	}
-	idx := b.Build()
+	keys := strings.Split(string(keyData), "\n")
+	b := NewBuilder(nil)
 
-	t.Logf("Keys:  %+q", b.keys)
-	t.Logf("Table: %+x", idx.table)
-
-	for _, key := range input {
-		if !idx.Has(key) {
-			t.Errorf("Has(%q): got false, want true)", key)
+	const startOffset = 10
+	for _, key := range keys[startOffset:] {
+		if key != "" {
+			b.AddKey(key)
 		}
 	}
+	idx := b.Build()
+	t.Logf("Index has %d ranks and %d tail keys", len(idx.table), len(idx.tail))
 
-	wrong := strings.Fields("wrong things are sucking as much as right ones")
-	for _, key := range wrong {
-		if idx.Has(key) {
-			t.Errorf("Has(%q): got true, want false", key)
+	for i, key := range keys {
+		want := key != "" && i >= startOffset
+		got := idx.Has(key)
+		if got != want {
+			t.Errorf("idx.Has(%q) at offset %d: got %v, want %v", key, i, got, want)
 		}
 	}
 }
