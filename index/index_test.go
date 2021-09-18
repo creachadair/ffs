@@ -8,32 +8,38 @@ import (
 	"github.com/creachadair/ffs/index"
 )
 
-func TestBuilder(t *testing.T) {
+func TestIndex(t *testing.T) {
 	keyData, err := ioutil.ReadFile("testdata/keys.txt")
 	if err != nil {
 		t.Fatalf("Reading keys: %v", err)
 	}
 	keys := strings.Split(strings.TrimSpace(string(keyData)), "\n")
-	b := index.NewBuilder(&index.BuilderOpts{
-		BitsPerKey: 16,
-	})
+	t.Logf("Read %d bytes (%d keys) from keys.txt", len(keyData), len(keys))
 
-	// Add keys at even offsets, skip keys at odd ones.  Thus we expect half the
-	// keys to be missing.
+	idx := index.New(len(keys), nil)
+
+	// Add keys at even offsets, skip keys at odd ones.
+	// Thus we expect half the keys to be missing.
 	var numAdded, totalKeyBytes int
 	for i, key := range keys {
 		if i%2 == 0 {
-			b.AddKey(key)
+			idx.Add(key)
 			numAdded++
 			totalKeyBytes += len(key)
 		}
 	}
-	t.Logf("Added %d keys to the builder out of %d total", numAdded, len(keys))
+	t.Logf("Added %d keys to the index", numAdded)
 
-	idx := b.Build()
-	t.Logf("Index has %d keys", idx.NumKeys())
-	t.Logf("Index data size: %d bytes", idx.Size())
-	t.Logf("Total key size:  %d bytes", totalKeyBytes)
+	stats := idx.Stats()
+	t.Logf("Index stats: %d keys, %d filter bits (m), %d hash seeds",
+		stats.NumKeys, stats.FilterBits, stats.NumHashes)
+	if stats.NumKeys != numAdded {
+		t.Errorf("Wrong number of keys: got %d, want %d", stats.NumKeys, numAdded)
+	}
+	t.Logf("Total indexed key size: %d bytes", totalKeyBytes)
+	approxFilterBytes := (stats.FilterBits+7)/8 + 8*stats.NumHashes
+	t.Logf("Approximate index size: %d bytes (%.2f%%)", approxFilterBytes,
+		percent(approxFilterBytes, totalKeyBytes))
 
 	falses := make(map[bool]int)
 	for i, key := range keys {
