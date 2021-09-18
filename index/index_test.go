@@ -7,7 +7,7 @@ import (
 )
 
 func TestBuilder(t *testing.T) {
-	keyData, err := ioutil.ReadFile("keys.txt")
+	keyData, err := ioutil.ReadFile("testdata/keys.txt")
 	if err != nil {
 		t.Fatalf("Reading keys: %v", err)
 	}
