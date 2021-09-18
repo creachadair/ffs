@@ -21,6 +21,9 @@ package wiretype
 //go:generate protoc --go_out=. --go_opt=paths=source_relative wiretype.proto
 
 import (
+	"errors"
+	"fmt"
+	"hash/crc32"
 	"sort"
 
 	"google.golang.org/protobuf/encoding/protojson"
@@ -50,4 +53,30 @@ func (x *Index) Normalize() {
 	sort.Slice(x.Extents, func(i, j int) bool {
 		return x.Extents[i].Base < x.Extents[j].Base
 	})
+}
+
+// CheckValid checks whether r is a valid root message, meaning that it has a
+// non-empty root file key and a valid checksum. It returns nil if the message
+// is valid; otherwise a descriptive error.
+func (r *Root) CheckValid() error {
+	if len(r.RootFileKey) == 0 {
+		return errors.New("invalid root: missing file key")
+	}
+	if want := r.ComputeChecksum(); want != r.Checksum {
+		return fmt.Errorf("invalid root: wrong checksum %x", r.Checksum)
+	}
+	return nil
+}
+
+// SetChecksum computes and sets the checksum field of r, returning r.
+func (r *Root) SetChecksum() *Root { r.Checksum = r.ComputeChecksum(); return r }
+
+// ComputeChecksum computes and returns the checksum of r from its contents.
+func (r *Root) ComputeChecksum() uint32 {
+	crc := crc32.NewIEEE()
+	crc.Write(r.RootFileKey)
+	crc.Write([]byte(r.Description))
+	crc.Write(r.BlobIndexKey)
+	crc.Write(r.OwnerKey)
+	return crc.Sum32()
 }
