@@ -35,7 +35,7 @@ func TestIndex(t *testing.T) {
 	t.Logf("Read %d bytes (%d keys) from keys.txt", len(keyData), len(keys))
 
 	idx := index.New(len(keys), &index.Options{
-		FalsePositiveRate: 0.001,
+		FalsePositiveRate: 0.01,
 	})
 
 	// Add keys at even offsets, skip keys at odd ones.
