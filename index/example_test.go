@@ -22,7 +22,7 @@ import (
 )
 
 func ExampleIndex() {
-	words := strings.Fields("a foolish consistence is the hobgoblin of little minds")
+	words := strings.Fields("a foolish consistency is the hobgoblin of little minds")
 
 	idx := index.New(32, nil)
 	for _, word := range words {
