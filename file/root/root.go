@@ -70,14 +70,7 @@ func Open(ctx context.Context, s file.CAS, key string) (*Root, error) {
 	} else if err := pb.CheckValid(); err != nil {
 		return nil, fmt.Errorf("invalid root %q: %w", key, err)
 	}
-	return &Root{
-		cas: s,
-
-		OwnerKey:    string(pb.OwnerKey),
-		Description: pb.Description,
-		fileKey:     string(pb.RootFileKey),
-		indexKey:    string(pb.BlobIndexKey),
-	}, nil
+	return Decode(s, &pb), nil
 }
 
 // File loads and returns the root file of r, if one exists.
@@ -173,7 +166,7 @@ func (r *Root) Save(ctx context.Context, key string) error {
 		return fmt.Errorf("writing index: %w", err)
 	}
 
-	bits, err := proto.Marshal(r.toWireType())
+	bits, err := proto.Marshal(Encode(r))
 	if err != nil {
 		return err
 	}
@@ -184,13 +177,27 @@ func (r *Root) Save(ctx context.Context, key string) error {
 	})
 }
 
-func (r *Root) toWireType() *wiretype.Root {
+// Encode encodes r as a protobuf message for storage.
+func Encode(r *Root) *wiretype.Root {
 	return (&wiretype.Root{
 		RootFileKey:  []byte(r.fileKey),
 		Description:  r.Description,
 		BlobIndexKey: []byte(r.indexKey),
 		OwnerKey:     []byte(r.OwnerKey),
 	}).SetChecksum()
+}
+
+// Decode decodes a protobuf-encoded root record and associates it with the
+// storage in s.
+func Decode(s file.CAS, pb *wiretype.Root) *Root {
+	return &Root{
+		cas: s,
+
+		OwnerKey:    string(pb.OwnerKey),
+		Description: pb.Description,
+		fileKey:     string(pb.RootFileKey),
+		indexKey:    string(pb.BlobIndexKey),
+	}
 }
 
 func loadWireType(ctx context.Context, s file.CAS, key string, msg proto.Message) error {

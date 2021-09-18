@@ -28,7 +28,7 @@ func Encode(idx *Index) *indexpb.EncodedIndex {
 	}
 }
 
-// Decode decodes a compressed index from protobuf.
+// Decode decodes an encoded index from protobuf.
 func Decode(pb *indexpb.EncodedIndex) *Index {
 	return &Index{
 		numKeys: int(pb.NumKeys),
