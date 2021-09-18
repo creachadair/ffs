@@ -19,8 +19,8 @@ type Index struct {
 
 // New constructs an empty index with capacity for the specified number of
 // keys. A nil opts value is ready for use and provides default values as
-// described on IndexOpts. New will panic if numKeys ≤ 0.
-func New(numKeys int, opts *IndexOpts) *Index {
+// described on Options. New will panic if numKeys ≤ 0.
+func New(numKeys int, opts *Options) *Index {
 	idx := &Index{hash: opts.hashFunc()}
 	idx.init(numKeys, opts.falsePositiveRate())
 	return idx
@@ -88,9 +88,9 @@ func (idx *Index) init(n int, p float64) {
 	}
 }
 
-// IndexOpts provide optional settings for an index. A nil *IndexOpts is ready
-// for use and provides default values as described.
-type IndexOpts struct {
+// Options provide optional settings for an index. A nil *Options is ready for
+// use and provides default values as described.
+type Options struct {
 	// Compute a 64-bit hash of s. If nil, uses xxhash.Sum64String.
 	Hash func(s string) uint64
 
@@ -99,14 +99,14 @@ type IndexOpts struct {
 	FalsePositiveRate float64
 }
 
-func (o *IndexOpts) hashFunc() func(string) uint64 {
+func (o *Options) hashFunc() func(string) uint64 {
 	if o == nil || o.Hash == nil {
 		return xxhash.Sum64String
 	}
 	return o.Hash
 }
 
-func (o *IndexOpts) falsePositiveRate() float64 {
+func (o *Options) falsePositiveRate() float64 {
 	if o == nil || o.FalsePositiveRate <= 0 {
 		return 0.03
 	}
