@@ -29,16 +29,18 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
-// ErrNoIndex is returned by Index when no blob index is defined.
-var ErrNoIndex = errors.New("no blob index")
+// ErrNoData indicates that the requested data do not exist.
+var ErrNoData = errors.New("requested data not found")
 
 // A Root records the location of the root of a file tree.
 type Root struct {
 	cas file.CAS
 
-	FileKey     string // the storage key of the file node
 	OwnerKey    string // the key of an owner metadata blob
 	Description string // a human-readable description
+
+	fileKey string // the storage key of the file node
+	file    *file.File
 
 	indexKey string // the key of the blob index
 	idx      *index.Index
@@ -53,9 +55,9 @@ func New(s file.CAS, opts *Options) *Root {
 	return &Root{
 		cas: s,
 
-		FileKey:     opts.FileKey,
 		OwnerKey:    opts.OwnerKey,
 		Description: opts.Description,
+		fileKey:     opts.FileKey,
 		indexKey:    opts.IndexKey,
 	}
 }
@@ -71,20 +73,55 @@ func Open(ctx context.Context, s file.CAS, key string) (*Root, error) {
 	return &Root{
 		cas: s,
 
-		FileKey:     string(pb.RootFileKey),
 		OwnerKey:    string(pb.OwnerKey),
 		Description: pb.Description,
+		fileKey:     string(pb.RootFileKey),
 		indexKey:    string(pb.BlobIndexKey),
 	}, nil
 }
 
+// File loads and returns the root file of r, if one exists.
+// If no file exists, it returns ErrNoData.
+func (r *Root) File(ctx context.Context) (*file.File, error) {
+	if r.file != nil {
+		return r.file, nil
+	} else if r.fileKey == "" {
+		return nil, ErrNoData
+	}
+	f, err := file.Open(ctx, r.cas, r.fileKey)
+	if err != nil {
+		return nil, err
+	}
+	r.file = f
+	return f, nil
+}
+
+// NewFile replaces the root file of r with a newly-created file using the
+// given options.
+func (r *Root) NewFile(opts *file.NewOptions) *file.File {
+	r.fileKey = ""
+	r.file = file.New(r.cas, opts)
+	return r.file
+}
+
+// OpenFile replaces the root file of r by opening the specified file key.
+func (r *Root) OpenFile(ctx context.Context, key string) (*file.File, error) {
+	f, err := file.Open(ctx, r.cas, key)
+	if err != nil {
+		return nil, err
+	}
+	r.fileKey = key
+	r.file = f
+	return f, nil
+}
+
 // Index loads and returns the blob index for r, if one exists.
-// If no index exists, it returns ErrNoIndex.
+// If no index exists, it returns ErrNoData.
 func (r *Root) Index(ctx context.Context) (*index.Index, error) {
 	if r.idx != nil {
 		return r.idx, nil
 	} else if r.indexKey == "" {
-		return nil, ErrNoIndex
+		return nil, ErrNoData
 	}
 	var pb indexpb.EncodedIndex
 	if err := loadWireType(ctx, r.cas, r.indexKey, &pb); err != nil {
@@ -102,7 +139,7 @@ func (r *Root) SetIndex(idx *index.Index) {
 }
 
 func (r *Root) saveIndex(ctx context.Context) error {
-	if r.indexKey != "" || r.idx == nil {
+	if r.idx == nil {
 		return nil // nothing to do
 	}
 	bits, err := proto.Marshal(index.Encode(r.idx))
@@ -119,9 +156,23 @@ func (r *Root) saveIndex(ctx context.Context) error {
 
 // Save writes r in wire format to the given storage key in s.
 func (r *Root) Save(ctx context.Context, key string) error {
+	// If there is a cached file, flush it and update the storage key.
+	// Otherwise, it is an error if there is no storage key set.
+	if r.file != nil {
+		fkey, err := r.file.Flush(ctx)
+		if err != nil {
+			return fmt.Errorf("flushing file: %w", err)
+		}
+		r.fileKey = fkey
+	} else if r.fileKey == "" {
+		return errors.New("missing file key")
+	}
+
+	// If there is a blob index, flush it and update its storage key.
 	if err := r.saveIndex(ctx); err != nil {
 		return fmt.Errorf("writing index: %w", err)
 	}
+
 	bits, err := proto.Marshal(r.toWireType())
 	if err != nil {
 		return err
@@ -135,7 +186,7 @@ func (r *Root) Save(ctx context.Context, key string) error {
 
 func (r *Root) toWireType() *wiretype.Root {
 	return (&wiretype.Root{
-		RootFileKey:  []byte(r.FileKey),
+		RootFileKey:  []byte(r.fileKey),
 		Description:  r.Description,
 		BlobIndexKey: []byte(r.indexKey),
 		OwnerKey:     []byte(r.OwnerKey),

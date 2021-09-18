@@ -17,10 +17,12 @@ package root_test
 import (
 	"context"
 	"crypto/sha1"
+	"os"
 	"testing"
 
 	"github.com/creachadair/ffs/blob"
 	"github.com/creachadair/ffs/blob/memstore"
+	"github.com/creachadair/ffs/file"
 	"github.com/creachadair/ffs/file/root"
 	"github.com/creachadair/ffs/index"
 )
@@ -29,12 +31,18 @@ func TestRoot(t *testing.T) {
 	cas := blob.NewCAS(memstore.New(), sha1.New)
 
 	r := root.New(cas, &root.Options{
-		FileKey:     "some-file-blah",
 		Description: "Test root",
 		OwnerKey:    "whatever",
 	})
+	rf := r.NewFile(&file.NewOptions{
+		Stat: &file.Stat{Mode: os.ModeDir | 0755},
+	})
 
 	ctx := context.Background()
+	rfKey, err := rf.Flush(ctx)
+	if err != nil {
+		t.Fatalf("Flushing root file: %v", err)
+	}
 
 	// Add a blob index.
 	idx := index.New(16, nil)
@@ -53,17 +61,24 @@ func TestRoot(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Open failed: %v", err)
 	}
-	idxc, err := rc.Index(ctx)
-	if err != nil {
-		t.Errorf("Index failed: %v", err)
-	}
 
-	if !idxc.Has("foo") || idx.Has("quux") {
+	// Check some index entries.
+	if idxc, err := rc.Index(ctx); err != nil {
+		t.Errorf("Index failed: %v", err)
+	} else if !idxc.Has("foo") || idx.Has("quux") {
 		t.Error("Loaded index: contents do not match")
 	}
-	if rc.FileKey != r.FileKey {
-		t.Errorf("Loaded file key: got %q, want %q", rc.FileKey, r.FileKey)
+
+	// Check the root file.
+	if rfc, err := rc.File(ctx); err != nil {
+		t.Errorf("Loading root file: %v", err)
+	} else if rfcKey, err := rfc.Flush(ctx); err != nil {
+		t.Errorf("Flush failed: %v", err)
+	} else if rfcKey != rfKey {
+		t.Errorf("Loaded root file key: got %q, want %q", rfcKey, rfKey)
 	}
+
+	// Check exported fields.
 	if rc.Description != r.Description {
 		t.Errorf("Loaded desc: got %q, want %q", rc.Description, r.Description)
 	}
