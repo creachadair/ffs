@@ -83,8 +83,9 @@ func (h *rkHash) Update(b byte) uint64 {
 	return h.hash
 }
 
-// exptmod(b, e, m) computes b**e modulo m. This is an expensive way to compute
-// a modular inverse, but it only needs to be done once per rkHasher.
+// exptmod(b, e, m) computes b**e modulo m. This is used once per rkHasher to
+// pre-shift base to the window size, so that evicting the "old" byte can be
+// done with a single multiplication and subtraction.
 func exptmod(b, e, m int64) int64 {
 	s := int64(1)
 	for e != 0 {
