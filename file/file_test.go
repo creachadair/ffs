@@ -247,7 +247,7 @@ type lineHash struct{}
 
 func (h lineHash) Hash() block.Hash { return h }
 
-func (lineHash) Update(b byte) uint {
+func (lineHash) Update(b byte) uint64 {
 	if b == '\n' {
 		return 1
 	}

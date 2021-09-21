@@ -53,13 +53,13 @@ func newBurstyReader(s string, sizes ...int) io.Reader {
 // It returns a fixed value for all updates except a designated value.
 type dummyHash struct {
 	magic byte
-	hash  uint
+	hash  uint64
 	size  int
 }
 
 func (d dummyHash) Hash() block.Hash { return d }
 
-func (d dummyHash) Update(in byte) uint {
+func (d dummyHash) Update(in byte) uint64 {
 	if in == d.magic {
 		return 1
 	}

@@ -34,7 +34,7 @@ func TestModHashSimple(t *testing.T) {
 	h := block.RabinKarpHasher(256, 1<<32, 8).Hash()
 	tests := []struct {
 		in   byte
-		want uint
+		want uint64
 	}{
 		{1, 0x00000001},
 		{2, 0x00000102},
@@ -114,7 +114,7 @@ func windowTest(t *testing.T, h block.Hasher, size int) {
 		11, keyValue, 2, 3, 4, 5, 6, 7, 8, 11, keyValue, 24, 26, 28, 30,
 	}...)
 
-	var keyHash uint
+	var keyHash uint64
 	rh := h.Hash()
 	for i, in := range testData[size:] {
 		v := rh.Update(in)
@@ -132,10 +132,10 @@ func windowTest(t *testing.T, h block.Hasher, size int) {
 
 // wantHash computes a raw mod-hash over the given slice without using sliding.
 // This is used to check the outcome of a modHash that does slide.
-func wantHash(base, mod int, data []byte) uint {
+func wantHash(base, mod int, data []byte) uint64 {
 	var want int
 	for _, v := range data {
 		want = ((want * base) + int(v)) % mod
 	}
-	return uint(want)
+	return uint64(want)
 }

@@ -25,7 +25,7 @@ type Hasher interface {
 // A Hash implements a rolling hash.
 type Hash interface {
 	// Add a byte to the rolling hash, and return the updated value.
-	Update(byte) uint
+	Update(byte) uint64
 }
 
 // rkHasher implements the Hasher interface using the Rabin-Karp construction.
@@ -62,13 +62,13 @@ func RabinKarpHasher(base, modulus int64, windowSize int) Hasher {
 type rkHash struct {
 	rkHasher // base settings shared by all instances
 
-	hash uint   // last hash value
+	hash uint64 // last hash value
 	next int    // next offset in the window buffer
 	buf  []byte // window buffer (per instance)
 }
 
 // Update adds b to the rolling hash and returns the updated hash value.
-func (h *rkHash) Update(b byte) uint {
+func (h *rkHash) Update(b byte) uint64 {
 	old := int64(h.buf[h.next]) // the displaced oldest byte
 	h.buf[h.next] = b
 	h.next = (h.next + 1) % h.size
@@ -79,7 +79,7 @@ func (h *rkHash) Update(b byte) uint {
 	if newHash < 0 {
 		newHash += h.mod // pin a non-negative representative
 	}
-	h.hash = uint(newHash)
+	h.hash = uint64(newHash)
 	return h.hash
 }
 

@@ -155,7 +155,7 @@ func (s *Splitter) Next() ([]byte, error) {
 		isCut := false
 		for ; i < s.next; i++ {
 			u := s.hash.Update(s.buf[i])
-			isCut = u%uint(s.exp) == 1 && i-s.end >= s.min
+			isCut = u%uint64(s.exp) == 1 && i-s.end >= s.min
 			if isCut {
 				break
 			}
