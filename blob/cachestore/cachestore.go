@@ -54,7 +54,7 @@ func (s *Store) Get(ctx context.Context, key string) ([]byte, error) {
 	defer s.μ.Unlock()
 	if s.nexist[key] {
 		return nil, blob.KeyNotFound(key)
-	} else if data, ok := s.cache.get(key); ok {
+	} else if data, ok := s.cache.get(key, true); ok {
 		return data, nil
 	}
 	data, err := s.base.Get(ctx, key)
@@ -72,6 +72,11 @@ func (s *Store) Get(ctx context.Context, key string) ([]byte, error) {
 func (s *Store) Put(ctx context.Context, opts blob.PutOptions) error {
 	s.μ.Lock()
 	defer s.μ.Unlock()
+	if !opts.Replace {
+		if _, ok := s.cache.get(opts.Key, false); ok {
+			return blob.KeyExists(opts.Key)
+		}
+	}
 	if err := s.base.Put(ctx, opts); err != nil {
 		return err
 	}

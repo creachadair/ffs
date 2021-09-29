@@ -55,8 +55,9 @@ func (c *cache) drop(key string) {
 // empty reports whether the entry list is empty.
 func (c *cache) empty() bool { return c.entries.link == nil }
 
-// get reports whether any data are cached for key, and if so returns the data.
-func (c *cache) get(key string) ([]byte, bool) {
+// get reports whether any data are cached for key. In addition, if wantData is
+// true, get returns a copy of the data stored for key.
+func (c *cache) get(key string, wantData bool) ([]byte, bool) {
 	elt := c.pos[key]
 	if elt == nil {
 		return nil, false
@@ -64,7 +65,10 @@ func (c *cache) get(key string) ([]byte, bool) {
 		panic("cache integrity failure: " + key)
 	}
 	defer c.update(elt)
-	return copyOf(elt.link.val), true
+	if wantData {
+		return copyOf(elt.link.val), true
+	}
+	return nil, true
 }
 
 // update moves elt forward in the cache to reduce the likelihood that it will
