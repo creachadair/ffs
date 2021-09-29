@@ -185,7 +185,7 @@ func (s *Splitter) Next() ([]byte, error) {
 //
 // The slice passed to f is only valid while f is active; if f wishes to store
 // a block for later use, it must be copied.
-func Split(s *Splitter, f func(data []byte) error) error {
+func (s *Splitter) Split(f func(data []byte) error) error {
 	for {
 		block, err := s.Next()
 		if err == io.EOF {

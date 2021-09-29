@@ -141,7 +141,7 @@ func TestSplitterBlocks(t *testing.T) {
 			Max:    test.max,
 		})
 		var bs []string
-		if err := block.Split(s, func(b []byte) error {
+		if err := s.Split(func(b []byte) error {
 			bs = append(bs, string(b))
 			return nil
 		}); err != nil {
@@ -170,7 +170,7 @@ func TestLongValue(t *testing.T) {
 	s := block.NewSplitter(&buf, cfg)
 	var total int
 	var sizes []int
-	if err := block.Split(s, func(blk []byte) error {
+	if err := s.Split(func(blk []byte) error {
 		total += len(blk)
 		sizes = append(sizes, len(blk))
 		if len(blk) < cfg.Min {

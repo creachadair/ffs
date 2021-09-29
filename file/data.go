@@ -316,7 +316,7 @@ func (d *fileData) splitBlobs(ctx context.Context, s CAS, blobs ...[]byte) ([]cb
 	data := io.MultiReader(rs...)
 
 	var blks []cblock
-	if err := block.Split(block.NewSplitter(data, d.sc), func(blk []byte) error {
+	if err := block.NewSplitter(data, d.sc).Split(func(blk []byte) error {
 		key, err := s.PutCAS(ctx, blk)
 		if err != nil {
 			return err
@@ -386,7 +386,7 @@ func newFileData(s *block.Splitter, put func([]byte) (string, error)) (fileData,
 		ext = nil
 	}
 
-	err := block.Split(s, func(data []byte) error {
+	err := s.Split(func(data []byte) error {
 		// A block of zeroes ends the current extent. We count the block against
 		// the total file size, but do not explicitly store it.
 		if isZero(data) {

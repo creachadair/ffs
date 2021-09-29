@@ -27,7 +27,7 @@ func Example() {
 	// which includes a Rabin-Karp rolling hash.
 	r := strings.NewReader("Four score and seven years ago...")
 	s := block.NewSplitter(r, &block.SplitConfig{Max: 10})
-	if err := block.Split(s, func(data []byte) error {
+	if err := s.Split(func(data []byte) error {
 		fmt.Println(string(data))
 		return nil
 	}); err != nil {
