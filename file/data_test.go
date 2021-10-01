@@ -159,6 +159,61 @@ func TestIndex(t *testing.T) {
 	})
 }
 
+func TestWireEncoding(t *testing.T) {
+	opts := []cmp.Option{cmp.AllowUnexported(fileData{}, extent{}, cblock{})}
+	t.Run("SingleBlock", func(t *testing.T) {
+		d := &fileData{totalBytes: 10, extents: []*extent{
+			{bytes: 10, blocks: []cblock{{bytes: 10, key: "foo"}}},
+		}}
+		idx := d.toWireType()
+		if idx.TotalBytes != 10 {
+			t.Errorf("Index total bytes: got %d, want 10", idx.TotalBytes)
+		}
+		if s := string(idx.Single); s != "foo" {
+			t.Errorf("Index single key: got %q, want foo", s)
+		}
+		if len(idx.Extents) != 0 {
+			t.Errorf("Index has %d extents, want 0", len(idx.Extents))
+		}
+
+		dx := new(fileData)
+		if err := dx.fromWireType(idx); err != nil {
+			t.Errorf("Decoding index failed: %v", err)
+		}
+		if diff := cmp.Diff(*d, *dx, opts...); diff != "" {
+			t.Errorf("Wrong decoded block (-want, +got)\n%s", diff)
+		}
+	})
+
+	t.Run("MultipleBlocks", func(t *testing.T) {
+		d := &fileData{totalBytes: 15, extents: []*extent{
+			{bytes: 15, blocks: []cblock{
+				{bytes: 10, key: "foo"},
+				{bytes: 5, key: "bar"},
+			}},
+		}}
+		idx := d.toWireType()
+		if idx.TotalBytes != 15 {
+			t.Errorf("Index total bytes: got %d, want 15", idx.TotalBytes)
+		}
+		if len(idx.Single) != 0 {
+			t.Errorf("Index single key: got %q, want empty", string(idx.Single))
+		}
+		if len(idx.Extents) != 1 || len(idx.Extents[0].Blocks) != 2 {
+			t.Errorf("Index extents=%d, blocks=%d; want 1, 2",
+				len(idx.Extents), len(idx.Extents[0].Blocks))
+		}
+
+		dx := new(fileData)
+		if err := dx.fromWireType(idx); err != nil {
+			t.Errorf("Decoding index failed: %v", err)
+		}
+		if diff := cmp.Diff(d, dx, opts...); diff != "" {
+			t.Errorf("Wrong decoded block (-want, +got)\n%s", diff)
+		}
+	})
+}
+
 func TestReblocking(t *testing.T) {
 	mem := memstore.New()
 	cas := blob.NewCAS(mem, sha1.New)

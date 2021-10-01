@@ -17,6 +17,7 @@ package file
 import (
 	"bytes"
 	"context"
+	"errors"
 	"io"
 
 	"github.com/creachadair/ffs/block"
@@ -35,8 +36,18 @@ type fileData struct {
 // toWireType converts d to wire encoding.
 func (d *fileData) toWireType() *wiretype.Index {
 	if d.totalBytes == 0 && len(d.extents) == 0 {
+		// No data in this file.
 		return nil
+	} else if len(d.extents) == 1 && len(d.extents[0].blocks) == 1 {
+		// Exactly one block in this file. No normalization is required.
+		return &wiretype.Index{
+			TotalBytes: uint64(d.totalBytes),
+			Single:     []byte(d.extents[0].blocks[0].key),
+		}
 	}
+
+	// At this point we have multiple blocks, so we actually have to do some
+	// work to pack and normalize the extents.
 	w := &wiretype.Index{
 		TotalBytes: uint64(d.totalBytes),
 		Extents:    make([]*wiretype.Extent, len(d.extents)),
@@ -60,14 +71,26 @@ func (d *fileData) toWireType() *wiretype.Index {
 }
 
 // fromWireType replaces the contents of d from the wire encoding pb.
-func (d *fileData) fromWireType(pb *wiretype.Index) {
+func (d *fileData) fromWireType(pb *wiretype.Index) error {
 	if pb == nil {
-		return
+		return nil
 	}
-	pb.Normalize()
-	d.totalBytes = int64(pb.TotalBytes)
-	d.extents = make([]*extent, len(pb.Extents))
 
+	d.totalBytes = int64(pb.TotalBytes)
+	if len(pb.Single) != 0 {
+		if len(pb.Extents) != 0 {
+			return errors.New("invalid index: single-block and extents both set")
+		}
+		d.extents = []*extent{{
+			base:   0,
+			bytes:  d.totalBytes,
+			blocks: []cblock{{key: string(pb.Single), bytes: d.totalBytes}},
+		}}
+		return nil
+	}
+
+	pb.Normalize()
+	d.extents = make([]*extent, len(pb.Extents))
 	for i, ext := range pb.Extents {
 		d.extents[i] = &extent{
 			base:   int64(ext.Base),
@@ -81,6 +104,7 @@ func (d *fileData) fromWireType(pb *wiretype.Index) {
 			}
 		}
 	}
+	return nil
 }
 
 // size reports the size of the data in bytes.

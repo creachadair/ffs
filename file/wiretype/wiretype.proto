@@ -114,9 +114,20 @@ message Timestamp {
 // An Index records the size and storage locations of file data.
 message Index {
   uint64 total_bytes = 1;
-  repeated Extent extents = 2;
 
-  // next id: 3
+  // File contents are split into blocks, which are in turn grouped into
+  // contiguous extents. However, for the common case of small files that have
+  // only one block, the index may instead store the key of that one block
+  // without the overhead of extent metadata.
+  //
+  // At most one of these fields may be non-empty. We do not use a oneof here
+  // because oneof does not allow repeated fields, and we don't want to spend
+  // storage on a wrapper message.
+
+  repeated Extent extents = 2;  // multiple blocks
+  bytes single = 3;             // a single block
+
+  // next id: 4
 }
 
 // An Extent describes a single contiguous span of stored data.

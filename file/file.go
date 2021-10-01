@@ -386,7 +386,9 @@ func (f *File) fromWireType(obj *wiretype.Object) error {
 
 	pb.Node.Normalize()
 	f.data = fileData{} // reset
-	f.data.fromWireType(pb.Node.Index)
+	if err := f.data.fromWireType(pb.Node.Index); err != nil {
+		return fmt.Errorf("index: %w", err)
+	}
 	f.stat.fromWireType(pb.Node.Stat)
 	f.saveStat = pb.Node.Stat != nil
 
