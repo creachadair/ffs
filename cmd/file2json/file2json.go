@@ -18,22 +18,18 @@ func main() {
 		log.Fatalf("Read: %v", err)
 	}
 	out := make(map[string]proto.Message)
-	{ // Check whether the message is a valid root blob.
-		var rpb wiretype.Root
-		if err := proto.Unmarshal(data, &rpb); err == nil {
-			if err := rpb.CheckValid(); err == nil {
-				out["root"] = &rpb
-			}
-		}
-	}
 
-	if len(out) == 0 {
-		// If it wasn't a root blob, it has to be a node, or the game is off.
-		var npb wiretype.Node
-		if err := proto.Unmarshal(data, &npb); err != nil {
-			log.Fatalf("Decode: %v", err)
-		}
-		out["node"] = &npb
+	var obj wiretype.Object
+	if err := proto.Unmarshal(data, &obj); err != nil {
+		log.Fatalf("Decode: %v", err)
+	}
+	switch t := obj.Value.(type) {
+	case *wiretype.Object_Node:
+		out["node"] = t.Node
+	case *wiretype.Object_Root:
+		out["root"] = t.Root
+	default:
+		log.Fatalf("Unknown blob format (%d bytes)", len(data))
 	}
 	enc := json.NewEncoder(os.Stdout)
 	enc.SetIndent("", "  ")

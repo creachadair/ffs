@@ -18,6 +18,20 @@ syntax = "proto3";
 package ffs.file;
 option go_package = "github.com/creachadair/ffs/file/wiretype";
 
+// An Object is the top-level wrapper for encoded objects.
+message Object {
+  oneof value {
+    Node node = 1;  // a structured file object
+    Root root = 2;  // a root pointer
+  }
+
+  // next id: 3
+
+  // A version marker for the stored object.
+  // Currently 0 is the only known value.
+  uint64 version = 15;
+}
+
 // A Root records the location of a root node of a file tree.
 message Root {
   // The storage key of the root of the tree.
@@ -36,16 +50,7 @@ message Root {
   // The blob format is implementation-defined.
   bytes owner_key = 4;
 
-  // A structure checksum for a root blob, consisting of a IEEE CRC-32
-  // checksum of the concatenation of the root_file_key, description,
-  // blob_index_key, and owner_key, in that order.
-  //
-  // This checksum is not an integrity check. It permits a blob indexer to
-  // identify structurally-valid root blobs by verifying that the input fields
-  // exist and match the checksum.
-  uint32 checksum = 5;
-
-  // next id: 6
+  // next id: 5
 }
 
 // A Node is the top-level encoding of a file.

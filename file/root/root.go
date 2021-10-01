@@ -64,13 +64,11 @@ func New(s file.CAS, opts *Options) *Root {
 
 // Open opens a stored root record given its storage key in s.
 func Open(ctx context.Context, s file.CAS, key string) (*Root, error) {
-	var pb wiretype.Root
-	if err := loadWireType(ctx, s, key, &pb); err != nil {
+	var obj wiretype.Object
+	if err := wiretype.Load(ctx, s, key, &obj); err != nil {
 		return nil, fmt.Errorf("loading root %q: %w", key, err)
-	} else if err := pb.CheckValid(); err != nil {
-		return nil, fmt.Errorf("invalid root %q: %w", key, err)
 	}
-	return Decode(s, &pb), nil
+	return Decode(s, &obj)
 }
 
 // File loads and returns the root file of r, if one exists.
@@ -117,7 +115,7 @@ func (r *Root) Index(ctx context.Context) (*index.Index, error) {
 		return nil, ErrNoData
 	}
 	var pb indexpb.EncodedIndex
-	if err := loadWireType(ctx, r.cas, r.indexKey, &pb); err != nil {
+	if err := wiretype.Load(ctx, r.cas, r.indexKey, &pb); err != nil {
 		return nil, err
 	}
 	r.idx = index.Decode(&pb)
@@ -178,34 +176,34 @@ func (r *Root) Save(ctx context.Context, key string) error {
 }
 
 // Encode encodes r as a protobuf message for storage.
-func Encode(r *Root) *wiretype.Root {
-	return (&wiretype.Root{
-		FileKey:     []byte(r.fileKey),
-		Description: r.Description,
-		IndexKey:    []byte(r.indexKey),
-		OwnerKey:    []byte(r.OwnerKey),
-	}).SetChecksum()
+func Encode(r *Root) *wiretype.Object {
+	return &wiretype.Object{
+		Value: &wiretype.Object_Root{
+			Root: &wiretype.Root{
+				FileKey:     []byte(r.fileKey),
+				Description: r.Description,
+				IndexKey:    []byte(r.indexKey),
+				OwnerKey:    []byte(r.OwnerKey),
+			},
+		},
+	}
 }
 
 // Decode decodes a protobuf-encoded root record and associates it with the
 // storage in s.
-func Decode(s file.CAS, pb *wiretype.Root) *Root {
+func Decode(s file.CAS, obj *wiretype.Object) (*Root, error) {
+	pb, ok := obj.Value.(*wiretype.Object_Root)
+	if !ok {
+		return nil, errors.New("object does not contain a root")
+	}
 	return &Root{
 		cas: s,
 
-		OwnerKey:    string(pb.OwnerKey),
-		Description: pb.Description,
-		fileKey:     string(pb.FileKey),
-		indexKey:    string(pb.IndexKey),
-	}
-}
-
-func loadWireType(ctx context.Context, s file.CAS, key string, msg proto.Message) error {
-	bits, err := s.Get(ctx, key)
-	if err != nil {
-		return fmt.Errorf("loading message: %w", err)
-	}
-	return proto.Unmarshal(bits, msg)
+		OwnerKey:    string(pb.Root.OwnerKey),
+		Description: pb.Root.Description,
+		fileKey:     string(pb.Root.FileKey),
+		indexKey:    string(pb.Root.IndexKey),
+	}, nil
 }
 
 // Options are configurable settings for creating a Root.  A nil options

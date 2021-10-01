@@ -67,7 +67,6 @@ import (
 	"github.com/creachadair/ffs/blob"
 	"github.com/creachadair/ffs/block"
 	"github.com/creachadair/ffs/file/wiretype"
-	"google.golang.org/protobuf/proto"
 )
 
 // New constructs a new, empty File with the given options and backed by s. The
@@ -123,12 +122,14 @@ type NewOptions struct {
 
 // Open opens an existing file given its storage key in s.
 func Open(ctx context.Context, s CAS, key string) (*File, error) {
-	var node wiretype.Node
-	if err := loadWireType(ctx, s, key, &node); err != nil {
+	var obj wiretype.Object
+	if err := wiretype.Load(ctx, s, key, &obj); err != nil {
 		return nil, fmt.Errorf("loading file %q: %w", key, err)
 	}
 	f := &File{s: s, key: key}
-	f.fromWireType(&node)
+	if err := f.fromWireType(&obj); err != nil {
+		return nil, fmt.Errorf("decoding file %q: %w", key, err)
+	}
 	f.stat.f = f
 	return f, nil
 }
@@ -292,7 +293,7 @@ func (f *File) recFlush(ctx context.Context, path []*File) (string, error) {
 	}
 
 	if needsUpdate {
-		key, err := saveWireType(ctx, f.s, f.toWireType())
+		key, err := wiretype.Save(ctx, f.s, f.toWireType())
 		if err != nil {
 			return "", fmt.Errorf("flushing file %q: %w", key, err)
 		}
@@ -377,28 +378,34 @@ func (f *File) Cursor(ctx context.Context) *Cursor { return &Cursor{ctx: ctx, fi
 // XAttr returns a view of the extended attributes of f.
 func (f *File) XAttr() XAttr { return XAttr{f: f} }
 
-func (f *File) fromWireType(pb *wiretype.Node) {
-	pb.Normalize()
+func (f *File) fromWireType(obj *wiretype.Object) error {
+	pb, ok := obj.Value.(*wiretype.Object_Node)
+	if !ok {
+		return errors.New("object does not contain a node")
+	}
+
+	pb.Node.Normalize()
 	f.data = fileData{} // reset
-	f.data.fromWireType(pb.Index)
-	f.stat.fromWireType(pb.Stat)
-	f.saveStat = pb.Stat != nil
+	f.data.fromWireType(pb.Node.Index)
+	f.stat.fromWireType(pb.Node.Stat)
+	f.saveStat = pb.Node.Stat != nil
 
 	f.xattr = make(map[string]string)
-	for _, xa := range pb.XAttrs {
+	for _, xa := range pb.Node.XAttrs {
 		f.xattr[xa.Name] = string(xa.Value)
 	}
 
 	f.kids = nil
-	for _, kid := range pb.Children {
+	for _, kid := range pb.Node.Children {
 		f.kids = append(f.kids, child{
 			Name: kid.Name,
 			Key:  string(kid.Key),
 		})
 	}
+	return nil
 }
 
-func (f *File) toWireType() *wiretype.Node {
+func (f *File) toWireType() *wiretype.Object {
 	n := &wiretype.Node{Index: f.data.toWireType()}
 	if f.saveStat {
 		n.Stat = f.stat.toWireType()
@@ -416,7 +423,7 @@ func (f *File) toWireType() *wiretype.Node {
 		})
 	}
 	n.Normalize()
-	return n
+	return &wiretype.Object{Value: &wiretype.Object_Node{Node: n}}
 }
 
 // XAttr provides access to the extended attributes of a file.
@@ -493,19 +500,3 @@ func (c Child) Names() []string {
 
 // Len returns the number of children of the file.
 func (c Child) Len() int { return len(c.f.kids) }
-
-func saveWireType(ctx context.Context, s CAS, msg proto.Message) (string, error) {
-	bits, err := proto.Marshal(msg)
-	if err != nil {
-		return "", fmt.Errorf("encoding message: %w", err)
-	}
-	return s.PutCAS(ctx, bits)
-}
-
-func loadWireType(ctx context.Context, s CAS, key string, msg proto.Message) error {
-	bits, err := s.Get(ctx, key)
-	if err != nil {
-		return fmt.Errorf("loading message: %w", err)
-	}
-	return proto.Unmarshal(bits, msg)
-}

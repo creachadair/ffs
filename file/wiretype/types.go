@@ -21,12 +21,12 @@ package wiretype
 //go:generate protoc --go_out=. --go_opt=paths=source_relative wiretype.proto
 
 import (
-	"errors"
+	"context"
 	"fmt"
-	"hash/crc32"
 	"sort"
 
 	"google.golang.org/protobuf/encoding/protojson"
+	"google.golang.org/protobuf/proto"
 )
 
 // MarshalJSON implements the json.Marshaler interface for a *Node, by
@@ -60,28 +60,26 @@ func (x *Index) Normalize() {
 	})
 }
 
-// CheckValid checks whether r is a valid root message, meaning that it has a
-// non-empty root file key and a valid checksum. It returns nil if the message
-// is valid; otherwise a descriptive error.
-func (r *Root) CheckValid() error {
-	if len(r.FileKey) == 0 {
-		return errors.New("invalid root: missing file key")
-	}
-	if want := r.ComputeChecksum(); want != r.Checksum {
-		return fmt.Errorf("invalid root: wrong checksum %x", r.Checksum)
-	}
-	return nil
+// Store is the interface to storage used by the Load and Save functions.
+type Store interface {
+	Get(context.Context, string) ([]byte, error)
+	PutCAS(context.Context, []byte) (string, error)
 }
 
-// SetChecksum computes and sets the checksum field of r, returning r.
-func (r *Root) SetChecksum() *Root { r.Checksum = r.ComputeChecksum(); return r }
+// Load reads the specified blob from s and decodes it into msg.
+func Load(ctx context.Context, s Store, key string, msg proto.Message) error {
+	bits, err := s.Get(ctx, key)
+	if err != nil {
+		return fmt.Errorf("loading message: %w", err)
+	}
+	return proto.Unmarshal(bits, msg)
+}
 
-// ComputeChecksum computes and returns the checksum of r from its contents.
-func (r *Root) ComputeChecksum() uint32 {
-	crc := crc32.NewIEEE()
-	crc.Write(r.FileKey)
-	crc.Write([]byte(r.Description))
-	crc.Write(r.IndexKey)
-	crc.Write(r.OwnerKey)
-	return crc.Sum32()
+// Save encodes msg in wire format and writes it to s, returning the storage key.
+func Save(ctx context.Context, s Store, msg proto.Message) (string, error) {
+	bits, err := proto.Marshal(msg)
+	if err != nil {
+		return "", fmt.Errorf("encoding message: %w", err)
+	}
+	return s.PutCAS(ctx, bits)
 }

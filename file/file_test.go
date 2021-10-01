@@ -219,20 +219,24 @@ and despair!`
 	if err != nil {
 		t.Fatalf("Block fetch: %v", err)
 	}
-	var pb wiretype.Node
-	if err := proto.Unmarshal(data, &pb); err != nil {
-		t.Fatalf("Unmarshal node: %v", err)
+	var obj wiretype.Object
+	if err := proto.Unmarshal(data, &obj); err != nil {
+		t.Fatalf("Unmarshal object: %v", err)
+	}
+	pb, ok := obj.Value.(*wiretype.Object_Node)
+	if !ok {
+		t.Fatal("Object does not contain a node")
 	}
 
 	// Make sure we stored the right amount of data.
-	if got, want := pb.Index.TotalBytes, uint64(len(input)); got != want {
+	if got, want := pb.Node.Index.TotalBytes, uint64(len(input)); got != want {
 		t.Logf("Stored total bytes: got %d, want %d", got, want)
 	}
 
 	// Make sure we stored the expected number of blocks.
 	// The artificial hasher splits on newlines, so we can just count.
 	var gotBlocks int
-	for _, ext := range pb.Index.Extents {
+	for _, ext := range pb.Node.Index.Extents {
 		gotBlocks += len(ext.Blocks)
 	}
 	wantBlocks := len(strings.Split(input, "\n"))
@@ -240,7 +244,7 @@ and despair!`
 		t.Errorf("Stored blocks: got %d, want %d", gotBlocks, wantBlocks)
 	}
 
-	t.Logf("Encoded node:\n%s", prototext.Format(&pb))
+	t.Logf("Encoded node:\n%s", prototext.Format(pb.Node))
 }
 
 type lineHash struct{}
