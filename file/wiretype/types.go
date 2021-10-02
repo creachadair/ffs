@@ -60,8 +60,11 @@ func (x *Index) Normalize() {
 	})
 	i, j := 0, 1
 	for j < len(x.Extents) {
-		// If two adjacent extents abut, merge them into the first.
-		if x.Extents[i].Base+x.Extents[i].Bytes == x.Extents[j].Base {
+		if x.Extents[i].Bytes == 0 {
+			// Remove empty extents.
+			x.Extents[i] = x.Extents[j]
+		} else if x.Extents[i].Base+x.Extents[i].Bytes == x.Extents[j].Base {
+			// If two adjacent extents abut, merge them into the first.
 			x.Extents[i].Bytes += x.Extents[j].Bytes
 			x.Extents[i].Blocks = append(x.Extents[i].Blocks, x.Extents[j].Blocks...)
 		} else {
@@ -69,6 +72,11 @@ func (x *Index) Normalize() {
 			x.Extents[i] = x.Extents[j]
 		}
 		j++
+	}
+
+	// Do an empty check on the sole or trailing extent.
+	if x.Extents[i].Bytes == 0 {
+		i--
 	}
 	x.Extents = x.Extents[:i+1]
 }

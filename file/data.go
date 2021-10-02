@@ -15,7 +15,6 @@
 package file
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -147,16 +146,78 @@ func (d *fileData) truncate(ctx context.Context, s CAS, offset int64) error {
 			if err != nil {
 				return err
 			}
-			span = append(span, &extent{
+			span = append(span, splitExtent(&extent{
 				base:   last.base,
 				bytes:  offset - last.base,
 				blocks: append(keep, blks...),
-			})
+			})...)
 		}
 	}
 	d.extents = append(pre, span...)
 	d.totalBytes = offset
 	return nil
+}
+
+// splitExtent splits ext into possibly-multiple extents by removing
+// zero-valued data blocks. If there are no zero blocks, the return slice
+// contains just the original extent.
+func splitExtent(ext *extent) []*extent {
+	var chunks [][]cblock
+	var bases []int64
+	var sizes []int64
+
+	// Do a two-finger walk of the blocks. The left finger (lo) scans for the
+	// next zero-value block, and the right finger (hi) scans forward from there
+	// to find the end of the non-zero range. Along the way, we keep track of
+	// the base and size of each non-zero range, to pack into extents.
+
+	base := ext.base
+	lo := 0
+
+nextBlock:
+	for lo < len(ext.blocks) {
+		// Scan for a nonzero block.
+		if ext.blocks[lo].key == "" {
+			base += ext.blocks[lo].bytes
+			lo++
+			continue
+		}
+
+		// Scan forward for a zero block.
+		nextBase := base + ext.blocks[lo].bytes
+		for hi := lo + 1; hi < len(ext.blocks); hi++ {
+			blk := ext.blocks[hi]
+
+			// If we found a zero-value block, the non-zero blocks since the last
+			// marker are an extent.
+			if blk.key == "" {
+				chunks = append(chunks, ext.blocks[lo:hi])
+				bases = append(bases, base)
+				sizes = append(sizes, nextBase-base)
+				base = nextBase
+				lo = hi
+				continue nextBlock
+			}
+			nextBase += blk.bytes
+		}
+
+		// If we get here, hi reached the end of the blocks without finding
+		// another zero-value block, so the rest of the blocks are an extent.
+		chunks = append(chunks, ext.blocks[lo:])
+		bases = append(bases, base)
+		sizes = append(sizes, nextBase-base)
+		break
+	}
+
+	exts := make([]*extent, len(chunks))
+	for i, chunk := range chunks {
+		exts[i] = &extent{
+			base:   bases[i],
+			bytes:  sizes[i],
+			blocks: chunk,
+		}
+	}
+	return exts
 }
 
 // writeAt writes the contents of data at the specified offset in d.  It
@@ -246,19 +307,17 @@ func (d *fileData) writeAt(ctx context.Context, s CAS, data []byte, offset int64
 	// Rather than fix it here, we rely on the normalization that happens during
 	// conversion to wire format, which includes this merge check.
 
-	d.extents = make([]*extent, len(pre)+1+len(post))
+	d.extents = make([]*extent, 0, len(pre)+1+len(post))
 	//
-	// d.extents = [ ...pre... |merged| ...post... ]
+	// d.extents = [ ...pre... | ...merged ... | ...post... ]
 	//
-	copy(d.extents, pre)
-	d.extents[len(pre)] = &extent{
+	d.extents = append(d.extents, pre...)
+	d.extents = append(d.extents, splitExtent(&extent{
 		base:   newBase,
 		bytes:  newEnd - newBase,
 		blocks: append(left, append(body, right...)...),
-	}
-	if n := copy(d.extents[len(pre)+1:], post); n != len(post) {
-		panic("safety check: incorrect allocation size")
-	}
+	})...)
+	d.extents = append(d.extents, post...)
 	if end > d.totalBytes {
 		d.totalBytes = end
 	}
@@ -329,15 +388,21 @@ func (d *fileData) readAt(ctx context.Context, s CAS, data []byte, offset int64)
 	return nr, nil
 }
 
+// splitBlobs re-blocks the concatenation of the specified blobs and returns
+// the resulting blocks. Zero-valued blocks are not stored, the caller can
+// detect this by looking for a key of "".
 func (d *fileData) splitBlobs(ctx context.Context, s CAS, blobs ...[]byte) ([]cblock, error) {
-	rs := make([]io.Reader, len(blobs))
-	for i, b := range blobs {
-		rs[i] = bytes.NewReader(b)
-	}
-	data := io.MultiReader(rs...)
+	data := newBlockReader(blobs)
 
 	var blks []cblock
 	if err := block.NewSplitter(data, d.sc).Split(func(blk []byte) error {
+		// We do not store blocks of zeroes. They count against the total file
+		// size, but we do not explicitly record them.
+		if isZero(blk) {
+			blks = append(blks, cblock{bytes: int64(len(blk))})
+			return nil
+		}
+
 		key, err := s.PutCAS(ctx, blk)
 		if err != nil {
 			return err
@@ -395,41 +460,37 @@ func (d *fileData) splitSpan(lo, hi int64) (pre, span, post []*extent) {
 func newFileData(s *block.Splitter, put func([]byte) (string, error)) (fileData, error) {
 	fd := fileData{sc: s.Config()}
 
-	var ext *extent
+	ext := new(extent)
 	push := func() {
-		if ext == nil {
+		if len(ext.blocks) == 0 {
 			return
 		}
-		for _, b := range ext.blocks {
-			ext.bytes += b.bytes
-		}
 		fd.extents = append(fd.extents, ext)
-		ext = nil
+		ext = &extent{base: fd.totalBytes}
 	}
 
 	err := s.Split(func(data []byte) error {
+		dlen := int64(len(data))
+
 		// A block of zeroes ends the current extent. We count the block against
 		// the total file size, but do not explicitly store it.
 		if isZero(data) {
+			// N.B. We have to update the total length first, so that push will
+			// see the correct new value for the next extent.
+			fd.totalBytes += dlen
 			push()
-			fd.totalBytes += int64(len(data))
 			return nil
 		}
 
-		// Otherwise, we have real data to store. Start a fresh extent if do not
-		// already have one, store the block, and append it to the extent.
-		if ext == nil {
-			// N.B. We need the total from BEFORE the new block is added.
-			ext = &extent{base: fd.totalBytes}
-		}
-
-		fd.totalBytes += int64(len(data))
+		// Otherwise, we have real data to store.
+		ext.bytes += dlen
+		fd.totalBytes += dlen
 		key, err := put(data)
 		if err != nil {
 			return err
 		}
 		ext.blocks = append(ext.blocks, cblock{
-			bytes: int64(len(data)),
+			bytes: dlen,
 			key:   key,
 		})
 		return nil
@@ -496,4 +557,33 @@ func (e *extent) findBlock(offset int64) (int, int64) {
 type cblock struct {
 	bytes int64  // number of bytes in the block
 	key   string // storage key for this block
+}
+
+// A blockReader implements io.Reader for the concatenation of a slice of byte
+// slices. This avoids the overhead of constructing a bytes.Reader for each
+// blob plus an io.MultiReader to concatenate them.
+type blockReader struct {
+	cur    int
+	blocks [][]byte
+}
+
+func newBlockReader(blocks [][]byte) *blockReader {
+	return &blockReader{blocks: blocks}
+}
+
+func (r *blockReader) Read(data []byte) (int, error) {
+	var nr int
+	for nr < len(data) && r.cur < len(r.blocks) {
+		curBlock := r.blocks[r.cur]
+		cp := copy(data[nr:], curBlock)
+		if cp == len(curBlock) {
+			r.blocks[r.cur] = nil
+			r.cur++
+		}
+		nr += cp
+	}
+	if nr == 0 && r.cur >= len(r.blocks) {
+		return 0, io.EOF
+	}
+	return nr, nil
 }
