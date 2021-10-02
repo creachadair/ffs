@@ -460,41 +460,37 @@ func (d *fileData) splitSpan(lo, hi int64) (pre, span, post []*extent) {
 func newFileData(s *block.Splitter, put func([]byte) (string, error)) (fileData, error) {
 	fd := fileData{sc: s.Config()}
 
-	var ext *extent
+	ext := new(extent)
 	push := func() {
-		if ext == nil {
+		if len(ext.blocks) == 0 {
 			return
 		}
-		for _, b := range ext.blocks {
-			ext.bytes += b.bytes
-		}
 		fd.extents = append(fd.extents, ext)
-		ext = nil
+		ext = &extent{base: fd.totalBytes}
 	}
 
 	err := s.Split(func(data []byte) error {
+		dlen := int64(len(data))
+
 		// A block of zeroes ends the current extent. We count the block against
 		// the total file size, but do not explicitly store it.
 		if isZero(data) {
+			// N.B. We have to update the total length first, so that push will
+			// see the correct new value for the next extent.
+			fd.totalBytes += dlen
 			push()
-			fd.totalBytes += int64(len(data))
 			return nil
 		}
 
-		// Otherwise, we have real data to store. Start a fresh extent if do not
-		// already have one, store the block, and append it to the extent.
-		if ext == nil {
-			// N.B. We need the total from BEFORE the new block is added.
-			ext = &extent{base: fd.totalBytes}
-		}
-
-		fd.totalBytes += int64(len(data))
+		// Otherwise, we have real data to store.
+		ext.bytes += dlen
+		fd.totalBytes += dlen
 		key, err := put(data)
 		if err != nil {
 			return err
 		}
 		ext.blocks = append(ext.blocks, cblock{
-			bytes: int64(len(data)),
+			bytes: dlen,
 			key:   key,
 		})
 		return nil
