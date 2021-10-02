@@ -174,7 +174,7 @@ func splitExtent(ext *extent) []*extent {
 	base := ext.base
 	lo := 0
 
-nextBlock:
+nextChunk:
 	for lo < len(ext.blocks) {
 		// Scan for a nonzero block.
 		if ext.blocks[lo].key == "" {
@@ -196,7 +196,7 @@ nextBlock:
 				sizes = append(sizes, nextBase-base)
 				base = nextBase
 				lo = hi
-				continue nextBlock
+				continue nextChunk
 			}
 			nextBase += blk.bytes
 		}
