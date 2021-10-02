@@ -52,12 +52,25 @@ func (n *Node) Normalize() {
 
 // Normalize updates n in-place so that all fields are in canonical order.
 func (x *Index) Normalize() {
-	if x == nil {
+	if x == nil || len(x.Extents) == 0 {
 		return
 	}
 	sort.Slice(x.Extents, func(i, j int) bool {
 		return x.Extents[i].Base < x.Extents[j].Base
 	})
+	i, j := 0, 1
+	for j < len(x.Extents) {
+		// If two adjacent extents abut, merge them into the first.
+		if x.Extents[i].Base+x.Extents[i].Bytes == x.Extents[j].Base {
+			x.Extents[i].Bytes += x.Extents[j].Bytes
+			x.Extents[i].Blocks = append(x.Extents[i].Blocks, x.Extents[j].Blocks...)
+		} else {
+			i++
+			x.Extents[i] = x.Extents[j]
+		}
+		j++
+	}
+	x.Extents = x.Extents[:i+1]
 }
 
 // Store is the interface to storage used by the Load and Save functions.

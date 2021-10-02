@@ -26,6 +26,7 @@ import (
 	"github.com/creachadair/ffs/blob"
 	"github.com/creachadair/ffs/blob/memstore"
 	"github.com/creachadair/ffs/block"
+	"github.com/creachadair/ffs/file/wiretype"
 	"github.com/google/go-cmp/cmp"
 )
 
@@ -209,6 +210,30 @@ func TestWireEncoding(t *testing.T) {
 			t.Errorf("Decoding index failed: %v", err)
 		}
 		if diff := cmp.Diff(d, dx, opts...); diff != "" {
+			t.Errorf("Wrong decoded block (-want, +got)\n%s", diff)
+		}
+	})
+
+	t.Run("DecodeMergesExtents", func(t *testing.T) {
+		idx := &wiretype.Index{
+			TotalBytes: 10,
+			Extents: []*wiretype.Extent{
+				{Base: 0, Bytes: 3, Blocks: []*wiretype.Block{{Bytes: 3, Key: []byte("1")}}},
+				{Base: 3, Bytes: 7, Blocks: []*wiretype.Block{{Bytes: 7, Key: []byte("2")}}},
+			},
+		}
+
+		dx := new(fileData)
+		if err := dx.fromWireType(idx); err != nil {
+			t.Errorf("Decoding index failed: %v", err)
+		}
+		want := &fileData{
+			totalBytes: 10,
+			extents: []*extent{
+				{base: 0, bytes: 10, blocks: []cblock{{bytes: 3, key: "1"}, {bytes: 7, key: "2"}}},
+			},
+		}
+		if diff := cmp.Diff(want, dx, opts...); diff != "" {
 			t.Errorf("Wrong decoded block (-want, +got)\n%s", diff)
 		}
 	})

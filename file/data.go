@@ -242,26 +242,23 @@ func (d *fileData) writeAt(ctx context.Context, s CAS, data []byte, offset int64
 		return 0, err
 	}
 
-	merged := &extent{
+	// N.B. It is possible that this write has created contiguous extents.
+	// Rather than fix it here, we rely on the normalization that happens during
+	// conversion to wire format, which includes this merge check.
+
+	d.extents = make([]*extent, len(pre)+1+len(post))
+	//
+	// d.extents = [ ...pre... |merged| ...post... ]
+	//
+	copy(d.extents, pre)
+	d.extents[len(pre)] = &extent{
 		base:   newBase,
 		bytes:  newEnd - newBase,
 		blocks: append(left, append(body, right...)...),
 	}
-
-	// Check whether we have created contiguous extents, and merge them if so.
-	if n := len(pre); n > 0 && pre[n-1].abuts(merged) {
-		merged.base = pre[n-1].base
-		merged.bytes += pre[n-1].bytes
-		merged.blocks = append(pre[n-1].blocks, merged.blocks...)
-		pre = pre[:n]
+	if n := copy(d.extents[len(pre)+1:], post); n != len(post) {
+		panic("safety check: incorrect allocation size")
 	}
-	if len(post) > 0 && merged.abuts(post[0]) {
-		merged.bytes += post[0].bytes
-		merged.blocks = append(merged.blocks, post[0].blocks...)
-		post = post[1:]
-	}
-
-	d.extents = append(append(pre, merged), post...)
 	if end > d.totalBytes {
 		d.totalBytes = end
 	}
@@ -494,9 +491,6 @@ func (e *extent) findBlock(offset int64) (int, int64) {
 	}
 	return -1, -1
 }
-
-// abuts reports whether the end of e is contiguous with the beginning of o.
-func (e *extent) abuts(o *extent) bool { return e.base+e.bytes == o.base }
 
 // A block represents a single content-addressable block of file data.
 type cblock struct {
