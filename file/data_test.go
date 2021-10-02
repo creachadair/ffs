@@ -214,7 +214,7 @@ func TestWireEncoding(t *testing.T) {
 		}
 	})
 
-	t.Run("DecodeMergesExtents", func(t *testing.T) {
+	t.Run("NormalizeMergesExtents", func(t *testing.T) {
 		idx := &wiretype.Index{
 			TotalBytes: 10,
 			Extents: []*wiretype.Extent{
@@ -231,6 +231,34 @@ func TestWireEncoding(t *testing.T) {
 			totalBytes: 10,
 			extents: []*extent{
 				{base: 0, bytes: 10, blocks: []cblock{{bytes: 3, key: "1"}, {bytes: 7, key: "2"}}},
+			},
+		}
+		if diff := cmp.Diff(want, dx, opts...); diff != "" {
+			t.Errorf("Wrong decoded block (-want, +got)\n%s", diff)
+		}
+	})
+
+	t.Run("NormalizeDropsEmpty", func(t *testing.T) {
+		idx := &wiretype.Index{
+			TotalBytes: 20,
+			Extents: []*wiretype.Extent{
+				{Base: 0, Bytes: 0},
+				{Base: 3, Bytes: 7, Blocks: []*wiretype.Block{{Bytes: 7, Key: []byte("X")}}},
+				{Base: 12, Bytes: 0},
+				{Base: 15, Bytes: 5, Blocks: []*wiretype.Block{{Bytes: 5, Key: []byte("Y")}}},
+				{Base: 144, Bytes: 0},
+			},
+		}
+
+		dx := new(fileData)
+		if err := dx.fromWireType(idx); err != nil {
+			t.Errorf("Decoding index failed: %v", err)
+		}
+		want := &fileData{
+			totalBytes: 20,
+			extents: []*extent{
+				{base: 3, bytes: 7, blocks: []cblock{{bytes: 7, key: "X"}}},
+				{base: 15, bytes: 5, blocks: []cblock{{bytes: 5, key: "Y"}}},
 			},
 		}
 		if diff := cmp.Diff(want, dx, opts...); diff != "" {
