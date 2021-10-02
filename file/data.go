@@ -15,7 +15,6 @@
 package file
 
 import (
-	"bytes"
 	"context"
 	"errors"
 	"io"
@@ -171,7 +170,7 @@ func splitExtent(ext *extent) []*extent {
 	// next zero-value block, and the right finger (hi) scans forward from there
 	// to find the end of the non-zero range. Along the way, we keep track of
 	// the base and size of each non-zero range, to pack into extents.
-	
+
 	base := ext.base
 	lo := 0
 
@@ -393,11 +392,7 @@ func (d *fileData) readAt(ctx context.Context, s CAS, data []byte, offset int64)
 // the resulting blocks. Zero-valued blocks are not stored, the caller can
 // detect this by looking for a key of "".
 func (d *fileData) splitBlobs(ctx context.Context, s CAS, blobs ...[]byte) ([]cblock, error) {
-	rs := make([]io.Reader, len(blobs))
-	for i, b := range blobs {
-		rs[i] = bytes.NewReader(b)
-	}
-	data := io.MultiReader(rs...)
+	data := newBlockReader(blobs)
 
 	var blks []cblock
 	if err := block.NewSplitter(data, d.sc).Split(func(blk []byte) error {
@@ -566,4 +561,33 @@ func (e *extent) findBlock(offset int64) (int, int64) {
 type cblock struct {
 	bytes int64  // number of bytes in the block
 	key   string // storage key for this block
+}
+
+// A blockReader implements io.Reader for the concatenation of a slice of byte
+// slices. This avoids the overhead of constructing a bytes.Reader for each
+// blob plus an io.MultiReader to concatenate them.
+type blockReader struct {
+	cur    int
+	blocks [][]byte
+}
+
+func newBlockReader(blocks [][]byte) *blockReader {
+	return &blockReader{blocks: blocks}
+}
+
+func (r *blockReader) Read(data []byte) (int, error) {
+	var nr int
+	for nr < len(data) && r.cur < len(r.blocks) {
+		curBlock := r.blocks[r.cur]
+		cp := copy(data[nr:], curBlock)
+		if cp == len(curBlock) {
+			r.blocks[r.cur] = nil
+			r.cur++
+		}
+		nr += cp
+	}
+	if nr == 0 && r.cur >= len(r.blocks) {
+		return 0, io.EOF
+	}
+	return nr, nil
 }
