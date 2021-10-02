@@ -203,6 +203,10 @@ nextBlock:
 
 		// If we get here, hi reached the end of the blocks without finding
 		// another zero-value block, so the rest of the blocks are an extent.
+		// In the typical case where nothing happened, return without packing.
+		if lo == 0 {
+			return []*extent{ext}
+		}
 		chunks = append(chunks, ext.blocks[lo:])
 		bases = append(bases, base)
 		sizes = append(sizes, nextBase-base)
