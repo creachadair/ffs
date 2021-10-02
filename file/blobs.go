@@ -14,7 +14,10 @@
 
 package file
 
-import "io"
+import (
+	"io"
+	"unsafe"
+)
 
 // splitExtent splits ext into possibly-multiple extents by removing
 // zero-valued data blocks. If there are no zero blocks, the return slice
@@ -121,8 +124,27 @@ func zero(data []byte) int {
 
 // isZero reports whether data is all zeroes.
 func isZero(data []byte) bool {
-	for _, b := range data {
-		if b != 0 {
+	// Benchmarks for this implementation vs. naive loop.
+	// Sizes in bytes, times in ns/op (from go test -bench).
+	//
+	//   Size     Unsafe  Naive  Speedup
+	//   103      11      41     2.72x
+	//   1007     73      267    2.66x
+	//   10007    646     2529   2.91x
+	//   100007   6320    25248  2.99x
+	//
+	n := len(data)
+	m := n &^ 7 // count of full 64-bit strides
+
+	i := 0
+	for ; i < m; i += 8 {
+		v := *(*uint64)(unsafe.Pointer(&data[i]))
+		if v != 0 {
+			return false
+		}
+	}
+	for ; i < n; i++ {
+		if data[i] != 0 {
 			return false
 		}
 	}
