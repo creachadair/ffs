@@ -167,7 +167,7 @@ func splitExtent(ext *extent) []*extent {
 	var sizes []int64
 
 	// Do a two-finger walk of the blocks. The left finger (lo) scans for the
-	// next zero-value block, and the right finger (hi) scans forward from there
+	// next non-zero block, and the right finger (hi) scans forward from there
 	// to find the end of the non-zero range. Along the way, we keep track of
 	// the base and size of each non-zero range, to pack into extents.
 
