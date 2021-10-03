@@ -276,50 +276,72 @@ func (d *fileData) readAt(ctx context.Context, s CAS, data []byte, offset int64)
 	}
 	_, span, _ := d.splitSpan(offset, end)
 
-	nr := 0
-
-	fill := func(ext *extent) {
-		if ext.base > offset {
-			size := ext.base - offset
-			nr += zero(data[nr : nr+int(size)])
-			offset += size
-		}
-	}
-
-	// If the range begins in unstored space, fill the uncovered prefix.
+	// If the entire requested range is unstored, zero as much as we can
+	// attribute given the total file size. Note that io.ReaderAt requires we
+	// report an error if the total is less than requested.
 	if len(span) == 0 {
-		nr += zero(data[:int(end-offset)])
+		nr := zero(data[:int(end-offset)])
+		if nr < len(data) {
+			return nr, io.EOF
+		}
+		return nr, nil
 	}
 
-	// Copy data out of the spanning extents.
+	// At this point, at least some of the data overlap a stored range.  Walk
+	// through the extents copying data into the output till we have enough or
+	// we run out of spaces.
+	nr := 0
+walkSpan:
 	for _, ext := range span {
-		fill(ext)
+		// This extent starts after the current offset, zero-fill up to the
+		// beginning of the extent, or we run out ouf space.
+		if offset < ext.base {
+			cp := min(int(ext.base-offset), len(data)-nr)
+			nr += zero(data[nr : nr+cp])
+			if nr == len(data) {
+				break walkSpan
+			}
+			offset += int64(cp)
+		}
 
-		i, pos := ext.findBlock(offset)
+		// The output is not full, and offset at or past the start of this extent.
+		// Find the first block containing offset and walk forward.
+		i, base := ext.findBlock(offset)
 		for _, blk := range ext.blocks[i:] {
-			if pos > end {
-				break // done with this extent, which must also be the last
+			if base > end {
+				break walkSpan
 			}
 
-			// Fetch the block contents and copy whatever portion we need.
+			// Fetch the block contents and copy whatever we can.
 			bits, err := s.Get(ctx, blk.key)
 			if err != nil {
 				return 0, err
 			}
 
-			lo := int(offset - pos)
-			cp := copy(data[nr:], bits[lo:])
-			nr += cp
+			pos := int(offset - base)
+			cp := min(len(bits)-pos, len(data)-nr)
+			nr += copy(data[nr:], bits[pos:pos+cp])
+			if nr == len(data) {
+				break walkSpan
+			}
 			offset += int64(cp)
-			pos += blk.bytes
+			base += blk.bytes
 		}
+
+		// Reaching here, data is not yet full and we have not yet gone past the
+		// end of the requested range. Go back for another extent, if there is one.
 	}
 
-	// If the range ends in unstored space, fill the uncovered suffix.
-	fill(&extent{base: end})
+	// At this point we have all the stored data we can take.  If there is still
+	// space in the output, the remaining portions of the range are unstored.
+	if nr < len(data) && end > offset {
+		cp := int(end - offset)
+		if max := len(data) - nr; cp > max {
+			cp = max
+		}
+		nr += zero(data[nr : nr+cp])
+	}
 
-	// The contract for io.ReaderAt requires an error if we return fewer bytes
-	// than requested.
 	if nr < len(data) {
 		return nr, io.EOF
 	}
