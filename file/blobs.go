@@ -105,6 +105,8 @@ func (r *blockReader) Read(data []byte) (int, error) {
 		if cp == len(curBlock) {
 			r.blocks[r.cur] = nil
 			r.cur++
+		} else {
+			r.blocks[r.cur] = curBlock[cp:]
 		}
 		nr += cp
 	}

@@ -413,3 +413,25 @@ func TestNewFileData(t *testing.T) {
 		t.Errorf("Wrong extents: (-want, +got):\n%s", diff)
 	}
 }
+
+func TestBlockReader(t *testing.T) {
+	const message = "you are not the person we thought you were"
+
+	input := bytes.SplitAfter([]byte(message), []byte(" "))
+	r := newBlockReader(input)
+	var data []byte
+	buf := make([]byte, 8)
+	for {
+		nr, err := r.Read(buf)
+		data = append(data, buf[:nr]...)
+		if err == io.EOF {
+			break
+		} else if err != nil {
+			t.Fatalf("Read failed: nr=%d, err=%v", nr, err)
+		}
+	}
+	got := string(data)
+	if got != message {
+		t.Errorf("Block reader:\n- got  %q\n- want %q", got, message)
+	}
+}
