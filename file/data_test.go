@@ -451,7 +451,7 @@ func TestSetZero(t *testing.T) {
 		rand.Read(buf)
 		n := zero(buf)
 		if !isZero(buf) {
-			t.Errorf("zero(#[%d]) failed", i)
+			t.Errorf("zero(#[%d]) failed: %+v", i, buf)
 		}
 		if n != len(buf) {
 			t.Errorf("Wrong size returned: got %d, want %d", n, len(buf))
