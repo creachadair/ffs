@@ -150,3 +150,12 @@ func isZero(data []byte) bool {
 	}
 	return true
 }
+
+func min(z0 int, zs ...int) int {
+	for _, z := range zs {
+		if z < z0 {
+			z0 = z
+		}
+	}
+	return z0
+}
