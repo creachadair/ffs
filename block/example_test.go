@@ -23,20 +23,46 @@ import (
 )
 
 func Example() {
-	// Return blocks no larger than 10 bytes.  Otherwise, use default settings,
-	// which includes a Rabin-Karp rolling hash.
-	r := strings.NewReader("Four score and seven years ago...")
-	s := block.NewSplitter(r, &block.SplitConfig{Max: 10})
-	if err := s.Split(func(data []byte) error {
-		fmt.Println(string(data))
-		return nil
-	}); err != nil {
-		log.Fatal(err)
+	// Note that these two strings are similar, but the second one has been
+	// edited. The edit changes the block splits around the point of the edit,
+	// but the sliding window allows them to resynchronize after the break.
+	const input1 = `abcdefg-hijklmnop-qrstuv-wxyz-abcdefg-hijklmnop-qrstuv-wxyz-abcdefghijklmnopqrstuv`
+	const input2 = `abcdefg-hijklmnop-qrstuv-wxyz-*-abcdefg-hijklmnop-qrstuv-wxyz-abcdefghijklmnopqrstuv`
+
+	opts := &block.SplitConfig{
+		Min:    5,  // no blocks shorter than this
+		Size:   10, // desired mean block size
+		Max:    20, // no blocks longer than this
+		Hasher: block.RabinKarpHasher(23, 997, 13),
+	}
+
+	for _, v := range []string{input1, input2} {
+		s := block.NewSplitter(strings.NewReader(v), opts)
+		var i int
+		if err := s.Split(func(data []byte) error {
+			i++
+			fmt.Printf("%d. %s\n", i, string(data))
+			return nil
+		}); err != nil {
+			log.Fatal(err)
+		}
+		fmt.Println()
 	}
 
 	// Output:
-	// Four score
-	//  and seven
-	//  years ago
-	// ...
+	//
+	// 1. abcdefg-h
+	// 2. ijklmnop-qrstu
+	// 3. v-wxyz-abcdefg
+	// 4. -hijklmnop-qrstu
+	// 5. v-wxyz-abcdefghijklm
+	// 6. nopqrstuv
+	//
+	// 1. abcdefg-h
+	// 2. ijklmnop-qrstu
+	// 3. v-wxyz-*-
+	// 4. abcdefg-hi
+	// 5. jklmnop-qrstu
+	// 6. v-wxyz-abcdefghijklm
+	// 7. nopqrstuv
 }
