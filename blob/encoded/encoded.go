@@ -45,8 +45,8 @@ type Store struct {
 	real  blob.Store // the underlying storage implementation
 }
 
-// New constructs a new encrypted store that delegates to s and uses c to
-// encode and decode blob data. New will panic if either s or c is nil.
+// New constructs a new store that delegates to s and uses c to encode and
+// decode blob data. New will panic if either s or c is nil.
 func New(s blob.Store, c Codec) *Store {
 	if s == nil {
 		panic("store is nil")
@@ -92,8 +92,8 @@ func (s *Store) Delete(ctx context.Context, key string) error {
 }
 
 // Size implements part of the blob.Store interface. This implementation
-// requires access to the blob content, since the stored size of an encrypted
-// blob is not equivalent to the original.
+// requires access to the blob content, since the stored size of an encoded
+// blob is not necessarily the same as the original.
 func (s *Store) Size(ctx context.Context, key string) (int64, error) {
 	enc, err := s.real.Get(ctx, key)
 	if err != nil {
