@@ -81,6 +81,6 @@ func (s *Store) List(ctx context.Context, start string, f func(string) error) er
 	})
 }
 
-// Len implements part of blob.Store. It is implemented using List, so it
-// linearizes in the same manner.
+// Len implements part of blob.Store by delegation. It reports the total number
+// of keys in the underlying store, not only those with the chosen prefix.
 func (s *Store) Len(ctx context.Context) (int64, error) { return s.real.Len(ctx) }
