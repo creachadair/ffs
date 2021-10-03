@@ -118,10 +118,18 @@ func (r *blockReader) Read(data []byte) (int, error) {
 
 // zero sets all of data to zeroes and returns its length.
 func zero(data []byte) int {
-	for i := range data {
+	n := len(data)
+	m := n &^ 7
+
+	i := 0
+	for ; i < m; i += 8 {
+		v := (*uint64)(unsafe.Pointer(&data[i]))
+		*v = 0
+	}
+	for ; i < n; i++ {
 		data[i] = 0
 	}
-	return len(data)
+	return n
 }
 
 // isZero reports whether data is all zeroes.

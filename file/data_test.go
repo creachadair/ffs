@@ -435,3 +435,26 @@ func TestBlockReader(t *testing.T) {
 		t.Errorf("Block reader:\n- got  %q\n- want %q", got, message)
 	}
 }
+
+func TestSetZero(t *testing.T) {
+	isZero := func(data []byte) bool {
+		for _, b := range data {
+			if b != 0 {
+				return false
+			}
+		}
+		return true
+	}
+
+	for i := 1; i <= 2048; i += 7 {
+		buf := make([]byte, i)
+		rand.Read(buf)
+		n := zero(buf)
+		if !isZero(buf) {
+			t.Errorf("zero(#[%d]) failed", i)
+		}
+		if n != len(buf) {
+			t.Errorf("Wrong size returned: got %d, want %d", n, len(buf))
+		}
+	}
+}
