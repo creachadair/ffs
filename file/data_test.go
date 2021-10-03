@@ -158,6 +158,23 @@ func TestIndex(t *testing.T) {
 			{base: 20, bytes: 3, blocks: []cblock{{3, hashOf("cor")}}, starts: []int64{20}},
 		},
 	})
+
+	writeString("THEEND", 30)
+	checkString(0, 100, "fookinghellmate\x00\x00\x00\x00\x00cor\x00\x00\x00\x00\x00\x00\x00THEEND")
+	checkIndex(index{
+		totalBytes: 36,
+		extents: []*extent{
+			{base: 0, bytes: 15, blocks: []cblock{{15, hashOf("fookinghellmate")}}, starts: []int64{0}},
+			{base: 20, bytes: 3, blocks: []cblock{{3, hashOf("cor")}}, starts: []int64{20}},
+			{base: 30, bytes: 6, blocks: []cblock{{6, hashOf("THEEND")}}, starts: []int64{30}},
+		},
+	})
+
+	// Verify read boundary cases.
+	checkString(24, 3, "\x00\x00\x00")                 // entirely unstored
+	checkString(11, 6, "mate\x00\x00")                 // partly stored, partly unstored
+	checkString(25, 100, "\x00\x00\x00\x00\x00THEEND") // partly unstored, partly stored
+	checkString(18, 7, "\x00\x00cor\x00\x00")          // unstored, stored, unstored
 }
 
 func TestWireEncoding(t *testing.T) {
