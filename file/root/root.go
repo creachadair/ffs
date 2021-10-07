@@ -34,7 +34,7 @@ var ErrNoData = errors.New("requested data not found")
 
 // A Root records the location of the root of a file tree.
 type Root struct {
-	cas file.CAS
+	cas blob.CAS
 
 	OwnerKey    string // the key of an owner metadata blob
 	Description string // a human-readable description
@@ -48,7 +48,7 @@ type Root struct {
 
 // New constructs a new empty Root associated with the given store.
 // If opts != nil, initial values are set from its contents.
-func New(s file.CAS, opts *Options) *Root {
+func New(s blob.CAS, opts *Options) *Root {
 	if opts == nil {
 		opts = new(Options)
 	}
@@ -63,7 +63,7 @@ func New(s file.CAS, opts *Options) *Root {
 }
 
 // Open opens a stored root record given its storage key in s.
-func Open(ctx context.Context, s file.CAS, key string) (*Root, error) {
+func Open(ctx context.Context, s blob.CAS, key string) (*Root, error) {
 	var obj wiretype.Object
 	if err := wiretype.Load(ctx, s, key, &obj); err != nil {
 		return nil, fmt.Errorf("loading root %q: %w", key, err)
@@ -191,7 +191,7 @@ func Encode(r *Root) *wiretype.Object {
 
 // Decode decodes a protobuf-encoded root record and associates it with the
 // storage in s.
-func Decode(s file.CAS, obj *wiretype.Object) (*Root, error) {
+func Decode(s blob.CAS, obj *wiretype.Object) (*Root, error) {
 	pb, ok := obj.Value.(*wiretype.Object_Root)
 	if !ok {
 		return nil, errors.New("object does not contain a root")

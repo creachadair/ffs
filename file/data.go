@@ -19,6 +19,7 @@ import (
 	"errors"
 	"io"
 
+	"github.com/creachadair/ffs/blob"
 	"github.com/creachadair/ffs/block"
 	"github.com/creachadair/ffs/file/wiretype"
 )
@@ -123,7 +124,7 @@ func (d *fileData) blocks(f func(int64, string)) {
 
 // truncate modifies the length of the file to end at offset, extending or
 // contracting it as necessary. Contraction may require splitting a block.
-func (d *fileData) truncate(ctx context.Context, s CAS, offset int64) error {
+func (d *fileData) truncate(ctx context.Context, s blob.CAS, offset int64) error {
 	if offset >= d.totalBytes {
 		d.totalBytes = offset
 		return nil
@@ -162,7 +163,7 @@ func (d *fileData) truncate(ctx context.Context, s CAS, offset int64) error {
 // writeAt writes the contents of data at the specified offset in d.  It
 // returns the number of bytes successfully written, and satisfies the
 // semantics of io.WriterAt.
-func (d *fileData) writeAt(ctx context.Context, s CAS, data []byte, offset int64) (int, error) {
+func (d *fileData) writeAt(ctx context.Context, s blob.CAS, data []byte, offset int64) (int, error) {
 	if len(data) == 0 {
 		return 0, nil
 	}
@@ -267,7 +268,7 @@ func (d *fileData) writeAt(ctx context.Context, s CAS, data []byte, offset int64
 // readAt reads the content of d into data from the specified offset, returning
 // the number of bytes successfully read. It satisfies the semantics of the
 // io.ReaderAt interface.
-func (d *fileData) readAt(ctx context.Context, s CAS, data []byte, offset int64) (int, error) {
+func (d *fileData) readAt(ctx context.Context, s blob.CAS, data []byte, offset int64) (int, error) {
 	if offset > d.totalBytes {
 		return 0, io.EOF
 	}
@@ -352,7 +353,7 @@ walkSpan:
 // splitBlobs re-blocks the concatenation of the specified blobs and returns
 // the resulting blocks. Zero-valued blocks are not stored, the caller can
 // detect this by looking for a key of "".
-func (d *fileData) splitBlobs(ctx context.Context, s CAS, blobs ...[]byte) ([]cblock, error) {
+func (d *fileData) splitBlobs(ctx context.Context, s blob.CAS, blobs ...[]byte) ([]cblock, error) {
 	data := newBlockReader(blobs)
 
 	var blks []cblock
