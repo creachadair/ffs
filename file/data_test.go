@@ -20,6 +20,7 @@ import (
 	"crypto/sha1"
 	"io"
 	"math/rand"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -28,47 +29,17 @@ import (
 	"github.com/creachadair/ffs/block"
 	"github.com/creachadair/ffs/file/wiretype"
 	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
-func hashOf(s string) string {
-	h := sha1.New()
-	io.WriteString(h, s)
-	return string(h.Sum(nil))
+var cmpFileDataOpts = []cmp.Option{
+	cmp.AllowUnexported(fileData{}, extent{}, cblock{}),
+	cmpopts.IgnoreFields(fileData{}, "sc"),
 }
 
 func TestIndex(t *testing.T) {
-	mem := memstore.New()
-	cas := blob.NewCAS(mem, sha1.New)
-	d := &fileData{
-		sc: &block.SplitConfig{Min: 1024}, // in effect, "don't split"
-	}
-	ctx := context.Background()
-	writeString := func(s string, at int64) {
-		nw, err := d.writeAt(ctx, cas, []byte(s), at)
-		t.Logf("Write %q at offset %d (%d, %v)", s, at, nw, err)
-		if err != nil {
-			t.Fatalf("writeAt(ctx, %q, %d): got (%d, %v), unexpected error", s, at, nw, err)
-		} else if nw != len(s) {
-			t.Errorf("writeAt(ctx, %q, %d): got %d, want %d", s, at, nw, len(s))
-		}
-	}
-	checkString := func(at, nb int64, want string) {
-		buf := make([]byte, nb)
-		nr, err := d.readAt(ctx, cas, buf, at)
-		t.Logf("Read %d from offset %d (%d, %v)", nb, at, nr, err)
-		if err != nil && err != io.EOF {
-			t.Fatalf("readAt(ctx, #[%d], %d): got (%d, %v), unexpected error", nb, at, nr, err)
-		} else if got := string(buf[:nr]); got != want {
-			t.Errorf("readAt(ctx, #[%d], %d): got %q, want %q", nb, at, got, want)
-		}
-	}
-	truncate := func(at int64) {
-		err := d.truncate(ctx, cas, at)
-		t.Logf("truncate(ctx, %d) %v", at, err)
-		if err != nil {
-			t.Fatalf("truncate(ctx, %d): unexpected error: %v", at, err)
-		}
-	}
+	d := newDataTester(t, &block.SplitConfig{Min: 1024}) // in effect, "don't split"
+
 	type index struct {
 		totalBytes int64
 		extents    []*extent
@@ -76,7 +47,7 @@ func TestIndex(t *testing.T) {
 	checkIndex := func(want index) {
 		// We have to tell cmp that it's OK to look at unexported fields on these types.
 		opt := cmp.AllowUnexported(index{}, extent{}, cblock{})
-		got := index{totalBytes: d.totalBytes, extents: d.extents}
+		got := index{totalBytes: d.fd.totalBytes, extents: d.fd.extents}
 		if diff := cmp.Diff(want, got, opt); diff != "" {
 			t.Errorf("Incorrect index (-want, +got)\n%s", diff)
 		}
@@ -84,20 +55,20 @@ func TestIndex(t *testing.T) {
 
 	// Write some discontiguous regions into the file and verify that the
 	// resulting index is correct.
-	checkString(0, 10, "")
+	d.checkString(0, 10, "")
 
-	writeString("foobar", 0)
-	checkString(0, 6, "foobar")
-	checkString(3, 6, "bar")
+	d.writeString("foobar", 0)
+	d.checkString(0, 6, "foobar")
+	d.checkString(3, 6, "bar")
 	// foobar
 
-	writeString("foobar", 10)
-	checkString(10, 6, "foobar")
-	checkString(0, 16, "foobar\x00\x00\x00\x00foobar")
+	d.writeString("foobar", 10)
+	d.checkString(10, 6, "foobar")
+	d.checkString(0, 16, "foobar\x00\x00\x00\x00foobar")
 	// foobar----foobar
 
-	writeString("aliquot", 20)
-	checkString(0, 100, "foobar\x00\x00\x00\x00foobar\x00\x00\x00\x00aliquot")
+	d.writeString("aliquot", 20)
+	d.checkString(0, 100, "foobar\x00\x00\x00\x00foobar\x00\x00\x00\x00aliquot")
 	// foobar----foobar----aliquot
 
 	checkIndex(index{
@@ -109,15 +80,15 @@ func TestIndex(t *testing.T) {
 		},
 	})
 
-	writeString("barbarossa", 3)
-	checkString(0, 100, "foobarbarossabar\x00\x00\x00\x00aliquot")
+	d.writeString("barbarossa", 3)
+	d.checkString(0, 100, "foobarbarossabar\x00\x00\x00\x00aliquot")
 	// foo..........bar----aliquot
 	// ^^^barbarossa^^^  preserved block contents outside overlap (^)
 
-	truncate(6)
+	d.truncate(6)
 	// foobar
 
-	checkString(0, 16, "foobar")
+	d.checkString(0, 16, "foobar")
 	checkIndex(index{
 		totalBytes: 6,
 		extents: []*extent{
@@ -125,8 +96,8 @@ func TestIndex(t *testing.T) {
 		},
 	})
 
-	writeString("kinghell", 3)
-	checkString(0, 11, "fookinghell")
+	d.writeString("kinghell", 3)
+	d.checkString(0, 11, "fookinghell")
 	// fookinghell
 
 	checkIndex(index{
@@ -136,8 +107,8 @@ func TestIndex(t *testing.T) {
 		},
 	})
 
-	writeString("mate", 11)
-	checkString(0, 15, "fookinghellmate")
+	d.writeString("mate", 11)
+	d.checkString(0, 15, "fookinghellmate")
 	// fookinghellmate
 
 	checkIndex(index{
@@ -147,8 +118,8 @@ func TestIndex(t *testing.T) {
 		},
 	})
 
-	writeString("cor", 20)
-	checkString(0, 100, "fookinghellmate\x00\x00\x00\x00\x00cor")
+	d.writeString("cor", 20)
+	d.checkString(0, 100, "fookinghellmate\x00\x00\x00\x00\x00cor")
 	// fookinghellmate-----cor
 
 	checkIndex(index{
@@ -159,8 +130,8 @@ func TestIndex(t *testing.T) {
 		},
 	})
 
-	writeString("THEEND", 30)
-	checkString(0, 100, "fookinghellmate\x00\x00\x00\x00\x00cor\x00\x00\x00\x00\x00\x00\x00THEEND")
+	d.writeString("THEEND", 30)
+	d.checkString(0, 100, "fookinghellmate\x00\x00\x00\x00\x00cor\x00\x00\x00\x00\x00\x00\x00THEEND")
 	checkIndex(index{
 		totalBytes: 36,
 		extents: []*extent{
@@ -171,14 +142,14 @@ func TestIndex(t *testing.T) {
 	})
 
 	// Verify read boundary cases.
-	checkString(24, 3, "\x00\x00\x00")                 // entirely unstored
-	checkString(11, 6, "mate\x00\x00")                 // partly stored, partly unstored
-	checkString(25, 100, "\x00\x00\x00\x00\x00THEEND") // partly unstored, partly stored
-	checkString(18, 7, "\x00\x00cor\x00\x00")          // unstored, stored, unstored
+	d.checkString(24, 3, "\x00\x00\x00")                 // entirely unstored
+	d.checkString(11, 6, "mate\x00\x00")                 // partly stored, partly unstored
+	d.checkString(25, 100, "\x00\x00\x00\x00\x00THEEND") // partly unstored, partly stored
+	d.checkString(18, 7, "\x00\x00cor\x00\x00")          // unstored, stored, unstored
 }
 
 func TestWireEncoding(t *testing.T) {
-	opts := []cmp.Option{cmp.AllowUnexported(fileData{}, extent{}, cblock{})}
+
 	t.Run("SingleBlock", func(t *testing.T) {
 		d := &fileData{totalBytes: 10, extents: []*extent{
 			{bytes: 10, blocks: []cblock{{bytes: 10, key: "foo"}}},
@@ -198,7 +169,7 @@ func TestWireEncoding(t *testing.T) {
 		if err := dx.fromWireType(idx); err != nil {
 			t.Errorf("Decoding index failed: %v", err)
 		}
-		if diff := cmp.Diff(*d, *dx, opts...); diff != "" {
+		if diff := cmp.Diff(*d, *dx, cmpFileDataOpts...); diff != "" {
 			t.Errorf("Wrong decoded block (-want, +got)\n%s", diff)
 		}
 	})
@@ -226,7 +197,7 @@ func TestWireEncoding(t *testing.T) {
 		if err := dx.fromWireType(idx); err != nil {
 			t.Errorf("Decoding index failed: %v", err)
 		}
-		if diff := cmp.Diff(d, dx, opts...); diff != "" {
+		if diff := cmp.Diff(d, dx, cmpFileDataOpts...); diff != "" {
 			t.Errorf("Wrong decoded block (-want, +got)\n%s", diff)
 		}
 	})
@@ -250,7 +221,7 @@ func TestWireEncoding(t *testing.T) {
 				{base: 0, bytes: 10, blocks: []cblock{{bytes: 3, key: "1"}, {bytes: 7, key: "2"}}},
 			},
 		}
-		if diff := cmp.Diff(want, dx, opts...); diff != "" {
+		if diff := cmp.Diff(want, dx, cmpFileDataOpts...); diff != "" {
 			t.Errorf("Wrong decoded block (-want, +got)\n%s", diff)
 		}
 	})
@@ -278,19 +249,33 @@ func TestWireEncoding(t *testing.T) {
 				{base: 15, bytes: 5, blocks: []cblock{{bytes: 5, key: "Y"}}},
 			},
 		}
-		if diff := cmp.Diff(want, dx, opts...); diff != "" {
+		if diff := cmp.Diff(want, dx, cmpFileDataOpts...); diff != "" {
 			t.Errorf("Wrong decoded block (-want, +got)\n%s", diff)
 		}
 	})
 }
 
-func TestReblocking(t *testing.T) {
-	mem := memstore.New()
-	cas := blob.NewCAS(mem, sha1.New)
-	d := &fileData{
-		sc: &block.SplitConfig{Min: 200, Size: 1024, Max: 8192},
+func TestWriteBlocking(t *testing.T) {
+	ti := newTestInput("\x00\x00\x00\x00foo\x00\x00\x00|barf\x00\x00\x00|\x00\x00\x00bazzu")
+	d := newDataTester(t, &block.SplitConfig{
+		Hasher: ti, Min: 5, Size: 16, Max: 100,
+	})
+	d.writeString(ti.input, 0)
+	want := &fileData{
+		totalBytes: int64(ti.inputLen()),
+		extents: []*extent{
+			{base: 4, bytes: 3, blocks: []cblock{{bytes: 3, key: hashOf("foo")}}},
+			{base: 10, bytes: 4, blocks: []cblock{{bytes: 4, key: hashOf("barf")}}},
+			{base: 20, bytes: 5, blocks: []cblock{{bytes: 5, key: hashOf("bazzu")}}},
+		},
 	}
+	if diff := cmp.Diff(want, d.fd, cmpFileDataOpts...); diff != "" {
+		t.Errorf("Wrong decoded block (-want, +got)\n%s", diff)
+	}
+}
 
+func TestReblocking(t *testing.T) {
+	d := newDataTester(t, &block.SplitConfig{Min: 200, Size: 1024, Max: 8192})
 	rand.Seed(1) // change to update test data
 
 	const alphabet = "0123456789abcdef"
@@ -298,9 +283,8 @@ func TestReblocking(t *testing.T) {
 	for buf.Len() < 4000 {
 		buf.WriteByte(alphabet[rand.Intn(len(alphabet))])
 	}
-	fileData := buf.Bytes()
+	fileData := buf.String()
 
-	ctx := context.Background()
 	// Write the data in a bunch of small contiguous chunks, and verify that the
 	// result reblocks adjacent chunks.
 	i, nb := 0, 0
@@ -309,9 +293,7 @@ func TestReblocking(t *testing.T) {
 		if end > len(fileData) {
 			end = len(fileData)
 		}
-		if _, err := d.writeAt(ctx, cas, fileData[i:end], int64(i)); err != nil {
-			t.Fatalf("writeAt(ctx, %#q, %d): unexpected error: %v", string(fileData[i:end]), i, err)
-		}
+		d.writeString(fileData[i:end], int64(i))
 		i = end
 		nb++
 	}
@@ -319,7 +301,7 @@ func TestReblocking(t *testing.T) {
 	check := func(want ...int64) {
 		var total int64
 		var got []int64
-		for _, ext := range d.extents {
+		for _, ext := range d.fd.extents {
 			for _, blk := range ext.blocks {
 				total += blk.bytes
 				got = append(got, blk.bytes)
@@ -341,76 +323,86 @@ func TestReblocking(t *testing.T) {
 	// After:  AAAAAAAAAAAAAAAAAAAAxxxxxxxx xxxx xx xxxxx
 	// Write:  ^^^^^^^^^^^^^^^^^^^^         \----\--\---- unchanged
 	//
-	if _, err := d.writeAt(ctx, cas, bytes.Repeat([]byte("A"), 2000), 0); err != nil {
-		t.Fatalf("writeAt(ctx, A*2977, 0): unexpected error: %v", err)
-	}
+	d.writeString(strings.Repeat("AAAA", 500), 0)
 	check(2810, 413, 255, 522) // manually checked; note tail is stable
 
 	t.Log("Block manifest:")
-	d.blocks(func(size int64, key string) {
+	d.fd.blocks(func(size int64, key string) {
 		t.Logf("%-4d\t%x", size, []byte(key))
 	})
 }
 
-type lineHash struct{}
-
-func (h lineHash) Hash() block.Hash { return h }
-
-func (lineHash) Update(b byte) uint64 {
-	if b == '\x00' {
-		return 1
-	}
-	return 2
+type testInput struct {
+	template string
+	splits   map[int]bool
+	input    string
+	pos      int
 }
 
 func TestNewFileData(t *testing.T) {
-	const input = "This is the first line" + // ext 1, block 1
-		"\x00This is the second" + // ext 1, block 2
-		"\x00This is the third" + // ext 1, block 3
-		"\x00\x00\x00\x00\x00" + // zeroes (not stored)
-		"\x00And the fourth line then beckoned" // ext 2, block 1
-
-	s := block.NewSplitter(strings.NewReader(input), &block.SplitConfig{
-		Hasher: lineHash{},
-		Min:    5,
-		Max:    100,
-		Size:   16,
-	})
-	fd, err := newFileData(s, func(data []byte) (string, error) {
-		t.Logf("Block: %q", string(data))
-		h := sha1.New()
-		h.Write(data)
-		return string(h.Sum(nil)), nil
-	})
-	if err != nil {
-		t.Fatalf("newFileData failed: %v", err)
-	}
-	t.Logf("Input size: %d, total bytes: %d", len(input), fd.totalBytes)
-	if fd.totalBytes != int64(len(input)) {
-		t.Errorf("TotalBytes: got %d, want %d", fd.totalBytes, len(input))
-	}
-
 	type extinfo struct {
 		Base, Bytes int64
 		Blocks      int
 	}
-	want := []extinfo{
-		{0, 59, 3},
-		{64, 34, 1},
+	tests := []struct {
+		input string
+		want  []extinfo
+	}{
+		{
+			//     |<--------------- 43 bytes ------------------>|                    |<- 15 bytes -->|
+			//     |   block 1    ^   block 2     ^   block 3    |   ...unstored...   |   block 1     |
+			input: "The first line|The second line|The third line|\x00\x00\x00\x00\x00|The fourth line",
+			want:  []extinfo{{0, 43, 3}, {48, 15, 1}},
+		},
+		{
+			// sizes:            3               3               3
+			//       unstored  |   | unstored  |   | unstored  |   |   unstored    |
+			input: "\x00\x00\x00foo|\x00\x00\x00bar\x00\x00\x00|baz\x00\x00\x00\x00",
+			want:  []extinfo{{3, 3, 1}, {9, 3, 1}, {15, 3, 1}},
+		},
 	}
-	var got []extinfo
-	for i, ext := range fd.extents {
-		got = append(got, extinfo{
-			Base:   ext.base,
-			Bytes:  ext.bytes,
-			Blocks: len(ext.blocks),
+	for i, test := range tests {
+		t.Run(strconv.Itoa(i+1), func(t *testing.T) {
+			ti := newTestInput(test.input)
+			s := block.NewSplitter(ti.reader(), &block.SplitConfig{
+				Hasher: ti, Min: 5, Max: 100, Size: 16,
+			})
+
+			// Generate a new data index from the input. We don't actually store
+			// any data here, just generate some plausible keys as if we did.
+			fd, err := newFileData(s, func(data []byte) (string, error) {
+				t.Logf("Block: %q", string(data))
+				h := sha1.New()
+				h.Write(data)
+				return string(h.Sum(nil)), nil
+			})
+			if err != nil {
+				t.Fatalf("newFileData failed: %v", err)
+			}
+
+			// Verify that the construction preserved all the input.
+			t.Logf("Input size: %d, total bytes: %d", ti.inputLen(), fd.totalBytes)
+			if want := ti.inputLen(); fd.totalBytes != int64(want) {
+				t.Errorf("TotalBytes: got %d, want %d", fd.totalBytes, want)
+			}
+
+			// Verify that the created extents match the template.
+			var got []extinfo
+			for i, ext := range fd.extents {
+				t.Logf("Extent %d base %d bytes %d", i+1, ext.base, ext.bytes)
+				got = append(got, extinfo{
+					Base:   ext.base,
+					Bytes:  ext.bytes,
+					Blocks: len(ext.blocks),
+				})
+				for j, b := range ext.blocks {
+					t.Logf("- E%d block %d: %d bytes, key=%x", i+1, j+1, b.bytes, b.key)
+				}
+			}
+			if diff := cmp.Diff(test.want, got); diff != "" {
+				t.Errorf("Wrong extents: (-want, +got):\n%s", diff)
+			}
 		})
-		for j, b := range ext.blocks {
-			t.Logf("Extent %d block %d: %d bytes, key=%x", i+1, j+1, b.bytes, b.key)
-		}
-	}
-	if diff := cmp.Diff(want, got); diff != "" {
-		t.Errorf("Wrong extents: (-want, +got):\n%s", diff)
 	}
 }
 
@@ -457,4 +449,87 @@ func TestSetZero(t *testing.T) {
 			t.Errorf("Wrong size returned: got %d, want %d", n, len(buf))
 		}
 	}
+}
+
+func hashOf(s string) string {
+	h := sha1.New()
+	io.WriteString(h, s)
+	return string(h.Sum(nil))
+}
+
+type dataTester struct {
+	t   *testing.T
+	ctx context.Context
+	cas blob.CAS
+	fd  *fileData
+}
+
+func newDataTester(t *testing.T, sc *block.SplitConfig) *dataTester {
+	return &dataTester{
+		t:   t,
+		ctx: context.Background(),
+		cas: blob.NewCAS(memstore.New(), sha1.New),
+		fd:  &fileData{sc: sc},
+	}
+}
+
+func (d *dataTester) writeString(s string, at int64) {
+	d.t.Helper()
+	nw, err := d.fd.writeAt(d.ctx, d.cas, []byte(s), at)
+	d.t.Logf("Write %q at offset %d (%d, %v)", s, at, nw, err)
+	if err != nil {
+		d.t.Fatalf("writeAt(ctx, %q, %d): got (%d, %v), unexpected error", s, at, nw, err)
+	} else if nw != len(s) {
+		d.t.Errorf("writeAt(ctx, %q, %d): got %d, want %d", s, at, nw, len(s))
+	}
+}
+
+func (d *dataTester) checkString(at, nb int64, want string) {
+	d.t.Helper()
+	buf := make([]byte, nb)
+	nr, err := d.fd.readAt(d.ctx, d.cas, buf, at)
+	d.t.Logf("Read %d from offset %d (%d, %v)", nb, at, nr, err)
+	if err != nil && err != io.EOF {
+		d.t.Fatalf("readAt(ctx, #[%d], %d): got (%d, %v), unexpected error", nb, at, nr, err)
+	} else if got := string(buf[:nr]); got != want {
+		d.t.Errorf("readAt(ctx, #[%d], %d): got %q, want %q", nb, at, got, want)
+	}
+}
+
+func (d *dataTester) truncate(at int64) {
+	d.t.Helper()
+	err := d.fd.truncate(d.ctx, d.cas, at)
+	d.t.Logf("truncate(ctx, %d) %v", at, err)
+	if err != nil {
+		d.t.Fatalf("truncate(ctx, %d): unexpected error: %v", at, err)
+	}
+}
+
+func newTestInput(template string) *testInput {
+	parts := strings.Split(template, "|")
+	splits := make(map[int]bool)
+	pos := 0
+	for _, p := range parts {
+		pos += len(p)
+		splits[pos] = true
+		pos++
+	}
+	return &testInput{
+		template: template,
+		input:    strings.Join(parts, ""),
+		splits:   splits,
+	}
+}
+
+func (ti *testInput) reader() *strings.Reader { return strings.NewReader(ti.input) }
+func (ti *testInput) inputLen() int           { return len(ti.input) }
+func (ti *testInput) inc()                    { ti.pos++ }
+
+func (ti *testInput) Hash() block.Hash { return ti }
+func (ti *testInput) Update(b byte) uint64 {
+	defer ti.inc()
+	if ti.splits[ti.pos] {
+		return 1
+	}
+	return 2
 }

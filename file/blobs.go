@@ -161,6 +161,18 @@ func isZero(data []byte) bool {
 	return true
 }
 
+// zeroAffixes returns the lengths of the prefix and suffix of data that
+// consist of all zeroes. Precondition: data is not all zeroes.
+func zeroAffixes(data []byte) (pre, suf, n int) {
+	for data[pre] == 0 {
+		pre++
+	}
+	for p := len(data) - 1; data[p] == 0; p-- {
+		suf++
+	}
+	return pre, suf, len(data)
+}
+
 func min(z0 int, zs ...int) int {
 	for _, z := range zs {
 		if z < z0 {

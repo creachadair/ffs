@@ -365,11 +365,29 @@ func (d *fileData) splitBlobs(ctx context.Context, s blob.CAS, blobs ...[]byte) 
 			return nil
 		}
 
+		// If a block has a lot of zeroes at its head or tail, treat them as if
+		// they were separate zero blocks.
+		zhead, ztail, n := zeroAffixes(blk)
+		if zhead > n/8 {
+			// Inject a "fake" zero block for the prefix, and chop it.
+			blks = append(blks, cblock{bytes: int64(zhead)})
+			blk = blk[zhead:]
+		}
+		if ztail > n/8 {
+			// Chop off the suffix; see below for the block injection.
+			blk = blk[:len(blk)-ztail]
+		}
+
 		key, err := s.PutCAS(ctx, blk)
 		if err != nil {
 			return err
 		}
 		blks = append(blks, cblock{bytes: int64(len(blk)), key: key})
+
+		if ztail > n/8 {
+			// Inject a "fake" zero block for the suffix.
+			blks = append(blks, cblock{bytes: int64(ztail)})
+		}
 		return nil
 	}); err != nil {
 		return nil, err
@@ -406,10 +424,9 @@ func newFileData(s *block.Splitter, put func([]byte) (string, error)) (fileData,
 
 	ext := new(extent)
 	push := func() {
-		if len(ext.blocks) == 0 {
-			return
+		if len(ext.blocks) != 0 {
+			fd.extents = append(fd.extents, ext)
 		}
-		fd.extents = append(fd.extents, ext)
 		ext = &extent{base: fd.totalBytes}
 	}
 
@@ -426,9 +443,26 @@ func newFileData(s *block.Splitter, put func([]byte) (string, error)) (fileData,
 			return nil
 		}
 
-		// Otherwise, we have real data to store.
-		ext.bytes += dlen
+		// If a block has a lot of zeroes at its head or tail, chop them.  We
+		// define "a lot" as a fraction of the block size.
+		zhead, ztail, n := zeroAffixes(data)
+		if zhead > n/8 {
+			fd.totalBytes += int64(zhead)
+			push()
+			data = data[zhead:]
+			dlen = int64(len(data))
+		}
+
+		// Update the total length regardless whether we have trailing zeroes to
+		// remove from the block. Do this BEFORE adjusting the block.
 		fd.totalBytes += dlen
+		if ztail > n/8 {
+			data = data[:len(data)-ztail]
+			dlen = int64(len(data))
+			defer push() // start a new extent after this block
+		}
+		ext.bytes += dlen
+
 		key, err := put(data)
 		if err != nil {
 			return err
@@ -437,6 +471,7 @@ func newFileData(s *block.Splitter, put func([]byte) (string, error)) (fileData,
 			bytes: dlen,
 			key:   key,
 		})
+
 		return nil
 	})
 	if err != nil {
