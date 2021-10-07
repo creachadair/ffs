@@ -37,8 +37,9 @@ func (d *fileData) toWireType() *wiretype.Index {
 	if d.totalBytes == 0 && len(d.extents) == 0 {
 		// No data in this file.
 		return nil
-	} else if len(d.extents) == 1 && len(d.extents[0].blocks) == 1 {
-		// Exactly one block in this file. No normalization is required.
+	} else if len(d.extents) == 1 && d.extents[0].base == 0 && len(d.extents[0].blocks) == 1 {
+		// There is exactly one block in this file, and it starts at offset zero.
+		// Store it as a single key, and no normalization is needed.
 		return &wiretype.Index{
 			TotalBytes: uint64(d.totalBytes),
 			Single:     []byte(d.extents[0].blocks[0].key),
