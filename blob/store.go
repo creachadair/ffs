@@ -136,20 +136,35 @@ func KeyNotFound(key string) error { return &KeyError{Key: key, Err: ErrKeyNotFo
 // The concrete type is *blob.KeyError.
 func KeyExists(key string) error { return &KeyError{Key: key, Err: ErrKeyExists} }
 
-// A CAS is a content-addressable wrapper that delegates to a blob.Store.  It
-// adds a PutCAS method that writes blobs keyed by their content.
-type CAS struct {
+// CAS is an optional interface that a store may implement to support content
+// addressing using a one-way hash.
+type CAS interface {
+	Store
+
+	// PutCAS writes data to a content-addreessed blob in the underlying store,
+	// and returns the assigned key. The target key is returned even in case of
+	// error.
+	PutCAS(context.Context, []byte) (string, error)
+
+	// Key returns the content address of data. This must be the same value that
+	// would be returned by a successful call to PutCAS on data.
+	Key(data []byte) string
+}
+
+// A HashCAS is a content-addressable wrapper that adds the CAS methods to a
+// delegated blob.Store.
+type HashCAS struct {
 	Store
 
 	newHash func() hash.Hash
 }
 
-// NewCAS constructs a CAS that delegates to s and uses h to assign keys.
-func NewCAS(s Store, h func() hash.Hash) CAS { return CAS{Store: s, newHash: h} }
+// NewCAS constructs a HashCAS that delegates to s and uses h to assign keys.
+func NewCAS(s Store, h func() hash.Hash) HashCAS { return HashCAS{Store: s, newHash: h} }
 
 // PutCAS writes data to a content-addressed blob in the underlying store, and
 // returns the assigned key. The target key is returned even in case of error.
-func (c CAS) PutCAS(ctx context.Context, data []byte) (string, error) {
+func (c HashCAS) PutCAS(ctx context.Context, data []byte) (string, error) {
 	key := c.Key(data)
 
 	// Write the block to storage. Because we are using a content address we
@@ -166,7 +181,7 @@ func (c CAS) PutCAS(ctx context.Context, data []byte) (string, error) {
 }
 
 // Key constructs the content address for the specified data.
-func (c CAS) Key(data []byte) string {
+func (c HashCAS) Key(data []byte) string {
 	h := c.newHash()
 	h.Write(data)
 	return string(h.Sum(nil))
