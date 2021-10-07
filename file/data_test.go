@@ -256,7 +256,7 @@ func TestWireEncoding(t *testing.T) {
 }
 
 func TestWriteBlocking(t *testing.T) {
-	ti := newTestInput("\x00\x00\x00\x00foo\x00\x00\x00|barf\x00\x00\x00|\x00\x00\x00bazzu")
+	ti := newTestInput("\x00\x00\x00\x00foo\x00\x00\x00\x00|barf\x00\x00\x00|\x00\x00\x00bazzu")
 	d := newDataTester(t, &block.SplitConfig{
 		Hasher: ti, Min: 5, Size: 16, Max: 100,
 	})
@@ -265,8 +265,8 @@ func TestWriteBlocking(t *testing.T) {
 		totalBytes: int64(ti.inputLen()),
 		extents: []*extent{
 			{base: 4, bytes: 3, blocks: []cblock{{bytes: 3, key: hashOf("foo")}}},
-			{base: 10, bytes: 4, blocks: []cblock{{bytes: 4, key: hashOf("barf")}}},
-			{base: 20, bytes: 5, blocks: []cblock{{bytes: 5, key: hashOf("bazzu")}}},
+			{base: 11, bytes: 4, blocks: []cblock{{bytes: 4, key: hashOf("barf")}}},
+			{base: 21, bytes: 5, blocks: []cblock{{bytes: 5, key: hashOf("bazzu")}}},
 		},
 	}
 	if diff := cmp.Diff(want, d.fd, cmpFileDataOpts...); diff != "" {

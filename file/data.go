@@ -360,21 +360,22 @@ func (d *fileData) splitBlobs(ctx context.Context, s blob.CAS, blobs ...[]byte) 
 	if err := block.NewSplitter(data, d.sc).Split(func(blk []byte) error {
 		// We do not store blocks of zeroes. They count against the total file
 		// size, but we do not explicitly record them.
-		if isZero(blk) {
+		zhead, ztail, n := zeroCheck(blk)
+		if zhead == n {
+			// This block is all zeroes.
 			blks = append(blks, cblock{bytes: int64(len(blk))})
 			return nil
 		}
-
-		// If a block has a lot of zeroes at its head or tail, treat them as if
-		// they were separate zero blocks.
-		zhead, ztail, n := zeroAffixes(blk)
-		if zhead > n/8 {
-			// Inject a "fake" zero block for the prefix, and chop it.
+		if zhead*zhead >= n {
+			// There is a block of zeroes at the head. Inject a "fake" zero block
+			// for the prefix, and remove it from the block to be stored.
 			blks = append(blks, cblock{bytes: int64(zhead)})
 			blk = blk[zhead:]
 		}
-		if ztail > n/8 {
-			// Chop off the suffix; see below for the block injection.
+		wantTail := ztail*ztail >= n
+		if wantTail {
+			// There is a block of zeroes at the tail. Remove the suffix from the
+			// block to be stored, and store a fake block for the suffix after it.
 			blk = blk[:len(blk)-ztail]
 		}
 
@@ -384,7 +385,7 @@ func (d *fileData) splitBlobs(ctx context.Context, s blob.CAS, blobs ...[]byte) 
 		}
 		blks = append(blks, cblock{bytes: int64(len(blk)), key: key})
 
-		if ztail > n/8 {
+		if wantTail {
 			// Inject a "fake" zero block for the suffix.
 			blks = append(blks, cblock{bytes: int64(ztail)})
 		}
@@ -433,9 +434,10 @@ func newFileData(s *block.Splitter, put func([]byte) (string, error)) (fileData,
 	err := s.Split(func(data []byte) error {
 		dlen := int64(len(data))
 
+		zhead, ztail, n := zeroCheck(data)
 		// A block of zeroes ends the current extent. We count the block against
 		// the total file size, but do not explicitly store it.
-		if isZero(data) {
+		if zhead == n {
 			// N.B. We have to update the total length first, so that push will
 			// see the correct new value for the next extent.
 			fd.totalBytes += dlen
@@ -445,8 +447,7 @@ func newFileData(s *block.Splitter, put func([]byte) (string, error)) (fileData,
 
 		// If a block has a lot of zeroes at its head or tail, chop them.  We
 		// define "a lot" as a fraction of the block size.
-		zhead, ztail, n := zeroAffixes(data)
-		if zhead > n/8 {
+		if zhead*zhead >= n {
 			fd.totalBytes += int64(zhead)
 			push()
 			data = data[zhead:]
@@ -456,7 +457,7 @@ func newFileData(s *block.Splitter, put func([]byte) (string, error)) (fileData,
 		// Update the total length regardless whether we have trailing zeroes to
 		// remove from the block. Do this BEFORE adjusting the block.
 		fd.totalBytes += dlen
-		if ztail > n/8 {
+		if ztail*ztail >= n {
 			data = data[:len(data)-ztail]
 			dlen = int64(len(data))
 			defer push() // start a new extent after this block

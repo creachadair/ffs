@@ -132,8 +132,7 @@ func zero(data []byte) int {
 	return n
 }
 
-// isZero reports whether data is all zeroes.
-func isZero(data []byte) bool {
+func zeroCheck(data []byte) (zhead, ztail, _ int) {
 	// Benchmarks for this implementation vs. naive loop.
 	// Sizes in bytes, times in ns/op (from go test -bench).
 	//
@@ -150,27 +149,27 @@ func isZero(data []byte) bool {
 	for ; i < m; i += 8 {
 		v := *(*uint64)(unsafe.Pointer(&data[i]))
 		if v != 0 {
-			return false
+			// Not zero: Count prefix and suffix zeroes.
+			zhead = i
+			for data[zhead] == 0 {
+				zhead++
+			}
+			for j := n - 1; j > i && data[j] == 0; j-- {
+				ztail++
+			}
+			return zhead, ztail, n
 		}
 	}
 	for ; i < n; i++ {
 		if data[i] != 0 {
-			return false
+			zhead = i
+			for j := n - 1; j > i && data[j] == 0; j-- {
+				ztail++
+			}
+			return zhead, ztail, n
 		}
 	}
-	return true
-}
-
-// zeroAffixes returns the lengths of the prefix and suffix of data that
-// consist of all zeroes. Precondition: data is not all zeroes.
-func zeroAffixes(data []byte) (pre, suf, n int) {
-	for data[pre] == 0 {
-		pre++
-	}
-	for p := len(data) - 1; data[p] == 0; p-- {
-		suf++
-	}
-	return pre, suf, len(data)
+	return n, 0, n
 }
 
 func min(z0 int, zs ...int) int {
