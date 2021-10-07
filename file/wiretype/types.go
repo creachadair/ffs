@@ -84,7 +84,7 @@ func (x *Index) Normalize() {
 // Store is the interface to storage used by the Load and Save functions.
 type Store interface {
 	Get(context.Context, string) ([]byte, error)
-	PutCAS(context.Context, []byte) (string, error)
+	CASPut(context.Context, []byte) (string, error)
 }
 
 // Load reads the specified blob from s and decodes it into msg.
@@ -102,5 +102,5 @@ func Save(ctx context.Context, s Store, msg proto.Message) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("encoding message: %w", err)
 	}
-	return s.PutCAS(ctx, bits)
+	return s.CASPut(ctx, bits)
 }

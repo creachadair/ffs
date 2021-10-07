@@ -141,14 +141,14 @@ func KeyExists(key string) error { return &KeyError{Key: key, Err: ErrKeyExists}
 type CAS interface {
 	Store
 
-	// PutCAS writes data to a content-addreessed blob in the underlying store,
+	// CASPut writes data to a content-addreessed blob in the underlying store,
 	// and returns the assigned key. The target key is returned even in case of
 	// error.
-	PutCAS(ctx context.Context, data []byte) (string, error)
+	CASPut(ctx context.Context, data []byte) (string, error)
 
 	// CASKey returns the content address of data without modifying the store.
 	// This must be the same value that would be returned by a successful call
-	// to PutCAS on data.
+	// to CASPut on data.
 	CASKey(ctx context.Context, data []byte) (string, error)
 }
 
@@ -170,9 +170,9 @@ func (c HashCAS) key(data []byte) string {
 	return string(h.Sum(nil))
 }
 
-// PutCAS writes data to a content-addressed blob in the underlying store, and
+// CASPut writes data to a content-addressed blob in the underlying store, and
 // returns the assigned key. The target key is returned even in case of error.
-func (c HashCAS) PutCAS(ctx context.Context, data []byte) (string, error) {
+func (c HashCAS) CASPut(ctx context.Context, data []byte) (string, error) {
 	key := c.key(data)
 
 	// Write the block to storage. Because we are using a content address we

@@ -137,7 +137,7 @@ func (r *Root) saveIndex(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	ikey, err := r.cas.PutCAS(ctx, bits)
+	ikey, err := r.cas.CASPut(ctx, bits)
 	if err != nil {
 		return err
 	}
