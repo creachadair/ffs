@@ -144,11 +144,12 @@ type CAS interface {
 	// PutCAS writes data to a content-addreessed blob in the underlying store,
 	// and returns the assigned key. The target key is returned even in case of
 	// error.
-	PutCAS(context.Context, []byte) (string, error)
+	PutCAS(ctx context.Context, data []byte) (string, error)
 
-	// Key returns the content address of data. This must be the same value that
-	// would be returned by a successful call to PutCAS on data.
-	Key(data []byte) string
+	// CASKey returns the content address of data without modifying the store.
+	// This must be the same value that would be returned by a successful call
+	// to PutCAS on data.
+	CASKey(ctx context.Context, data []byte) (string, error)
 }
 
 // A HashCAS is a content-addressable wrapper that adds the CAS methods to a
@@ -162,10 +163,17 @@ type HashCAS struct {
 // NewCAS constructs a HashCAS that delegates to s and uses h to assign keys.
 func NewCAS(s Store, h func() hash.Hash) HashCAS { return HashCAS{Store: s, newHash: h} }
 
+// key computes the content key for data using the provided hash.
+func (c HashCAS) key(data []byte) string {
+	h := c.newHash()
+	h.Write(data)
+	return string(h.Sum(nil))
+}
+
 // PutCAS writes data to a content-addressed blob in the underlying store, and
 // returns the assigned key. The target key is returned even in case of error.
 func (c HashCAS) PutCAS(ctx context.Context, data []byte) (string, error) {
-	key := c.Key(data)
+	key := c.key(data)
 
 	// Write the block to storage. Because we are using a content address we
 	// do not request replacement, but we also don't consider it an error if
@@ -180,9 +188,8 @@ func (c HashCAS) PutCAS(ctx context.Context, data []byte) (string, error) {
 	return key, err
 }
 
-// Key constructs the content address for the specified data.
-func (c HashCAS) Key(data []byte) string {
-	h := c.newHash()
-	h.Write(data)
-	return string(h.Sum(nil))
+// CASKey constructs the content address for the specified data.
+// This implementation never reports an error.
+func (c HashCAS) CASKey(_ context.Context, data []byte) (string, error) {
+	return c.key(data), nil
 }
