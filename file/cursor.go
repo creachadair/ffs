@@ -18,6 +18,8 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/fs"
+	"time"
 )
 
 // A Cursor bundles a *File with a context so that the file can be used with
@@ -82,3 +84,19 @@ func (c *Cursor) Seek(offset int64, whence int) (int64, error) {
 // Close implements the io.Closer interface. A File does not have a system
 // descriptor, so "closing" performs a flush but does not invalidate the file.
 func (c *Cursor) Close() error { _, err := c.file.Flush(c.ctx); return err }
+
+// Stat implements part of the fs.File interface.
+func (c *Cursor) Stat() (fs.FileInfo, error) {
+	return Info{file: c.file}, nil
+}
+
+// Info implements the fs.FileInfo interface. The underlying data source has
+// concrete type *File.
+type Info struct{ file *File }
+
+func (n Info) Name() string       { return n.file.name }
+func (n Info) Size() int64        { return n.file.Size() }
+func (n Info) Mode() fs.FileMode  { return n.file.stat.Mode }
+func (n Info) ModTime() time.Time { return n.file.stat.ModTime }
+func (n Info) IsDir() bool        { return n.file.stat.Mode.IsDir() }
+func (n Info) Sys() interface{}   { return n.file }

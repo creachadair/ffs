@@ -19,6 +19,7 @@ import (
 	"crypto/sha1"
 	"fmt"
 	"io"
+	"io/fs"
 	"io/ioutil"
 	"sort"
 	"strings"
@@ -33,6 +34,12 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 	"google.golang.org/protobuf/encoding/prototext"
 	"google.golang.org/protobuf/proto"
+)
+
+// Interface satisfaction checks.
+var (
+	_ fs.File     = (*file.Cursor)(nil)
+	_ fs.FileInfo = file.Info{}
 )
 
 func TestRoundTrip(t *testing.T) {
