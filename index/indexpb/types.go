@@ -17,5 +17,12 @@
 // schema in index/indexpb/index.proto.
 package indexpb
 
+import "google.golang.org/protobuf/encoding/protojson"
+
 //go:generate go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
 //go:generate protoc --go_out=. --go_opt=paths=source_relative index.proto
+
+// MarshalJSON implements the json.Marshaler interface for an *Index, by
+// delegating to the protojson marshaler. This allows a node to be encoded
+// using the encoding/json package transparently.
+func (idx *Index) MarshalJSON() ([]byte, error) { return protojson.Marshal(idx) }
