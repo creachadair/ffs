@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"io/fs"
+	slashpath "path"
 
 	"github.com/creachadair/ffs/file"
 )
@@ -40,7 +41,8 @@ func NewFS(ctx context.Context, root *file.File) FS {
 	return FS{ctx: ctx, root: root}
 }
 
-// Open implements the fs.FS interface.
+// Open implements the fs.FS interface. The concrete type of the file returned
+// by a successful Open call is *file.Cursor.
 func (fp FS) Open(path string) (fs.File, error) {
 	target, err := fp.openFile("open", path)
 	if err != nil {
@@ -69,7 +71,7 @@ func (fp FS) ReadDir(path string) ([]fs.DirEntry, error) {
 	for i, name := range kids.Names() {
 		kid, err := target.Open(fp.ctx, name)
 		if err != nil {
-			return nil, pathErr("readdir", path+"/"+name, err)
+			return nil, pathErr("readdir", slashpath.Join(path, name), err)
 		}
 		out[i] = fs.FileInfoToDirEntry(kid.Stat().FileInfo())
 	}
