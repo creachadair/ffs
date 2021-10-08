@@ -132,7 +132,13 @@ func zero(data []byte) int {
 	return n
 }
 
-func zeroCheck(data []byte) (zhead, ztail, _ int) {
+// zeroCheck returns the length of the longest prefix and suffix of data that
+// comprise all zeroes, along with the length of data. If data consists of all
+// zero bytes, zeroCheck returns len(data), 0, len(data).
+//
+// Otherwise, zhead is the count of zero bytes prior to the first non-zero
+// byte, and ztail is the count of zero bytes after the last non-zero byte.
+func zeroCheck(data []byte) (zhead, ztail, n int) {
 	// Benchmarks for this implementation vs. naive loop.
 	// Sizes in bytes, times in ns/op (from go test -bench).
 	//
@@ -142,7 +148,7 @@ func zeroCheck(data []byte) (zhead, ztail, _ int) {
 	//   10007    646     2529   2.91x
 	//   100007   6320    25248  2.99x
 	//
-	n := len(data)
+	n = len(data)
 	m := n &^ 7 // count of full 64-bit strides
 
 	i := 0
