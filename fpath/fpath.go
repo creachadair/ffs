@@ -237,7 +237,7 @@ type foundPath struct {
 
 func parsePath(path string) []string {
 	clean := strings.TrimPrefix(path, "/")
-	if clean == "" {
+	if clean == "" || path == "." {
 		return nil
 	}
 	return strings.Split(clean, "/")
