@@ -20,6 +20,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"flag"
+	"io/fs"
 	"os"
 	"strconv"
 	"testing"
@@ -32,7 +33,14 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-var saveStore = flag.String("save", "", "Save blobs to a filestore at this path")
+var (
+	saveStore = flag.String("save", "", "Save blobs to a filestore at this path")
+
+	// Interface satisfaction checks.
+	_ fs.FS        = fpath.FS{}
+	_ fs.SubFS     = fpath.FS{}
+	_ fs.ReadDirFS = fpath.FS{}
+)
 
 func TestPaths(t *testing.T) {
 	var bs blob.Store = memstore.New()

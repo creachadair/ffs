@@ -62,6 +62,9 @@ func (s Stat) Persist(ok bool) Stat { s.f.saveStat = ok; s.f.inval(); return s }
 // Persistent reports whether the file associated with s persists stat.
 func (s Stat) Persistent() bool { return s.f.saveStat }
 
+// FileInfo returns a fs.FileInfo wrapper for s.
+func (s Stat) FileInfo() FileInfo { return FileInfo{file: s.f} }
+
 const (
 	bitSetuid = 04000
 	bitSetgid = 02000

@@ -39,7 +39,7 @@ import (
 // Interface satisfaction checks.
 var (
 	_ fs.File     = (*file.Cursor)(nil)
-	_ fs.FileInfo = file.Info{}
+	_ fs.FileInfo = file.FileInfo{}
 )
 
 func TestRoundTrip(t *testing.T) {

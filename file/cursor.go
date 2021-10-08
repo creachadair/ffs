@@ -86,17 +86,15 @@ func (c *Cursor) Seek(offset int64, whence int) (int64, error) {
 func (c *Cursor) Close() error { _, err := c.file.Flush(c.ctx); return err }
 
 // Stat implements part of the fs.File interface.
-func (c *Cursor) Stat() (fs.FileInfo, error) {
-	return Info{file: c.file}, nil
-}
+func (c *Cursor) Stat() (fs.FileInfo, error) { return FileInfo{file: c.file}, nil }
 
-// Info implements the fs.FileInfo interface. The underlying data source has
-// concrete type *File.
-type Info struct{ file *File }
+// FileInfo implements the fs.FileInfo interface. The underlying data source
+// has concrete type *File.
+type FileInfo struct{ file *File }
 
-func (n Info) Name() string       { return n.file.name }
-func (n Info) Size() int64        { return n.file.Size() }
-func (n Info) Mode() fs.FileMode  { return n.file.stat.Mode }
-func (n Info) ModTime() time.Time { return n.file.stat.ModTime }
-func (n Info) IsDir() bool        { return n.file.stat.Mode.IsDir() }
-func (n Info) Sys() interface{}   { return n.file }
+func (n FileInfo) Name() string       { return n.file.name }
+func (n FileInfo) Size() int64        { return n.file.Size() }
+func (n FileInfo) Mode() fs.FileMode  { return n.file.stat.Mode }
+func (n FileInfo) ModTime() time.Time { return n.file.stat.ModTime }
+func (n FileInfo) IsDir() bool        { return n.file.stat.Mode.IsDir() }
+func (n FileInfo) Sys() interface{}   { return n.file }
