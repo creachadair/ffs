@@ -160,7 +160,7 @@ func zeroCheck(data []byte) (zhead, ztail, n int) {
 			for data[zhead] == 0 {
 				zhead++
 			}
-			for j := n - 1; j > i && data[j] == 0; j-- {
+			for j := n - 1; data[j] == 0; j-- {
 				ztail++
 			}
 			return zhead, ztail, n
@@ -169,7 +169,7 @@ func zeroCheck(data []byte) (zhead, ztail, n int) {
 	for ; i < n; i++ {
 		if data[i] != 0 {
 			zhead = i
-			for j := n - 1; j > i && data[j] == 0; j-- {
+			for j := n - 1; data[j] == 0; j-- {
 				ztail++
 			}
 			return zhead, ztail, n
