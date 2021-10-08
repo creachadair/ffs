@@ -24,8 +24,6 @@ import (
 	"github.com/creachadair/ffs/blob"
 	"github.com/creachadair/ffs/file"
 	"github.com/creachadair/ffs/file/wiretype"
-	"github.com/creachadair/ffs/index"
-	"github.com/creachadair/ffs/index/indexpb"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -38,12 +36,10 @@ type Root struct {
 
 	OwnerKey    string // the key of an owner metadata blob
 	Description string // a human-readable description
+	FileKey     string // the storage key of the file node
+	IndexKey    string // the storage key of the blob index
 
-	fileKey string // the storage key of the file node
-	file    *file.File
-
-	indexKey string // the key of the blob index
-	idx      *index.Index
+	file *file.File
 }
 
 // New constructs a new empty Root associated with the given store.
@@ -57,8 +53,8 @@ func New(s blob.CAS, opts *Options) *Root {
 
 		OwnerKey:    opts.OwnerKey,
 		Description: opts.Description,
-		fileKey:     opts.FileKey,
-		indexKey:    opts.IndexKey,
+		FileKey:     opts.FileKey,
+		IndexKey:    opts.IndexKey,
 	}
 }
 
@@ -76,10 +72,10 @@ func Open(ctx context.Context, s blob.CAS, key string) (*Root, error) {
 func (r *Root) File(ctx context.Context) (*file.File, error) {
 	if r.file != nil {
 		return r.file, nil
-	} else if r.fileKey == "" {
+	} else if r.FileKey == "" {
 		return nil, ErrNoData
 	}
-	f, err := file.Open(ctx, r.cas, r.fileKey)
+	f, err := file.Open(ctx, r.cas, r.FileKey)
 	if err != nil {
 		return nil, err
 	}
@@ -87,62 +83,15 @@ func (r *Root) File(ctx context.Context) (*file.File, error) {
 	return f, nil
 }
 
-// NewFile replaces the root file of r with a newly-created file using the
-// given options.
-func (r *Root) NewFile(opts *file.NewOptions) *file.File {
-	r.fileKey = ""
-	r.file = file.New(r.cas, opts)
-	return r.file
-}
-
-// OpenFile replaces the root file of r by opening the specified file key.
-func (r *Root) OpenFile(ctx context.Context, key string) (*file.File, error) {
+// SetFile replaces the root file of r by opening the specified file key.
+func (r *Root) SetFile(ctx context.Context, key string) (*file.File, error) {
 	f, err := file.Open(ctx, r.cas, key)
 	if err != nil {
 		return nil, err
 	}
-	r.fileKey = key
+	r.FileKey = key
 	r.file = f
 	return f, nil
-}
-
-// Index loads and returns the blob index for r, if one exists.
-// If no index exists, it returns ErrNoData.
-func (r *Root) Index(ctx context.Context) (*index.Index, error) {
-	if r.idx != nil {
-		return r.idx, nil
-	} else if r.indexKey == "" {
-		return nil, ErrNoData
-	}
-	var pb indexpb.EncodedIndex
-	if err := wiretype.Load(ctx, r.cas, r.indexKey, &pb); err != nil {
-		return nil, err
-	}
-	r.idx = index.Decode(&pb)
-	return r.idx, nil
-}
-
-// SetIndex stores and updates the blob index for r to idx.
-// If idx == nil, the blob index for r is cleared.
-func (r *Root) SetIndex(idx *index.Index) {
-	r.indexKey = ""
-	r.idx = idx
-}
-
-func (r *Root) saveIndex(ctx context.Context) error {
-	if r.idx == nil {
-		return nil // nothing to do
-	}
-	bits, err := proto.Marshal(index.Encode(r.idx))
-	if err != nil {
-		return err
-	}
-	ikey, err := r.cas.CASPut(ctx, bits)
-	if err != nil {
-		return err
-	}
-	r.indexKey = ikey
-	return nil
 }
 
 // Save writes r in wire format to the given storage key in s.
@@ -154,14 +103,9 @@ func (r *Root) Save(ctx context.Context, key string) error {
 		if err != nil {
 			return fmt.Errorf("flushing file: %w", err)
 		}
-		r.fileKey = fkey
-	} else if r.fileKey == "" {
+		r.FileKey = fkey
+	} else if r.FileKey == "" {
 		return errors.New("missing file key")
-	}
-
-	// If there is a blob index, flush it and update its storage key.
-	if err := r.saveIndex(ctx); err != nil {
-		return fmt.Errorf("writing index: %w", err)
 	}
 
 	bits, err := proto.Marshal(Encode(r))
@@ -180,9 +124,9 @@ func Encode(r *Root) *wiretype.Object {
 	return &wiretype.Object{
 		Value: &wiretype.Object_Root{
 			Root: &wiretype.Root{
-				FileKey:     []byte(r.fileKey),
+				FileKey:     []byte(r.FileKey),
 				Description: r.Description,
-				IndexKey:    []byte(r.indexKey),
+				IndexKey:    []byte(r.IndexKey),
 				OwnerKey:    []byte(r.OwnerKey),
 			},
 		},
@@ -201,8 +145,8 @@ func Decode(s blob.CAS, obj *wiretype.Object) (*Root, error) {
 
 		OwnerKey:    string(pb.Root.OwnerKey),
 		Description: pb.Root.Description,
-		fileKey:     string(pb.Root.FileKey),
-		indexKey:    string(pb.Root.IndexKey),
+		FileKey:     string(pb.Root.FileKey),
+		IndexKey:    string(pb.Root.IndexKey),
 	}, nil
 }
 
