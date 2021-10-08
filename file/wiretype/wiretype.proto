@@ -18,14 +18,17 @@ syntax = "proto3";
 package ffs.file;
 option go_package = "github.com/creachadair/ffs/file/wiretype";
 
+import 'index/indexpb/index.proto';
+
 // An Object is the top-level wrapper for encoded objects.
 message Object {
   oneof value {
-    Node node = 1;  // a structured file object
-    Root root = 2;  // a root pointer
+    Node node = 1;              // a structured file object
+    Root root = 2;              // a root pointer
+    ffs.index.Index index = 3;  // a blob index
   }
 
-  // next id: 3
+  // next id: 4
 
   // A version marker for the stored object.
   // Currently 0 is the only known value.

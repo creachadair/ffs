@@ -28,6 +28,8 @@ func main() {
 		out["node"] = t.Node
 	case *wiretype.Object_Root:
 		out["root"] = t.Root
+	case *wiretype.Object_Index:
+		out["index"] = t.Index
 	default:
 		log.Fatalf("Unknown blob format (%d bytes)", len(data))
 	}

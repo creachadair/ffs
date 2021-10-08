@@ -20,8 +20,8 @@ import (
 )
 
 // Encode encodes idx as a protocol buffer message for storage.
-func Encode(idx *Index) *indexpb.EncodedIndex {
-	return &indexpb.EncodedIndex{
+func Encode(idx *Index) *indexpb.Index {
+	return &indexpb.Index{
 		NumKeys:  uint64(idx.numKeys),
 		Seeds:    idx.seeds,
 		Segments: []uint64(idx.bits),
@@ -29,7 +29,7 @@ func Encode(idx *Index) *indexpb.EncodedIndex {
 }
 
 // Decode decodes an encoded index from protobuf.
-func Decode(pb *indexpb.EncodedIndex) *Index {
+func Decode(pb *indexpb.Index) *Index {
 	return &Index{
 		numKeys: int(pb.NumKeys),
 		bits:    bitVector(pb.Segments),

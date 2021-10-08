@@ -83,7 +83,7 @@ func TestIndex(t *testing.T) {
 	t.Logf("Encoded index: %d bytes in wire format", len(pbits))
 
 	// Unmarshal the wire format and make sure it round-trips.
-	var dpb indexpb.EncodedIndex
+	var dpb indexpb.Index
 	if err := proto.Unmarshal(pbits, &dpb); err != nil {
 		t.Fatalf("Unmarshal failed: %v", err)
 	}
