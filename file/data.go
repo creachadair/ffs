@@ -366,13 +366,14 @@ func (d *fileData) splitBlobs(ctx context.Context, s blob.CAS, blobs ...[]byte) 
 			blks = append(blks, cblock{bytes: int64(len(blk))})
 			return nil
 		}
-		if zhead*zhead >= n {
-			// There is a block of zeroes at the head. Inject a "fake" zero block
+
+		if isWorthTrimming(zhead, n) {
+			// There is a trance of zeroes at the head. Inject a "fake" zero block
 			// for the prefix, and remove it from the block to be stored.
 			blks = append(blks, cblock{bytes: int64(zhead)})
 			blk = blk[zhead:]
 		}
-		wantTail := ztail*ztail >= n
+		wantTail := isWorthTrimming(ztail, n)
 		if wantTail {
 			// There is a block of zeroes at the tail. Remove the suffix from the
 			// block to be stored, and store a fake block for the suffix after it.
@@ -538,3 +539,22 @@ type cblock struct {
 	bytes int64  // number of bytes in the block
 	key   string // storage key for this block
 }
+
+// isWorthTrimming reports whether a prefix or suffix of nz zeroes is worth
+// removing from a block of length n.
+//
+// Since trimming a prefix or suffix induces an extent split, we should not
+// bother doing this unless the overhead for another extent is at least as much
+// as the data we save by trimming. Ignoring the blocks (which take the same
+// amount of space regardless how many extents they are split over), the
+// overhead of an extent is the type tag and three varints (message length,
+// base, and byte count).  Assuming a reasonable "expected worst case" with
+// 4-byte varints (28 bits) that's 13 bytes.
+//
+// However, the smaller the block, the smaller the cost of an extent, with a
+// minimum baseline of 1 byte for the byte count. Moreover, splitting a long
+// extent shortens the byte count, so a reasonable heuristic average case is a
+// 2-3 byte base and 1-2 byte count, or 4-6 bytes. To account for this, use the
+// square root of the block size. That's cheaper than a log, and accuracy is
+// not important on short sizes.
+func isWorthTrimming(nz, n int) bool { return nz >= 13 || nz*nz >= n }
