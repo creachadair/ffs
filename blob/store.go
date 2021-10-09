@@ -113,6 +113,11 @@ func IsKeyNotFound(err error) bool {
 	return err != nil && errors.Is(err, ErrKeyNotFound)
 }
 
+// IsKeyExists reports whether err is or wraps ErrKeyExists.
+func IsKeyExists(err error) bool {
+	return err != nil && errors.Is(err, ErrKeyExists)
+}
+
 // KeyError is the concrete type of errors involving a blob key.
 // The caller may type-assert to *blob.KeyError to recover the key.
 type KeyError struct {
