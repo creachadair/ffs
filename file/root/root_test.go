@@ -51,7 +51,7 @@ func TestRoot(t *testing.T) {
 	}
 
 	// Save the root blob to storage.
-	if err := r.Save(ctx, "test-root"); err != nil {
+	if err := r.Save(ctx, "test-root", true); err != nil {
 		t.Fatalf("Save failed: %v", err)
 	}
 

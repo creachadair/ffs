@@ -93,7 +93,7 @@ func (r *Root) SetFile(ctx context.Context, key string) (*file.File, error) {
 }
 
 // Save writes r in wire format to the given storage key in s.
-func (r *Root) Save(ctx context.Context, key string) error {
+func (r *Root) Save(ctx context.Context, key string, replace bool) error {
 	// If there is a cached file, flush it and update the storage key.
 	// Otherwise, it is an error if there is no storage key set.
 	if r.file != nil {
@@ -113,7 +113,7 @@ func (r *Root) Save(ctx context.Context, key string) error {
 	return r.cas.Put(ctx, blob.PutOptions{
 		Key:     key,
 		Data:    bits,
-		Replace: true,
+		Replace: replace,
 	})
 }
 
