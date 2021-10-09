@@ -37,7 +37,6 @@ type Root struct {
 	OwnerKey    string // the key of an owner metadata blob
 	Description string // a human-readable description
 	FileKey     string // the storage key of the file node
-	IndexKey    string // the storage key of the blob index
 
 	file *file.File
 }
@@ -54,7 +53,6 @@ func New(s blob.CAS, opts *Options) *Root {
 		OwnerKey:    opts.OwnerKey,
 		Description: opts.Description,
 		FileKey:     opts.FileKey,
-		IndexKey:    opts.IndexKey,
 	}
 }
 
@@ -126,7 +124,6 @@ func Encode(r *Root) *wiretype.Object {
 			Root: &wiretype.Root{
 				FileKey:     []byte(r.FileKey),
 				Description: r.Description,
-				IndexKey:    []byte(r.IndexKey),
 				OwnerKey:    []byte(r.OwnerKey),
 			},
 		},
@@ -146,7 +143,6 @@ func Decode(s blob.CAS, obj *wiretype.Object) (*Root, error) {
 		OwnerKey:    string(pb.Root.OwnerKey),
 		Description: pb.Root.Description,
 		FileKey:     string(pb.Root.FileKey),
-		IndexKey:    string(pb.Root.IndexKey),
 	}, nil
 }
 
@@ -156,5 +152,4 @@ type Options struct {
 	FileKey     string
 	Description string
 	OwnerKey    string
-	IndexKey    string
 }

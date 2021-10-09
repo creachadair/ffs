@@ -18,14 +18,11 @@ syntax = "proto3";
 package ffs.file;
 option go_package = "github.com/creachadair/ffs/file/wiretype";
 
-import 'index/indexpb/index.proto';
-
 // An Object is the top-level wrapper for encoded objects.
 message Object {
   oneof value {
-    Node node = 1;              // a structured file object
-    Root root = 2;              // a root pointer
-    ffs.index.Index index = 3;  // a blob index
+    Node node = 1;  // a structured file object
+    Root root = 2;  // a root pointer
   }
 
   // next id: 4
@@ -45,15 +42,11 @@ message Root {
   // A human-readable descriptive label for the root.
   string description = 2;
 
-  // The storage key of the blob index for the tree.
-  // The blob contains a ffs.index.EncodedIndex message in wire format.
-  bytes index_key = 3;
-
   // The storage key of the owner metadata for the root.
   // The blob format is implementation-defined.
-  bytes owner_key = 4;
+  bytes owner_key = 3;
 
-  // next id: 5
+  // next id: 4
 }
 
 // A Node is the top-level encoding of a file.
