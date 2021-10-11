@@ -492,3 +492,6 @@ func (c Child) Names() []string {
 
 // Len returns the number of children of the file.
 func (c Child) Len() int { return len(c.f.kids) }
+
+// Encode translates f as a protobuf message for storage.
+func Encode(f *File) *wiretype.Object { return f.toWireType() }
