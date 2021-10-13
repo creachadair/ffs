@@ -61,18 +61,43 @@ affect its storage key, but are not otherwise interpreted.
 - The [`ffuse`](https://github.com/creachadair/ffuse) repository defines a FUSE
   filesystem that exposes the FFS data format.
 
+  ```sh
+  # To install:
+  go install github.com/creachadair/ffuse/cmd/ffuse@latest
+  ```
+
 - The [`blobd`](https://github.com/creachadair/ffs/tree/default/cmd/blobd)
   tool defines a JSON-RPC service that implements the FFS blob store interface
   over various underlying key-value storage implementations.
+
+  ```sh
+  # To install:
+  go install github.com/creachadair/ffs/cmd/blobd@latest
+  ```
 
 - The [`blob`](https://github.com/creachadair/ffs/tree/default/cmd/blob) tool
   is a client that communicates with the `blobd` service to manipulate the
   contents of a blob store as opaque data.
 
+  ```sh
+  # To install:
+  go install github.com/creachadair/ffs/cmd/blob@latest
+  ```
+
 - The [`ffs`](https://github.com/creachadair/ffs/tree/default/cmd/ffs) tool
   also communicates with the `blobd` service and provides commands to
   manipulate the contents of the store as FFS specific messages.
 
+  ```sh
+  # To install:
+  go install github.com/creachadair/ffs/cmd/ffs@latest
+  ```
+
 - The [`file2json`](https://github.com/creachadair/ffs/tree/default/cmd/file2json)
   tool decodes wire-format node messages and translates them to JSON for easier
   reading by humans.
+
+  ```sh
+  # To install:
+  go install github.com/creachadair/ffs/cmd/file2json@latest
+  ```
