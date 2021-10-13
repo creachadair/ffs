@@ -21,7 +21,7 @@ import (
 
 	"github.com/creachadair/ffs/blob"
 	"github.com/creachadair/ffs/blob/memstore"
-	"github.com/creachadair/ffs/blob/store"
+	"github.com/creachadair/ffs/cmd/blobd/store"
 )
 
 var errBadAddress = errors.New("bad memstore address")

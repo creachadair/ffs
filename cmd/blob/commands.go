@@ -304,14 +304,14 @@ func readData(ctx context.Context, cmd string, args []string) (data []byte, err 
 	return
 }
 
-func storeFromEnv(env *command.Env) (rpcstore.Store, error) {
+func storeFromEnv(env *command.Env) (rpcstore.CAS, error) {
 	t := env.Config.(*settings)
 	if t.Store == "" {
-		return rpcstore.Store{}, errors.New("no -store address was specified")
+		return rpcstore.CAS{}, errors.New("no -store address was specified")
 	}
 	conn, err := net.Dial(jrpc2.Network(t.Store))
 	if err != nil {
-		return rpcstore.Store{}, fmt.Errorf("dialing: %w", err)
+		return rpcstore.CAS{}, fmt.Errorf("dialing: %w", err)
 	}
 	var logger *log.Logger
 	if t.Debug {
@@ -320,7 +320,7 @@ func storeFromEnv(env *command.Env) (rpcstore.Store, error) {
 	cli := jrpc2.NewClient(channel.Line(conn, conn), &jrpc2.ClientOptions{
 		Logger: logger,
 	})
-	return rpcstore.NewClient(cli, nil), nil
+	return rpcstore.NewCAS(cli, nil), nil
 }
 
 func isAllHex(s string) bool {

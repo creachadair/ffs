@@ -8,7 +8,7 @@ require (
 	github.com/creachadair/boltstore v0.0.0-20211010184812-8cc81ae645e6
 	github.com/creachadair/command v0.0.0-20211002170045-5bd7d4de7419
 	github.com/creachadair/ctrl v0.1.1
-	github.com/creachadair/ffs v0.0.0-20211013213146-b25335035828
+	github.com/creachadair/ffs v0.0.0-20211013224918-364985593637
 	github.com/creachadair/gcsstore v0.0.0-20211010185243-cbeb330cb0eb
 	github.com/creachadair/getpass v0.1.1
 	github.com/creachadair/jrpc2 v0.27.1
@@ -16,7 +16,7 @@ require (
 	github.com/creachadair/leveldbstore v0.0.0-20211010185302-d0ef8bec9f81
 	github.com/creachadair/pebblestore v0.0.0-20211010185750-e0beb0653912
 	github.com/creachadair/pogrebstore v0.0.0-20211010185807-e699ced8630c
-	github.com/creachadair/rpcstore v0.0.0-20211010193932-8777c192f334
+	github.com/creachadair/rpcstore v0.0.0-20211013230238-4172667bb2c9
 	github.com/creachadair/sqlitestore v0.0.0-20211010184718-5214f901bddc
 	github.com/creachadair/taskgroup v0.3.1
 	github.com/creachadair/wbstore v0.0.0-20211012051716-651d8fbd66e8

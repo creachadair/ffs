@@ -56,7 +56,7 @@ func (s *Settings) OpenStore(_ context.Context) (blob.CAS, error) {
 		return nil, fmt.Errorf("dialing store: %w", err)
 	}
 	ch := channel.Line(conn, conn)
-	return rpcstore.NewClient(jrpc2.NewClient(ch, nil), nil), nil
+	return rpcstore.NewCAS(jrpc2.NewClient(ch, nil), nil), nil
 }
 
 // WithStore calls f with a store opened from the configuration. The store is
