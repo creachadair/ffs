@@ -18,7 +18,8 @@ buffer](https://developers.google.com/protocol-buffers) messages as defined in
 
 - A [`Node`](./file/wiretype/wiretype.proto#L53) is the top-level encoding of a
   file. The storage key for a file is the content address (**storage key**) of
-  its wire-encoded node message.
+  its wire-encoded node message. An empty `Node` message is a valid encoding of
+  an empty file with no children and no metadata.
 
 - An [`Index`](./file/wiretype/wiretype.proto#L111) records the binary content
   of a file, if any. An index records the total size of the file along with the
@@ -27,17 +28,17 @@ buffer](https://developers.google.com/protocol-buffers) messages as defined in
 - A [`Child`](./file/wiretype/wiretype.proto#L156) records the name and storage
   key of a child of a file. Children are ordered lexicographically by name.
 
-### Data Storage
+### Binary Content
 
 Binary file content is stored in discrete blocks.  The block size is not fixed,
 but varies over a (configurable) predefined range of sizes. Block boundaries
 are chosen by splitting the file data with a [rolling hash](./block), similar
 to the technique used in rsync or LBFS, and contents are stored as raw blobs.
 
-The blocks belonging to a particular file are recorded in _extents_, where each
-extent represents an ordered, contiguous sequence of blocks. Ranges of file
-content that consist of all zero-valued bytes are not stored, allowing sparse
-files to be stored compactly.
+The blocks belonging to a particular file are recorded in one or more
+_extents_, where each extent represents an ordered, contiguous sequence of
+blocks. Ranges of file content that consist of all zero-valued bytes are not
+stored, allowing sparse files to be represented compactly.
 
 ### Children
 
