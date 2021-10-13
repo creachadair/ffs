@@ -35,7 +35,7 @@ are chosen by splitting the file data with a [rolling hash](./block), similar
 to the technique used in rsync or LBFS, and contents are stored as raw blobs.
 
 The blocks belonging to a particular file are recorded in _extents_, where each
-extent represents an ordered, continguous sequence of blocks. Ranges of file
+extent represents an ordered, contiguous sequence of blocks. Ranges of file
 content that consist of all zero-valued bytes are not stored, allowing sparse
 files to be stored compactly.
 
