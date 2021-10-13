@@ -6,14 +6,15 @@ An work-in-progress experimental storage-agnostic filesystem representation.
 
 ## Summary
 
-A file in FFS is represented as a Merkle tree encoded in a content-addressable
-blob store. Unlike files in POSIX style filesystems, all files in FFS have the
-same structure, consisting of binary content, children, and metadata. In other
-words, every "file" is also potentially a "directory", and vice versa.
+A file in FFS is represented as a Merkle tree encoded in a [content-addressable
+blob store](./blob). Unlike files in POSIX style filesystems, all files in FFS
+have the same structure, consisting of binary content, children, and
+metadata. In other words, every "file" is also potentially a "directory", and
+vice versa.
 
-Files are encoded in storage using wire-format protocol buffer messages as
-defined in [`wiretype.proto`](./file/wiretype/wiretype.proto). The key messages
-are:
+Files are encoded in storage using wire-format [protocol
+buffer](https://developers.google.com/protocol-buffers) messages as defined in
+[`wiretype.proto`](./file/wiretype/wiretype.proto). The key messages are:
 
 - A [`Node`](./file/wiretype/wiretype.proto#L53) is the top-level encoding of a
   file. The storage key for a file is the content address (**storage key**) of
@@ -53,3 +54,24 @@ includes optional [`Stat`](./file/wiretype/wiretype.proto#L65) and
 filesystem metadata like POSIX permissions, file type, modification timestamp,
 and ownership. These fields are persisted in the encoding of a node, and thus
 affect its storage key, but are not otherwise interpreted.
+
+## Related Tools
+
+- The [`ffuse`](https://github.com/creachadair/ffuse) repository defines a FUSE
+  filesystem that exposes the FFS data format.
+
+- The [`blobd`](https://github.com/creachadair/misctools/tree/default/blobd)
+  tool defines a JSON-RPC service that implements the FFS blob store interface
+  over various underlying key-value storage implementations.
+
+- The [`blob`](https://github.com/creachadair/misctools/tree/default/blob) tool
+  is a client that communicates with the `blobd` service to manipulate the
+  contents of a blob store as opaque data.
+
+- The [`ffs`](https://github.com/creachadair/misctools/tree/default/ffs) tool
+  also communicates with the `blobd` service and provides commands to
+  manipulate the contents of the store as FFS specific messages.
+
+- The [`file2json`](https://github.com/creachadair/ffs/tree/default/cmd/file2json)
+  tool decodes wire-format node messages and translates them to JSON for easier
+  reading by humans.
