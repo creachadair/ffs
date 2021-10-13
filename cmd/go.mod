@@ -18,9 +18,11 @@ require (
 	github.com/creachadair/pogrebstore v0.0.0-20211010185807-e699ced8630c
 	github.com/creachadair/rpcstore v0.0.0-20211010193932-8777c192f334
 	github.com/creachadair/sqlitestore v0.0.0-20211010184718-5214f901bddc
+	github.com/creachadair/taskgroup v0.3.1
 	github.com/creachadair/wbstore v0.0.0-20211012051716-651d8fbd66e8
 	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
 	google.golang.org/protobuf v1.27.1
+	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 )
 
 require (
@@ -39,7 +41,6 @@ require (
 	github.com/cockroachdb/redact v1.1.3 // indirect
 	github.com/cockroachdb/sentry-go v0.6.1-cockroachdb.2 // indirect
 	github.com/creachadair/atomicfile v0.2.2 // indirect
-	github.com/creachadair/taskgroup v0.3.1 // indirect
 	github.com/dgraph-io/badger/v2 v2.2007.4 // indirect
 	github.com/dgraph-io/ristretto v0.1.0 // indirect
 	github.com/dgryski/go-farm v0.0.0-20200201041132-a6ae2369ad13 // indirect
