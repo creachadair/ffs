@@ -128,8 +128,8 @@ message Index {
 
 // An Extent describes a single contiguous span of stored data.
 message Extent {
-  uint64 base = 1;
-  uint64 bytes = 2;
+  uint64 base = 1;   // the starting offset
+  uint64 bytes = 2;  // the number of bytes in this extent
   repeated Block blocks = 3;
 
   // next id: 4
@@ -137,8 +137,8 @@ message Extent {
 
 // A Block describes the size and storage key of a data blob.
 message Block {
-  uint64 bytes = 1;
-  bytes key = 2;
+  uint64 bytes = 1;  // the number of bytes in this block
+  bytes key = 2;     // the storage key of the block data
 
   // next id: 3
 }

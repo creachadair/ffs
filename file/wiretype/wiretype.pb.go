@@ -553,8 +553,8 @@ type Extent struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Base   uint64   `protobuf:"varint,1,opt,name=base,proto3" json:"base,omitempty"`
-	Bytes  uint64   `protobuf:"varint,2,opt,name=bytes,proto3" json:"bytes,omitempty"`
+	Base   uint64   `protobuf:"varint,1,opt,name=base,proto3" json:"base,omitempty"`   // the starting offset
+	Bytes  uint64   `protobuf:"varint,2,opt,name=bytes,proto3" json:"bytes,omitempty"` // the number of bytes in this extent
 	Blocks []*Block `protobuf:"bytes,3,rep,name=blocks,proto3" json:"blocks,omitempty"`
 }
 
@@ -617,8 +617,8 @@ type Block struct {
 	sizeCache     protoimpl.SizeCache
 	unknownFields protoimpl.UnknownFields
 
-	Bytes uint64 `protobuf:"varint,1,opt,name=bytes,proto3" json:"bytes,omitempty"`
-	Key   []byte `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`
+	Bytes uint64 `protobuf:"varint,1,opt,name=bytes,proto3" json:"bytes,omitempty"` // the number of bytes in this block
+	Key   []byte `protobuf:"bytes,2,opt,name=key,proto3" json:"key,omitempty"`      // the storage key of the block data
 }
 
 func (x *Block) Reset() {
