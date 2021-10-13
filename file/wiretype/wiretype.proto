@@ -25,7 +25,7 @@ message Object {
     Root root = 2;  // a root pointer
   }
 
-  // next id: 4
+  // next id: 3
 
   // A version marker for the stored object.
   // Currently 0 is the only known value.
