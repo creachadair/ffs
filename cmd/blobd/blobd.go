@@ -16,7 +16,7 @@ import (
 
 	"github.com/creachadair/ctrl"
 	"github.com/creachadair/ffs/blob"
-	"github.com/creachadair/ffs/blob/store"
+	"github.com/creachadair/ffs/cmd/blobd/store"
 	"github.com/creachadair/jrpc2"
 	"github.com/creachadair/jrpc2/metrics"
 	"github.com/creachadair/rpcstore"
