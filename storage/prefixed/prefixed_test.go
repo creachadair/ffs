@@ -20,8 +20,8 @@ import (
 
 	"github.com/creachadair/ffs/blob"
 	"github.com/creachadair/ffs/blob/memstore"
-	"github.com/creachadair/ffs/blob/prefixed"
 	"github.com/creachadair/ffs/blob/storetest"
+	"github.com/creachadair/ffs/storage/prefixed"
 	"github.com/google/go-cmp/cmp"
 )
 
