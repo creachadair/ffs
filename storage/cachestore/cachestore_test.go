@@ -17,9 +17,9 @@ package cachestore_test
 import (
 	"testing"
 
-	"github.com/creachadair/ffs/blob/cachestore"
 	"github.com/creachadair/ffs/blob/memstore"
 	"github.com/creachadair/ffs/blob/storetest"
+	"github.com/creachadair/ffs/storage/cachestore"
 )
 
 func TestStore(t *testing.T) {
