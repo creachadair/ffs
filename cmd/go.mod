@@ -9,7 +9,7 @@ require (
 	github.com/creachadair/command v0.0.0-20211002170045-5bd7d4de7419
 	github.com/creachadair/ctrl v0.1.1
 	github.com/creachadair/ffs v0.0.0-20211014043226-22c447b2d4fb
-	github.com/creachadair/ffs/storage v0.0.0-20211014043226-22c447b2d4fb
+	github.com/creachadair/ffs/storage v0.0.0-20211014043422-ea65bf2de7b2
 	github.com/creachadair/gcsstore v0.0.0-20211014042516-41c2ce944a91
 	github.com/creachadair/getpass v0.1.1
 	github.com/creachadair/jrpc2 v0.28.0
