@@ -4,23 +4,23 @@ go 1.17
 
 require (
 	github.com/creachadair/badgerstore v0.0.8
-	github.com/creachadair/bitcaskstore v0.0.0-20211010184755-67421b3f0e46
-	github.com/creachadair/boltstore v0.0.0-20211010184812-8cc81ae645e6
+	github.com/creachadair/bitcaskstore v0.0.0-20211014042139-7d627f006f60
+	github.com/creachadair/boltstore v0.0.0-20211014042148-0a9777609a1b
 	github.com/creachadair/command v0.0.0-20211002170045-5bd7d4de7419
 	github.com/creachadair/ctrl v0.1.1
-	github.com/creachadair/ffs v0.0.0-20211014021728-c6413192a7a3
-	github.com/creachadair/ffs/storage v0.0.0-20211014033950-cb7a0e533e0f
-	github.com/creachadair/gcsstore v0.0.0-20211010185243-cbeb330cb0eb
+	github.com/creachadair/ffs v0.0.0-20211014042026-9878c6ae6449
+	github.com/creachadair/ffs/storage v0.0.0-20211014042026-9878c6ae6449
+	github.com/creachadair/gcsstore v0.0.0-20211014042516-41c2ce944a91
 	github.com/creachadair/getpass v0.1.1
-	github.com/creachadair/jrpc2 v0.27.1
+	github.com/creachadair/jrpc2 v0.28.0
 	github.com/creachadair/keyfile v0.7.1
-	github.com/creachadair/leveldbstore v0.0.0-20211010185302-d0ef8bec9f81
-	github.com/creachadair/pebblestore v0.0.0-20211010185750-e0beb0653912
-	github.com/creachadair/pogrebstore v0.0.0-20211010185807-e699ced8630c
-	github.com/creachadair/rpcstore v0.0.0-20211013230238-4172667bb2c9
-	github.com/creachadair/sqlitestore v0.0.0-20211010184718-5214f901bddc
+	github.com/creachadair/leveldbstore v0.0.0-20211014042534-2c07d6b20ef4
+	github.com/creachadair/pebblestore v0.0.0-20211014042759-de9be7b3cf8c
+	github.com/creachadair/pogrebstore v0.0.0-20211014042815-2d2dffcdcef3
+	github.com/creachadair/rpcstore v0.0.0-20211014042851-3eea15dad83b
+	github.com/creachadair/sqlitestore v0.0.0-20211014042835-e1a7bf320d04
 	github.com/creachadair/taskgroup v0.3.1
-	github.com/creachadair/wbstore v0.0.0-20211012051716-651d8fbd66e8
+	github.com/creachadair/wbstore v0.0.0-20211014042902-e3e69b536a62
 	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
