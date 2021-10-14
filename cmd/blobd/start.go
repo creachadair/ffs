@@ -30,12 +30,12 @@ import (
 	"github.com/creachadair/ffs/storage/codecs/encrypted"
 	"github.com/creachadair/ffs/storage/codecs/zlib"
 	"github.com/creachadair/ffs/storage/encoded"
+	"github.com/creachadair/ffs/storage/wbstore"
 	"github.com/creachadair/getpass"
 	"github.com/creachadair/jrpc2"
 	"github.com/creachadair/jrpc2/channel"
 	"github.com/creachadair/jrpc2/server"
 	"github.com/creachadair/keyfile"
-	"github.com/creachadair/wbstore"
 	"golang.org/x/crypto/sha3"
 )
 

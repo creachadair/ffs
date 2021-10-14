@@ -20,7 +20,6 @@ require (
 	github.com/creachadair/rpcstore v0.0.0-20211014042851-3eea15dad83b
 	github.com/creachadair/sqlitestore v0.0.0-20211014042835-e1a7bf320d04
 	github.com/creachadair/taskgroup v0.3.1
-	github.com/creachadair/wbstore v0.0.0-20211014042902-e3e69b536a62
 	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b

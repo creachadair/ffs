@@ -31,10 +31,10 @@ import (
 	"github.com/creachadair/ctrl"
 	"github.com/creachadair/ffs/blob"
 	"github.com/creachadair/ffs/cmd/blobd/store"
+	"github.com/creachadair/ffs/storage/wbstore"
 	"github.com/creachadair/jrpc2"
 	"github.com/creachadair/jrpc2/metrics"
 	"github.com/creachadair/rpcstore"
-	"github.com/creachadair/wbstore"
 
 	// Storage implementations (see the stores registry below).
 	"github.com/creachadair/badgerstore"
