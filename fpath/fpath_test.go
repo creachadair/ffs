@@ -26,10 +26,10 @@ import (
 	"testing"
 
 	"github.com/creachadair/ffs/blob"
-	"github.com/creachadair/ffs/blob/filestore"
 	"github.com/creachadair/ffs/blob/memstore"
 	"github.com/creachadair/ffs/file"
 	"github.com/creachadair/ffs/fpath"
+	"github.com/creachadair/ffs/storage/filestore"
 	"github.com/google/go-cmp/cmp"
 )
 

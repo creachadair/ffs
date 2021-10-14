@@ -20,8 +20,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/creachadair/ffs/blob/filestore"
 	"github.com/creachadair/ffs/blob/storetest"
+	"github.com/creachadair/ffs/storage/filestore"
 )
 
 var keepOutput = flag.Bool("keep", false, "Keep test output after running")
