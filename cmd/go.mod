@@ -6,10 +6,10 @@ require (
 	github.com/creachadair/badgerstore v0.0.8
 	github.com/creachadair/bitcaskstore v0.0.0-20211014042139-7d627f006f60
 	github.com/creachadair/boltstore v0.0.0-20211014042148-0a9777609a1b
-	github.com/creachadair/command v0.0.0-20211002170045-5bd7d4de7419
+	github.com/creachadair/command v0.0.0-20211014234557-42e11017f784
 	github.com/creachadair/ctrl v0.1.1
-	github.com/creachadair/ffs v0.0.0-20211014043226-22c447b2d4fb
-	github.com/creachadair/ffs/storage v0.0.0-20211014043422-ea65bf2de7b2
+	github.com/creachadair/ffs v0.0.0-20211014043847-0de049790d73
+	github.com/creachadair/ffs/storage v0.0.0-20211014043847-0de049790d73
 	github.com/creachadair/gcsstore v0.0.0-20211014042516-41c2ce944a91
 	github.com/creachadair/getpass v0.1.1
 	github.com/creachadair/jrpc2 v0.28.0
@@ -27,7 +27,7 @@ require (
 
 require (
 	cloud.google.com/go v0.97.0 // indirect
-	cloud.google.com/go/storage v1.18.0 // indirect
+	cloud.google.com/go/storage v1.18.1 // indirect
 	crawshaw.io/sqlite v0.3.3-0.20210317204950-23d646f8ac00 // indirect
 	git.mills.io/prologic/bitcask v1.0.0 // indirect
 	github.com/DataDog/zstd v1.4.8 // indirect
@@ -64,7 +64,7 @@ require (
 	go.etcd.io/bbolt v1.3.6 // indirect
 	go.opencensus.io v0.23.0 // indirect
 	golang.org/x/exp v0.0.0-20211012155715-ffe10e552389 // indirect
-	golang.org/x/net v0.0.0-20211013171255-e13a2654a71e // indirect
+	golang.org/x/net v0.0.0-20211014222326-fd004c51d1d6 // indirect
 	golang.org/x/oauth2 v0.0.0-20211005180243-6b3c2da341f1 // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
 	golang.org/x/sys v0.0.0-20211013075003-97ac67df715c // indirect

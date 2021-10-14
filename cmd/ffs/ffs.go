@@ -16,9 +16,7 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
-	"log"
 	"os"
 	"path/filepath"
 
@@ -72,11 +70,5 @@ help [<command>]`,
 			command.HelpCommand(nil),
 		},
 	}
-	if err := command.Execute(root.NewEnv(nil), os.Args[1:]); err != nil {
-		if errors.Is(err, command.ErrUsage) {
-			os.Exit(2)
-		}
-		log.Printf("Error: %v", err)
-		os.Exit(1)
-	}
+	command.RunOrFail(root.NewEnv(nil), os.Args[1:])
 }

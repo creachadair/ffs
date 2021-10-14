@@ -18,9 +18,7 @@ package main
 
 import (
 	"context"
-	"errors"
 	"flag"
-	"log"
 	"os"
 	"path/filepath"
 
@@ -41,14 +39,9 @@ type settings struct {
 }
 
 func main() {
-	if err := command.Execute(tool.NewEnv(&settings{
+	command.RunOrFail(tool.NewEnv(&settings{
 		Context: context.Background(),
-	}), os.Args[1:]); err != nil {
-		if errors.Is(err, command.ErrUsage) {
-			os.Exit(2)
-		}
-		log.Fatalf("Error: %v", err)
-	}
+	}), os.Args[1:])
 }
 
 var tool = &command.C{
