@@ -20,7 +20,7 @@ import (
 	"crypto/cipher"
 	"testing"
 
-	"github.com/creachadair/ffs/blob/codecs/encrypted"
+	"github.com/creachadair/ffs/storage/codecs/encrypted"
 )
 
 func TestRoundTrip(t *testing.T) {

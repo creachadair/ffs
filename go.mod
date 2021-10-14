@@ -5,7 +5,6 @@ go 1.17
 require (
 	github.com/cespare/xxhash/v2 v2.1.2
 	github.com/creachadair/ffs/storage v0.0.0-20211014020421-4f17f651dc77
-	github.com/golang/snappy v0.0.4
 	github.com/google/go-cmp v0.5.6
 	google.golang.org/protobuf v1.27.1
 )
