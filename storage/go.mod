@@ -8,4 +8,7 @@ require (
 	github.com/golang/snappy v0.0.4
 )
 
-require github.com/google/go-cmp v0.5.6
+require (
+	github.com/creachadair/taskgroup v0.3.1
+	github.com/google/go-cmp v0.5.6
+)
