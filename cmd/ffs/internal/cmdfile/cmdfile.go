@@ -68,11 +68,23 @@ a file may be specified in the following formats:
 <origin-key> <path> <file-key>`,
 			Help: `Set the specified path beneath the origin to the given target
 
-The storage key of the modified origin is printed to stderr.
-If the origin is a root pointer, the root is updated with the modified origin.
+The storage key of the modified origin is printed to stdout.
+If the origin is from a root, the root is updated with the modified origin.
 `,
 
 			Run: runSet,
+		},
+		{
+			Name: "remove",
+			Usage: `root:<root-key> <path>
+<origin-key> <path>`,
+			Help: `Remove the specified path from beneth the origin
+
+The storage key of the modified origin is printed to stdout.
+If the origin is from a root, the root is updated with the modified origin.
+`,
+
+			Run: runRemove,
 		},
 	},
 }
@@ -136,7 +148,7 @@ func runSet(env *command.Env, args []string) error {
 			return err
 		}
 
-		if _, err := fpath.Set(cfg.Context, of.rootFile, args[1], &fpath.SetOptions{
+		if _, err := fpath.Set(cfg.Context, of.rootFile, path, &fpath.SetOptions{
 			Create: true,
 			SetStat: func(st *file.Stat) {
 				if st.Mode == 0 {
@@ -147,15 +159,37 @@ func runSet(env *command.Env, args []string) error {
 		}); err != nil {
 			return err
 		}
-		key, err := of.rootFile.Flush(cfg.Context)
+		key, err := of.flushRoot(cfg.Context, s)
 		if err != nil {
 			return err
 		}
-		if of.root != nil {
-			of.root.FileKey = key
-			if err := of.root.Save(cfg.Context, args[0], true); err != nil {
-				return err
-			}
+		fmt.Printf("%x\n", key)
+		return nil
+	})
+}
+
+func runRemove(env *command.Env, args []string) error {
+	if len(args) != 2 {
+		return command.Usagef("got %d arguments, wanted origin, path", len(args))
+	}
+	path := path.Clean(args[1])
+	if path == "" {
+		return command.Usagef("path must not be empty")
+	}
+
+	cfg := env.Config.(*config.Settings)
+	return cfg.WithStore(cfg.Context, func(s blob.CAS) error {
+		of, err := openFile(cfg.Context, s, args[0]) // N.B. No path; see below
+		if err != nil {
+			return err
+		}
+
+		if err := fpath.Remove(cfg.Context, of.rootFile, path); err != nil {
+			return err
+		}
+		key, err := of.flushRoot(cfg.Context, s)
+		if err != nil {
+			return err
 		}
 		fmt.Printf("%x\n", key)
 		return nil
@@ -164,9 +198,24 @@ func runSet(env *command.Env, args []string) error {
 
 type openInfo struct {
 	root       *root.Root // set if the spec is a root key
+	rootKey    string     // set if the spec is a root key
 	rootFile   *file.File // the starting file, whether or not there is a root
 	targetFile *file.File // the target file (== rootFile if there is no path)
 	targetKey  string     // the target file storage key
+}
+
+func (o *openInfo) flushRoot(ctx context.Context, s blob.CAS) (string, error) {
+	key, err := o.rootFile.Flush(ctx)
+	if err != nil {
+		return "", err
+	}
+	if o.root != nil {
+		o.root.FileKey = key
+		if err := o.root.Save(ctx, o.rootKey, true); err != nil {
+			return "", err
+		}
+	}
+	return key, nil
 }
 
 func openFile(ctx context.Context, s blob.CAS, spec string, path ...string) (*openInfo, error) {
@@ -182,6 +231,7 @@ func openFile(ctx context.Context, s blob.CAS, spec string, path ...string) (*op
 			return nil, err
 		}
 		out.root = rp
+		out.rootKey = spec
 		out.rootFile = rf
 		out.targetKey = rp.FileKey
 	} else if fk, err := config.ParseKey(spec); err != nil {
