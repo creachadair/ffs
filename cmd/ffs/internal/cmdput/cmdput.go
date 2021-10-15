@@ -16,7 +16,6 @@ package cmdput
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"io/fs"
@@ -53,7 +52,7 @@ Add each specified path to the store and print its storage key.
 
 func runPut(env *command.Env, args []string) error {
 	if len(args) == 0 {
-		return errors.New("missing required path")
+		return env.Usagef("missing required path")
 	}
 
 	cfg := env.Config.(*config.Settings)
