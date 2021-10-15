@@ -50,7 +50,7 @@ a file may be specified in the following formats:
 		{
 			Name:  "show",
 			Usage: fileCmdUsage,
-			Help:  `Print the representation of a file object`,
+			Help:  "Print the representation of a file object",
 
 			Run: runShow,
 		},
