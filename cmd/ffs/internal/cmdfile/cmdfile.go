@@ -77,8 +77,8 @@ func runShow(env *command.Env, args []string) error {
 
 		msg := file.Encode(fp).Value.(*wiretype.Object_Node).Node
 		fmt.Println(config.ToJSON(map[string]interface{}{
-			"fileKey": []byte(fileKey),
-			"node":    msg,
+			"storageKey": []byte(fileKey),
+			"node":       msg,
 		}))
 		return nil
 	})

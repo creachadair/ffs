@@ -98,8 +98,8 @@ func runView(env *command.Env, args []string) error {
 		}
 		msg := root.Encode(rp).Value.(*wiretype.Object_Root).Root
 		fmt.Println(config.ToJSON(map[string]interface{}{
-			"rootKey": keys[0],
-			"root":    msg,
+			"storageKey": keys[0],
+			"root":       msg,
 		}))
 		return nil
 	})
