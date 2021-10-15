@@ -11,7 +11,6 @@ require (
 	github.com/creachadair/ffs v0.0.0-20211014043847-0de049790d73
 	github.com/creachadair/ffs/storage v0.0.0-20211014043847-0de049790d73
 	github.com/creachadair/gcsstore v0.0.0-20211014042516-41c2ce944a91
-	github.com/creachadair/getpass v0.1.1
 	github.com/creachadair/jrpc2 v0.28.0
 	github.com/creachadair/keyfile v0.7.1
 	github.com/creachadair/leveldbstore v0.0.0-20211014042534-2c07d6b20ef4
@@ -21,6 +20,7 @@ require (
 	github.com/creachadair/sqlitestore v0.0.0-20211014042835-e1a7bf320d04
 	github.com/creachadair/taskgroup v0.3.1
 	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
+	golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1
 	google.golang.org/protobuf v1.27.1
 	gopkg.in/yaml.v3 v3.0.0-20210107192922-496545a6307b
 )

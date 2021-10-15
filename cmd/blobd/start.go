@@ -20,6 +20,7 @@ import (
 	"crypto/cipher"
 	"crypto/hmac"
 	"hash"
+	"io"
 	"log"
 	"net"
 	"os"
@@ -31,12 +32,12 @@ import (
 	"github.com/creachadair/ffs/storage/codecs/zlib"
 	"github.com/creachadair/ffs/storage/encoded"
 	"github.com/creachadair/ffs/storage/wbstore"
-	"github.com/creachadair/getpass"
 	"github.com/creachadair/jrpc2"
 	"github.com/creachadair/jrpc2/channel"
 	"github.com/creachadair/jrpc2/server"
 	"github.com/creachadair/keyfile"
 	"golang.org/x/crypto/sha3"
+	"golang.org/x/term"
 )
 
 type closer = func()
@@ -105,7 +106,9 @@ func mustOpenStore(ctx context.Context) (cas blob.CAS) {
 	}
 
 	key, err := keyfile.LoadKey(*keyFile, func() (string, error) {
-		return getpass.Prompt("Passphrase: ")
+		io.WriteString(os.Stdout, "Passphrase: ")
+		bits, err := term.ReadPassword(0)
+		return string(bits), err
 	})
 	if err != nil {
 		ctrl.Fatalf("Loading encryption key: %v", err)
