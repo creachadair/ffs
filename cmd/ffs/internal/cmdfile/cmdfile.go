@@ -16,7 +16,6 @@ package cmdfile
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -80,7 +79,7 @@ If the origin is a root pointer, the root is updated with the modified origin.
 
 func runShow(env *command.Env, args []string) error {
 	if len(args) == 0 {
-		return errors.New("missing required storage key")
+		return command.Usagef("missing required storage key")
 	}
 	cfg := env.Config.(*config.Settings)
 	return cfg.WithStore(cfg.Context, func(s blob.CAS) error {
@@ -100,7 +99,7 @@ func runShow(env *command.Env, args []string) error {
 
 func runRead(env *command.Env, args []string) error {
 	if len(args) == 0 {
-		return errors.New("missing required storage key")
+		return command.Usagef("missing required storage key")
 	}
 	cfg := env.Config.(*config.Settings)
 	return cfg.WithStore(cfg.Context, func(s blob.CAS) error {
@@ -115,11 +114,11 @@ func runRead(env *command.Env, args []string) error {
 
 func runSet(env *command.Env, args []string) error {
 	if len(args) != 3 {
-		return errors.New("required: origin, path, and target")
+		return command.Usagef("got %d arguments, wanted origin, path, target", len(args))
 	}
 	path := path.Clean(args[1])
 	if path == "" {
-		return errors.New("path must not be empty")
+		return command.Usagef("path must not be empty")
 	}
 	targetKey, err := config.ParseKey(args[2])
 	if err != nil {
