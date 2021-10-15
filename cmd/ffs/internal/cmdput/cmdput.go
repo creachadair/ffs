@@ -23,7 +23,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"syscall"
 
 	"github.com/creachadair/command"
 	"github.com/creachadair/ffs/blob"
@@ -192,11 +191,7 @@ func fileInfoToStat(fi fs.FileInfo) *file.Stat {
 	if !putFlags.Stat {
 		return nil
 	}
-	var owner, group int
-	if st, ok := fi.Sys().(*syscall.Stat_t); ok {
-		owner = int(st.Uid)
-		group = int(st.Gid)
-	}
+	owner, group := ownerAndGroup(fi)
 	return &file.Stat{
 		Mode:    fi.Mode(),
 		ModTime: fi.ModTime(),
