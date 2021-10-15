@@ -16,7 +16,6 @@ package cmdroot
 
 import (
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -87,7 +86,7 @@ func runView(env *command.Env, args []string) error {
 	if err != nil {
 		return err
 	} else if len(keys) == 0 {
-		return errors.New("missing required <root-key>")
+		return env.Usagef("missing required <root-key>")
 	}
 
 	cfg := env.Config.(*config.Settings)
@@ -107,7 +106,7 @@ func runView(env *command.Env, args []string) error {
 
 func runList(env *command.Env, args []string) error {
 	if len(args) != 0 {
-		return errors.New("extra arguments after command")
+		return env.Usagef("extra arguments after command")
 	}
 	cfg := env.Config.(*config.Settings)
 	return cfg.WithStore(cfg.Context, func(s blob.CAS) error {
@@ -127,7 +126,7 @@ var createFlags struct {
 
 func runCreate(env *command.Env, args []string) error {
 	if len(args) < 2 {
-		return errors.New("usage is: <name> <description>...") //lint:ignore ST1005 User message.
+		return env.Usagef("usage is: <name> <description>...")
 	}
 	key := config.RootKey(args[0])
 	desc := strings.Join(args[1:], " ")
@@ -194,7 +193,7 @@ type rootArgs struct {
 
 func getNameArgs(env *command.Env, args []string) (*rootArgs, error) {
 	if len(args) < 2 {
-		return nil, errors.New("usage: " + env.Command.Name + " " + env.Command.Usage)
+		return nil, env.Usagef("incorrect arguments")
 	}
 	key := config.RootKey(args[0])
 	cfg := env.Config.(*config.Settings)

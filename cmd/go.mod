@@ -6,7 +6,7 @@ require (
 	github.com/creachadair/badgerstore v0.0.8
 	github.com/creachadair/bitcaskstore v0.0.0-20211014042139-7d627f006f60
 	github.com/creachadair/boltstore v0.0.0-20211014042148-0a9777609a1b
-	github.com/creachadair/command v0.0.0-20211015195326-223a8d0e9eb3
+	github.com/creachadair/command v0.0.0-20211015205323-b773c3474453
 	github.com/creachadair/ctrl v0.1.1
 	github.com/creachadair/ffs v0.0.0-20211014043847-0de049790d73
 	github.com/creachadair/ffs/storage v0.0.0-20211014043847-0de049790d73

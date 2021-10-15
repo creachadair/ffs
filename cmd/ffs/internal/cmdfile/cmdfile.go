@@ -91,7 +91,7 @@ If the origin is from a root, the root is updated with the modified origin.
 
 func runShow(env *command.Env, args []string) error {
 	if len(args) == 0 {
-		return command.Usagef("missing required storage key")
+		return env.Usagef("missing required storage key")
 	}
 	cfg := env.Config.(*config.Settings)
 	return cfg.WithStore(cfg.Context, func(s blob.CAS) error {
@@ -111,7 +111,7 @@ func runShow(env *command.Env, args []string) error {
 
 func runRead(env *command.Env, args []string) error {
 	if len(args) == 0 {
-		return command.Usagef("missing required storage key")
+		return env.Usagef("missing required storage key")
 	}
 	cfg := env.Config.(*config.Settings)
 	return cfg.WithStore(cfg.Context, func(s blob.CAS) error {
@@ -126,11 +126,11 @@ func runRead(env *command.Env, args []string) error {
 
 func runSet(env *command.Env, args []string) error {
 	if len(args) != 3 {
-		return command.Usagef("got %d arguments, wanted origin, path, target", len(args))
+		return env.Usagef("got %d arguments, wanted origin, path, target", len(args))
 	}
 	path := path.Clean(args[1])
 	if path == "" {
-		return command.Usagef("path must not be empty")
+		return env.Usagef("path must not be empty")
 	}
 	targetKey, err := config.ParseKey(args[2])
 	if err != nil {
@@ -170,11 +170,11 @@ func runSet(env *command.Env, args []string) error {
 
 func runRemove(env *command.Env, args []string) error {
 	if len(args) != 2 {
-		return command.Usagef("got %d arguments, wanted origin, path", len(args))
+		return env.Usagef("got %d arguments, wanted origin, path", len(args))
 	}
 	path := path.Clean(args[1])
 	if path == "" {
-		return command.Usagef("path must not be empty")
+		return env.Usagef("path must not be empty")
 	}
 
 	cfg := env.Config.(*config.Settings)
