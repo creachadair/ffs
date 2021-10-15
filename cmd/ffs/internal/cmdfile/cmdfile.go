@@ -19,7 +19,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
+	"path"
 	"strings"
 
 	"github.com/creachadair/command"
@@ -61,6 +63,18 @@ a file may be specified in the following formats:
 
 			Run: runRead,
 		},
+		{
+			Name: "set",
+			Usage: `root:<root-key> <path> <target-key>
+<origin-key> <path> <file-key>`,
+			Help: `Set the specified path beneath the origin to the given target
+
+The storage key of the modified origin is printed to stderr.
+If the origin is a root pointer, the root is updated with the modified origin.
+`,
+
+			Run: runSet,
+		},
 	},
 }
 
@@ -70,14 +84,14 @@ func runShow(env *command.Env, args []string) error {
 	}
 	cfg := env.Config.(*config.Settings)
 	return cfg.WithStore(cfg.Context, func(s blob.CAS) error {
-		fp, fileKey, err := openFile(cfg.Context, s, args[0], args[1:]...)
+		of, err := openFile(cfg.Context, s, args[0], args[1:]...)
 		if err != nil {
 			return err
 		}
 
-		msg := file.Encode(fp).Value.(*wiretype.Object_Node).Node
+		msg := file.Encode(of.targetFile).Value.(*wiretype.Object_Node).Node
 		fmt.Println(config.ToJSON(map[string]interface{}{
-			"storageKey": []byte(fileKey),
+			"storageKey": []byte(of.targetKey),
 			"node":       msg,
 		}))
 		return nil
@@ -90,40 +104,106 @@ func runRead(env *command.Env, args []string) error {
 	}
 	cfg := env.Config.(*config.Settings)
 	return cfg.WithStore(cfg.Context, func(s blob.CAS) error {
-		fp, _, err := openFile(cfg.Context, s, args[0], args[1:]...)
+		of, err := openFile(cfg.Context, s, args[0], args[1:]...)
 		if err != nil {
 			return err
 		}
-		_, err = io.Copy(os.Stdout, fp.Cursor(cfg.Context))
+		_, err = io.Copy(os.Stdout, of.targetFile.Cursor(cfg.Context))
 		return err
 	})
 }
 
-func openFile(ctx context.Context, s blob.CAS, spec string, path ...string) (*file.File, string, error) {
-	var fileKey string
+func runSet(env *command.Env, args []string) error {
+	if len(args) != 3 {
+		return errors.New("required: origin, path, and target")
+	}
+	path := path.Clean(args[1])
+	if path == "" {
+		return errors.New("path must not be empty")
+	}
+	targetKey, err := config.ParseKey(args[2])
+	if err != nil {
+		return fmt.Errorf("target key: %w", err)
+	}
+
+	cfg := env.Config.(*config.Settings)
+	return cfg.WithStore(cfg.Context, func(s blob.CAS) error {
+		tf, err := file.Open(cfg.Context, s, targetKey)
+		if err != nil {
+			return fmt.Errorf("target file: %w", err)
+		}
+		of, err := openFile(cfg.Context, s, args[0]) // N.B. No path; see below.
+		if err != nil {
+			return err
+		}
+
+		if _, err := fpath.Set(cfg.Context, of.rootFile, args[1], &fpath.SetOptions{
+			Create: true,
+			SetStat: func(st *file.Stat) {
+				if st.Mode == 0 {
+					st.Mode = fs.ModeDir | 0755
+				}
+			},
+			File: tf,
+		}); err != nil {
+			return err
+		}
+		key, err := of.rootFile.Flush(cfg.Context)
+		if err != nil {
+			return err
+		}
+		if of.root != nil {
+			of.root.FileKey = key
+			if err := of.root.Save(cfg.Context, args[0], true); err != nil {
+				return err
+			}
+		}
+		fmt.Printf("%x\n", key)
+		return nil
+	})
+}
+
+type openInfo struct {
+	root       *root.Root // set if the spec is a root key
+	rootFile   *file.File // the starting file, whether or not there is a root
+	targetFile *file.File // the target file (== rootFile if there is no path)
+	targetKey  string     // the target file storage key
+}
+
+func openFile(ctx context.Context, s blob.CAS, spec string, path ...string) (*openInfo, error) {
+	var out openInfo
+
 	if strings.HasPrefix(spec, "root:") {
 		rp, err := root.Open(ctx, s, spec)
 		if err != nil {
-			return nil, "", err
+			return nil, err
 		}
-		fileKey = rp.FileKey
+		rf, err := rp.File(ctx)
+		if err != nil {
+			return nil, err
+		}
+		out.root = rp
+		out.rootFile = rf
+		out.targetKey = rp.FileKey
 	} else if fk, err := config.ParseKey(spec); err != nil {
-		return nil, "", err
+		return nil, err
+	} else if fp, err := file.Open(ctx, s, fk); err != nil {
+		return nil, err
 	} else {
-		fileKey = fk
+		out.rootFile = fp
+		out.targetKey = fk
 	}
 
-	fp, err := file.Open(ctx, s, fileKey)
-	if err != nil {
-		return nil, fileKey, err
-	} else if len(path) == 0 {
-		return fp, fileKey, nil
+	if len(path) == 0 {
+		out.targetFile = out.rootFile
+		return &out, nil
 	}
 
-	tp, err := fpath.Open(ctx, fp, path[0])
+	var err error
+	out.targetFile, err = fpath.Open(ctx, out.rootFile, path[0])
 	if err != nil {
-		return nil, "", err
+		return nil, err
 	}
-	fileKey, _ = tp.Flush(ctx)
-	return tp, fileKey, nil
+	out.targetKey, _ = out.targetFile.Flush(ctx)
+	return &out, nil
 }
