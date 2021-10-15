@@ -19,6 +19,7 @@ require (
 	github.com/creachadair/rpcstore v0.0.0-20211014042851-3eea15dad83b
 	github.com/creachadair/sqlitestore v0.0.0-20211014042835-e1a7bf320d04
 	github.com/creachadair/taskgroup v0.3.1
+	github.com/pkg/xattr v0.4.3
 	golang.org/x/crypto v0.0.0-20210921155107-089bfa567519
 	golang.org/x/term v0.0.0-20201126162022-7de9c90e9dd1
 	google.golang.org/protobuf v1.27.1
