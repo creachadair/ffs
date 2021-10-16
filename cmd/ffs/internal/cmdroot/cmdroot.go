@@ -54,6 +54,7 @@ var Command = &command.C{
 
 			SetFlags: func(_ *command.Env, fs *flag.FlagSet) {
 				fs.BoolVar(&createFlags.Replace, "replace", false, "Replace an existing root name")
+				fs.StringVar(&createFlags.FileKey, "key", "", "Initial file key")
 			},
 			Run: runCreate,
 		},
@@ -122,6 +123,7 @@ func runList(env *command.Env, args []string) error {
 
 var createFlags struct {
 	Replace bool
+	FileKey string
 }
 
 func runCreate(env *command.Env, args []string) error {
@@ -130,13 +132,21 @@ func runCreate(env *command.Env, args []string) error {
 	}
 	key := config.RootKey(args[0])
 	desc := strings.Join(args[1:], " ")
+
 	cfg := env.Config.(*config.Settings)
 	return cfg.WithStore(cfg.Context, func(s blob.CAS) error {
-		fk, err := file.New(s, &file.NewOptions{
-			Stat: &file.Stat{Mode: os.ModeDir | 0755},
-		}).Flush(cfg.Context)
+		var fk string
+		var err error
+
+		if createFlags.FileKey == "" {
+			fk, err = file.New(s, &file.NewOptions{
+				Stat: &file.Stat{Mode: os.ModeDir | 0755},
+			}).Flush(cfg.Context)
+		} else {
+			fk, err = config.ParseKey(createFlags.FileKey)
+		}
 		if err != nil {
-			return fmt.Errorf("creating new file: %w", err)
+			return err
 		}
 		return root.New(s, &root.Options{
 			Description: desc,
