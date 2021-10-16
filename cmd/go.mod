@@ -8,7 +8,7 @@ require (
 	github.com/creachadair/boltstore v0.0.0-20211014042148-0a9777609a1b
 	github.com/creachadair/command v0.0.0-20211015205323-b773c3474453
 	github.com/creachadair/ctrl v0.1.1
-	github.com/creachadair/ffs v0.0.0-20211014043847-0de049790d73
+	github.com/creachadair/ffs v0.0.0-20211016041832-d69e1f0e4a57
 	github.com/creachadair/ffs/storage v0.0.0-20211014043847-0de049790d73
 	github.com/creachadair/gcsstore v0.0.0-20211014042516-41c2ce944a91
 	github.com/creachadair/jrpc2 v0.28.0
@@ -17,6 +17,7 @@ require (
 	github.com/creachadair/pebblestore v0.0.0-20211014042759-de9be7b3cf8c
 	github.com/creachadair/pogrebstore v0.0.0-20211014042815-2d2dffcdcef3
 	github.com/creachadair/rpcstore v0.0.0-20211014042851-3eea15dad83b
+	github.com/creachadair/s3store v0.0.0-20211016213001-8b63086ce297
 	github.com/creachadair/sqlitestore v0.0.0-20211014042835-e1a7bf320d04
 	github.com/creachadair/taskgroup v0.3.1
 	github.com/pkg/xattr v0.4.3
@@ -34,6 +35,7 @@ require (
 	github.com/DataDog/zstd v1.4.8 // indirect
 	github.com/abcum/lcp v0.0.0-20201209214815-7a3f3840be81 // indirect
 	github.com/akrylysov/pogreb v0.10.1 // indirect
+	github.com/aws/aws-sdk-go v1.41.4 // indirect
 	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/cockroachdb/errors v1.8.6 // indirect
@@ -54,6 +56,7 @@ require (
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/google/go-cmp v0.5.6 // indirect
 	github.com/googleapis/gax-go/v2 v2.1.1 // indirect
+	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/klauspost/compress v1.13.6 // indirect
 	github.com/kr/pretty v0.3.0 // indirect
 	github.com/kr/text v0.2.0 // indirect

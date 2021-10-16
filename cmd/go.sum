@@ -94,6 +94,8 @@ github.com/armon/go-radix v0.0.0-20180808171621-7fddfc383310/go.mod h1:ufUuZ+zHj
 github.com/aryann/difflib v0.0.0-20170710044230-e206f873d14a/go.mod h1:DAHtR1m6lCRdSC2Tm3DSWRPvIPr6xNKyeHdqDQSQT+A=
 github.com/aws/aws-lambda-go v1.13.3/go.mod h1:4UKl9IzQMoD+QF79YdCuzCwp8VbmG4VAQwij/eHl5CU=
 github.com/aws/aws-sdk-go v1.27.0/go.mod h1:KmX6BPdI08NWTb3/sm4ZGu5ShLoqVDhKgpiN924inxo=
+github.com/aws/aws-sdk-go v1.41.4 h1:5xRzZp8LfBFfowMPxmoNsxLBZOY/NTH4EeI7q2F5eWE=
+github.com/aws/aws-sdk-go v1.41.4/go.mod h1:585smgzpB/KqRA+K3y/NL/oYRqQvpNJYvLm+LY1U59Q=
 github.com/aws/aws-sdk-go-v2 v0.18.0/go.mod h1:JWVYvqSMppoMJC0x5wdwiImzgXTI9FuZwxzkQq9wy+g=
 github.com/aymerick/raymond v2.0.3-0.20180322193309-b565731e1464+incompatible/go.mod h1:osfaiScAUVup+UC9Nfq76eWqDhXlp+4UYaA8uhTBO6g=
 github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973/go.mod h1:Dwedo/Wpr24TaqPxmxbtue+5NUziq4I4S80YR8gNf3Q=
@@ -168,8 +170,8 @@ github.com/creachadair/ffs v0.0.0-20201015022807-e2e481d341ed/go.mod h1:eXGKRFZn
 github.com/creachadair/ffs v0.0.0-20211013230823-ae39e39f88f2/go.mod h1:MVxbSGbJi3n6az0h3DYBEauFTzOawCFmh0W5vL3tzzw=
 github.com/creachadair/ffs v0.0.0-20211014033950-cb7a0e533e0f/go.mod h1:BNrBgicjh5a9fi/kyaz6r/oGMjYXbm3nQ/uSo/v4MHo=
 github.com/creachadair/ffs v0.0.0-20211014043002-58c32157b25c/go.mod h1:BNrBgicjh5a9fi/kyaz6r/oGMjYXbm3nQ/uSo/v4MHo=
-github.com/creachadair/ffs v0.0.0-20211014043847-0de049790d73 h1:LFslJ+vrhtk8pX98VK0MQbQb9oVS3KkGrokZyT2TmFw=
-github.com/creachadair/ffs v0.0.0-20211014043847-0de049790d73/go.mod h1:BNrBgicjh5a9fi/kyaz6r/oGMjYXbm3nQ/uSo/v4MHo=
+github.com/creachadair/ffs v0.0.0-20211016041832-d69e1f0e4a57 h1:JZ1tmOeWRe4tDZ9cd3Dm/5RgLVH1Knx94+c1si5r4qg=
+github.com/creachadair/ffs v0.0.0-20211016041832-d69e1f0e4a57/go.mod h1:BNrBgicjh5a9fi/kyaz6r/oGMjYXbm3nQ/uSo/v4MHo=
 github.com/creachadair/ffs/storage v0.0.0-20211014020421-4f17f651dc77/go.mod h1:JbHoXzCTKfIYF9e+uLhAZkomzMwAD/5B9X3TYuWgaAM=
 github.com/creachadair/ffs/storage v0.0.0-20211014043847-0de049790d73 h1:5IYK4BIsaZWVWdAlhM1B1MS7I+5Y9O8RHZ8uML8lviI=
 github.com/creachadair/ffs/storage v0.0.0-20211014043847-0de049790d73/go.mod h1:6NjKC9VEMcbfOn3KKqcEvAa1D5AgW+uAk6VpXV9+MsA=
@@ -188,6 +190,8 @@ github.com/creachadair/pogrebstore v0.0.0-20211014042815-2d2dffcdcef3 h1:OUCFcdR
 github.com/creachadair/pogrebstore v0.0.0-20211014042815-2d2dffcdcef3/go.mod h1:OQmIY6twpRtV/QPxwV2NSvuhpWnieU0ASmN0uweotNM=
 github.com/creachadair/rpcstore v0.0.0-20211014042851-3eea15dad83b h1:sbj2h/qTajMXtmU4meWtAbFCvEHJ/hg2YsClVJGB/D0=
 github.com/creachadair/rpcstore v0.0.0-20211014042851-3eea15dad83b/go.mod h1:0D+AwbeUpfH3pMsLl7b4XagqJ4VYQOTq72l1F+2yv1I=
+github.com/creachadair/s3store v0.0.0-20211016213001-8b63086ce297 h1:8uew5HjWn5ppFHFj5+qb5g80KpDiUyrjn3N29GSpwkE=
+github.com/creachadair/s3store v0.0.0-20211016213001-8b63086ce297/go.mod h1:HWqrIo2AspxQ+JtTzhLgGN4jzMJq7ZyFpuJuoB19YJU=
 github.com/creachadair/sqlitestore v0.0.0-20211014042835-e1a7bf320d04 h1:uAezQKv49ZzQelFXk7FdfajpPQbEA2bjwYHvPEihRNk=
 github.com/creachadair/sqlitestore v0.0.0-20211014042835-e1a7bf320d04/go.mod h1:1RZ2vj3bG8lyV7MzfX7b8zSjIWHGaFsGX+d177CVgXU=
 github.com/creachadair/taskgroup v0.3.1 h1:Mpi0sc005YWdsDEJsh8vGPOygp9b0rLR0OW6VBOp9Pc=
@@ -417,6 +421,10 @@ github.com/iris-contrib/go.uuid v2.0.0+incompatible/go.mod h1:iz2lgM/1UnEf1kP0L/
 github.com/iris-contrib/i18n v0.0.0-20171121225848-987a633949d0/go.mod h1:pMCz62A0xJL6I+umB2YTlFRwWXaDFA0jy+5HzGiJjqI=
 github.com/iris-contrib/schema v0.0.1/go.mod h1:urYA3uvUNG1TIIjOSCzHr9/LmbQo8LrOcOqfqxa4hXw=
 github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af/go.mod h1:Nht3zPeWKUH0NzdCt2Blrr5ys8VGpn0CEB0cQHVjt7k=
+github.com/jmespath/go-jmespath v0.4.0 h1:BEgLn5cpjn8UN1mAw4NjwDrS35OdebyEtFe+9YPoQUg=
+github.com/jmespath/go-jmespath v0.4.0/go.mod h1:T8mJZnbsbmF+m6zOOFylbeCJqk5+pHWvzYPziyZiYoo=
+github.com/jmespath/go-jmespath/internal/testify v1.5.1 h1:shLQSRRSCCPj3f2gpwzGwWFoC7ycTf1rcQZHOlsJ6N8=
+github.com/jmespath/go-jmespath/internal/testify v1.5.1/go.mod h1:L3OGu8Wl2/fWfCI6z80xFu9LTZmf1ZRjMHUOPmWr69U=
 github.com/jonboulle/clockwork v0.1.0/go.mod h1:Ii8DK3G1RaLaWxj9trq07+26W01tbo22gdxWY5EU2bo=
 github.com/json-iterator/go v1.1.6/go.mod h1:+SdeFBvtyEkXs7REEP0seUULqWtbJapLOCVDaaPEHmU=
 github.com/json-iterator/go v1.1.7/go.mod h1:KdQUCv79m/52Kvf8AW2vK1V8akMuk1QjK/uOdHXbAo4=

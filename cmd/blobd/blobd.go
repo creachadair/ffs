@@ -46,6 +46,7 @@ import (
 	"github.com/creachadair/leveldbstore"
 	"github.com/creachadair/pebblestore"
 	"github.com/creachadair/pogrebstore"
+	"github.com/creachadair/s3store"
 	"github.com/creachadair/sqlitestore"
 )
 
@@ -68,6 +69,7 @@ var (
 		"memory":  memstore.Opener,
 		"pebble":  pebblestore.Opener,
 		"pogreb":  pogrebstore.Opener,
+		"s3":      s3store.Opener,
 		"sqlite":  sqlitestore.Opener,
 	}
 )
