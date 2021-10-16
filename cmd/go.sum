@@ -190,8 +190,8 @@ github.com/creachadair/pogrebstore v0.0.0-20211014042815-2d2dffcdcef3 h1:OUCFcdR
 github.com/creachadair/pogrebstore v0.0.0-20211014042815-2d2dffcdcef3/go.mod h1:OQmIY6twpRtV/QPxwV2NSvuhpWnieU0ASmN0uweotNM=
 github.com/creachadair/rpcstore v0.0.0-20211014042851-3eea15dad83b h1:sbj2h/qTajMXtmU4meWtAbFCvEHJ/hg2YsClVJGB/D0=
 github.com/creachadair/rpcstore v0.0.0-20211014042851-3eea15dad83b/go.mod h1:0D+AwbeUpfH3pMsLl7b4XagqJ4VYQOTq72l1F+2yv1I=
-github.com/creachadair/s3store v0.0.0-20211016213001-8b63086ce297 h1:8uew5HjWn5ppFHFj5+qb5g80KpDiUyrjn3N29GSpwkE=
-github.com/creachadair/s3store v0.0.0-20211016213001-8b63086ce297/go.mod h1:HWqrIo2AspxQ+JtTzhLgGN4jzMJq7ZyFpuJuoB19YJU=
+github.com/creachadair/s3store v0.0.0-20211016224647-a9effdec6f32 h1:LAZWNok8lYZptRymGmlIT+3xNTlPEZQUkIkhpjn34z8=
+github.com/creachadair/s3store v0.0.0-20211016224647-a9effdec6f32/go.mod h1:HWqrIo2AspxQ+JtTzhLgGN4jzMJq7ZyFpuJuoB19YJU=
 github.com/creachadair/sqlitestore v0.0.0-20211014042835-e1a7bf320d04 h1:uAezQKv49ZzQelFXk7FdfajpPQbEA2bjwYHvPEihRNk=
 github.com/creachadair/sqlitestore v0.0.0-20211014042835-e1a7bf320d04/go.mod h1:1RZ2vj3bG8lyV7MzfX7b8zSjIWHGaFsGX+d177CVgXU=
 github.com/creachadair/taskgroup v0.3.1 h1:Mpi0sc005YWdsDEJsh8vGPOygp9b0rLR0OW6VBOp9Pc=

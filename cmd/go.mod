@@ -17,7 +17,7 @@ require (
 	github.com/creachadair/pebblestore v0.0.0-20211014042759-de9be7b3cf8c
 	github.com/creachadair/pogrebstore v0.0.0-20211014042815-2d2dffcdcef3
 	github.com/creachadair/rpcstore v0.0.0-20211014042851-3eea15dad83b
-	github.com/creachadair/s3store v0.0.0-20211016213001-8b63086ce297
+	github.com/creachadair/s3store v0.0.0-20211016224647-a9effdec6f32
 	github.com/creachadair/sqlitestore v0.0.0-20211014042835-e1a7bf320d04
 	github.com/creachadair/taskgroup v0.3.1
 	github.com/pkg/xattr v0.4.3
