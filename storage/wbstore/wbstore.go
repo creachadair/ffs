@@ -253,6 +253,8 @@ func (s *Store) CASPut(ctx context.Context, data []byte) (string, error) {
 	key, err := s.CAS.CASKey(ctx, data)
 	if err != nil {
 		return "", err
+	} else if _, err := s.CAS.Size(ctx, key); err == nil {
+		return key, nil
 	}
 	err = s.buf.Put(ctx, blob.PutOptions{
 		Key:     key,
