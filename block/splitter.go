@@ -107,7 +107,7 @@ func NewSplitter(r io.Reader, c *SplitConfig) *Splitter {
 	if v, ok := r.(*bufio.Reader); ok {
 		buf = v
 	} else {
-		buf = bufio.NewReader(r)
+		buf = bufio.NewReaderSize(r, c.max())
 	}
 	return &Splitter{
 		reader: buf,
