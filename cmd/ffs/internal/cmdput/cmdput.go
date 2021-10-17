@@ -198,8 +198,8 @@ func putDir(ctx context.Context, s blob.CAS, path string) (*file.File, error) {
 			e := e
 			g.Go(func() error {
 				if putFlags.Verbose {
-					log.Printf("copying %d bytes from %q", fi.Size(), e.name)
-					if fi.Size() > 1<<20 {
+					log.Printf("copying %d bytes from %q", e.fi.Size(), e.name)
+					if e.fi.Size() > 1<<20 {
 						st := time.Now()
 						defer func() {
 							log.Printf("finished %q [%v elapsed]", e.name, time.Since(st))
