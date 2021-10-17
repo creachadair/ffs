@@ -78,28 +78,29 @@ func runPut(env *command.Env, args []string) error {
 
 // putFile puts a single file or symlink into the store.
 // The caller is responsible for closing in after putFile returns.
-func putFile(ctx context.Context, s blob.CAS, path string, in *os.File) (*file.File, error) {
-	fi, err := in.Stat()
-	if err != nil {
-		return nil, err
-	}
-
-	// File or symbolic link.
+func putFile(ctx context.Context, s blob.CAS, path string, fi fs.FileInfo) (*file.File, error) {
 	f := file.New(s, &file.NewOptions{
 		Name: fi.Name(),
 		Stat: fileInfoToStat(fi),
 	})
 
 	// Extended attributes (if -xattr is set)
-	if err := addExtAttrs(in, f); err != nil {
+	if err := addExtAttrs(path, f); err != nil {
 		return nil, err
 	}
 
 	if fi.Mode().IsRegular() {
+		// Copy file contents.
+		in, err := os.Open(path)
+		if err != nil {
+			return nil, err
+		}
+		defer in.Close()
 		if err := f.SetData(ctx, in); err != nil {
 			return nil, fmt.Errorf("copying data: %w", err)
 		}
 	} else if fi.Mode()&fs.ModeSymlink != 0 {
+		// Write symbolic link target as file content.
 		tgt, err := os.Readlink(path)
 		if err != nil {
 			return nil, err
@@ -113,18 +114,13 @@ func putFile(ctx context.Context, s blob.CAS, path string, in *os.File) (*file.F
 // putDir puts a single file, directory, or symlink into the store.
 // If path names a plain file or symlin, it calls putFile.
 func putDir(ctx context.Context, s blob.CAS, path string) (*file.File, error) {
-	in, err := os.Open(path)
+	fi, err := os.Lstat(path)
 	if err != nil {
 		return nil, err
 	}
-	defer in.Close()
-
-	fi, err := in.Stat()
-	if err != nil {
-		return nil, err
-	} else if !fi.IsDir() {
+	if !fi.IsDir() {
 		// Non-directory files, symlinks, etc.
-		return putFile(ctx, s, path, in)
+		return putFile(ctx, s, path, fi)
 	}
 
 	// Directory
@@ -134,12 +130,11 @@ func putDir(ctx context.Context, s blob.CAS, path string) (*file.File, error) {
 	})
 
 	// Extended attributes (if -xattr is set)
-	if err := addExtAttrs(in, d); err != nil {
+	if err := addExtAttrs(path, d); err != nil {
 		return nil, err
 	}
 
 	// Children
-	in.Close()
 	elts, err := os.ReadDir(path)
 	if err != nil {
 		return nil, err
@@ -153,11 +148,10 @@ func putDir(ctx context.Context, s blob.CAS, path string) (*file.File, error) {
 			kid, err = putDir(ctx, s, sub)
 		} else if t := elt.Type(); t != 0 && (t&fs.ModeSymlink == 0) {
 			continue // e.g., socket, pipe, device, fifo, etc.
-		} else if in, err = os.Open(sub); err != nil {
+		} else if fi, err = elt.Info(); err != nil {
 			return nil, err
 		} else {
-			kid, err = putFile(ctx, s, sub, in)
-			in.Close()
+			kid, err = putFile(ctx, s, sub, fi)
 		}
 		if err != nil {
 			return nil, err
@@ -167,17 +161,17 @@ func putDir(ctx context.Context, s blob.CAS, path string) (*file.File, error) {
 	return d, nil
 }
 
-func addExtAttrs(in *os.File, f *file.File) error {
+func addExtAttrs(path string, f *file.File) error {
 	if !putFlags.XAttr {
 		return nil
 	}
-	names, err := xattr.FList(in)
+	names, err := xattr.LList(path)
 	if err != nil {
 		return fmt.Errorf("listing xattr: %w", err)
 	}
 	xa := f.XAttr()
 	for _, name := range names {
-		data, err := xattr.FGet(in, name)
+		data, err := xattr.LGet(path, name)
 		if err != nil {
 			return fmt.Errorf("get xattr %q: %w", name, err)
 		}
