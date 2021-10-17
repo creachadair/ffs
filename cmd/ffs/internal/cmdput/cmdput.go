@@ -23,6 +23,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/creachadair/command"
 	"github.com/creachadair/ffs/blob"
@@ -187,12 +188,22 @@ func putDir(ctx context.Context, s blob.CAS, path string) (*file.File, error) {
 
 	// Process plain files in parallel.
 	if len(files) != 0 {
+		if putFlags.Verbose {
+			log.Printf("in %q: storing %d files", path, len(files))
+		}
 		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
 		g := taskgroup.New(taskgroup.Trigger(cancel))
 		for _, e := range files {
 			e := e
 			g.Go(func() error {
+				if putFlags.Verbose && fi.Size() > 1<<20 {
+					st := time.Now()
+					log.Printf("copying %d bytes from %q", fi.Size(), e.name)
+					defer func() {
+						log.Printf("finished %q [%v elapsed]", e.name, time.Since(st))
+					}()
+				}
 				kid, err := putFile(ctx, s, e.sub, e.fi)
 				if err != nil {
 					return err
