@@ -197,12 +197,14 @@ func putDir(ctx context.Context, s blob.CAS, path string) (*file.File, error) {
 		for _, e := range files {
 			e := e
 			g.Go(func() error {
-				if putFlags.Verbose && fi.Size() > 1<<20 {
-					st := time.Now()
+				if putFlags.Verbose {
 					log.Printf("copying %d bytes from %q", fi.Size(), e.name)
-					defer func() {
-						log.Printf("finished %q [%v elapsed]", e.name, time.Since(st))
-					}()
+					if fi.Size() > 1<<20 {
+						st := time.Now()
+						defer func() {
+							log.Printf("finished %q [%v elapsed]", e.name, time.Since(st))
+						}()
+					}
 				}
 				kid, err := putFile(ctx, s, e.sub, e.fi)
 				if err != nil {
