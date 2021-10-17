@@ -79,7 +79,9 @@ func startNetServer(ctx context.Context, opts startConfig) (closer, <-chan error
 func mustOpenStore(ctx context.Context) (cas blob.CAS) {
 	var buf blob.Store
 	defer func() {
-		if buf != nil {
+		if x := recover(); x != nil {
+			panic(x)
+		} else if buf != nil {
 			cas = wbstore.New(ctx, cas, buf)
 		}
 	}()
