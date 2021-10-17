@@ -63,6 +63,9 @@ var Command = &command.C{
 			Usage: "<source-name> <target-name>",
 			Help:  "Duplicate a root pointer under a new name",
 
+			SetFlags: func(_ *command.Env, fs *flag.FlagSet) {
+				fs.BoolVar(&copyFlags.Replace, "replace", false, "Replace an existing target root name")
+			},
 			Run: runCopy,
 		},
 		{
@@ -155,6 +158,10 @@ func runCreate(env *command.Env, args []string) error {
 	})
 }
 
+var copyFlags struct {
+	Replace bool
+}
+
 func runCopy(env *command.Env, args []string) error {
 	na, err := getNameArgs(env, args)
 	if err != nil {
@@ -162,7 +169,7 @@ func runCopy(env *command.Env, args []string) error {
 	}
 	defer na.Close()
 	key := config.RootKey(na.Args[0])
-	return na.Root.Save(na.Context, key, false)
+	return na.Root.Save(na.Context, key, copyFlags.Replace)
 }
 
 func runEditDesc(env *command.Env, args []string) error {
