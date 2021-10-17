@@ -47,7 +47,7 @@ help [<command>]`,
 				configPath = cf
 			}
 			fs.StringVar(&configPath, "config", configPath, "Configuration file path")
-			fs.StringVar(&storeAddr, "store", storeAddr, "Store service address (overrides config)")
+			fs.StringVar(&storeAddr, "store", storeAddr, "Store service address (overrides config and environment)")
 		},
 
 		Init: func(env *command.Env) error {
@@ -57,6 +57,8 @@ help [<command>]`,
 			}
 			if storeAddr != "" {
 				cfg.StoreAddress = storeAddr
+			} else if bs := os.Getenv("BLOB_STORE"); bs != "" {
+				cfg.StoreAddress = bs
 			}
 			cfg.Context = context.Background()
 			config.ExpandString(&cfg.StoreAddress)
