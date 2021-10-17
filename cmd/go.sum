@@ -170,11 +170,12 @@ github.com/creachadair/ffs v0.0.0-20201015022807-e2e481d341ed/go.mod h1:eXGKRFZn
 github.com/creachadair/ffs v0.0.0-20211013230823-ae39e39f88f2/go.mod h1:MVxbSGbJi3n6az0h3DYBEauFTzOawCFmh0W5vL3tzzw=
 github.com/creachadair/ffs v0.0.0-20211014033950-cb7a0e533e0f/go.mod h1:BNrBgicjh5a9fi/kyaz6r/oGMjYXbm3nQ/uSo/v4MHo=
 github.com/creachadair/ffs v0.0.0-20211014043002-58c32157b25c/go.mod h1:BNrBgicjh5a9fi/kyaz6r/oGMjYXbm3nQ/uSo/v4MHo=
-github.com/creachadair/ffs v0.0.0-20211016041832-d69e1f0e4a57 h1:JZ1tmOeWRe4tDZ9cd3Dm/5RgLVH1Knx94+c1si5r4qg=
 github.com/creachadair/ffs v0.0.0-20211016041832-d69e1f0e4a57/go.mod h1:BNrBgicjh5a9fi/kyaz6r/oGMjYXbm3nQ/uSo/v4MHo=
+github.com/creachadair/ffs v0.0.0-20211017163403-aa507d5deb1d h1:mxqc7ah/sO5AliNVI1xno2W8uUiV2OuXwbwSJ/IVzw4=
+github.com/creachadair/ffs v0.0.0-20211017163403-aa507d5deb1d/go.mod h1:BNrBgicjh5a9fi/kyaz6r/oGMjYXbm3nQ/uSo/v4MHo=
 github.com/creachadair/ffs/storage v0.0.0-20211014020421-4f17f651dc77/go.mod h1:JbHoXzCTKfIYF9e+uLhAZkomzMwAD/5B9X3TYuWgaAM=
-github.com/creachadair/ffs/storage v0.0.0-20211014043847-0de049790d73 h1:5IYK4BIsaZWVWdAlhM1B1MS7I+5Y9O8RHZ8uML8lviI=
-github.com/creachadair/ffs/storage v0.0.0-20211014043847-0de049790d73/go.mod h1:6NjKC9VEMcbfOn3KKqcEvAa1D5AgW+uAk6VpXV9+MsA=
+github.com/creachadair/ffs/storage v0.0.0-20211017163403-aa507d5deb1d h1:wPC+/q8Dq4ZXGVpoRmpE1liBUcoG29lQmBwoE5S2iXk=
+github.com/creachadair/ffs/storage v0.0.0-20211017163403-aa507d5deb1d/go.mod h1:6NjKC9VEMcbfOn3KKqcEvAa1D5AgW+uAk6VpXV9+MsA=
 github.com/creachadair/gcsstore v0.0.0-20211014042516-41c2ce944a91 h1:G3d7n6jPZUGpcMvBQIjK+6D/tA9zLNEib0i8WmOoP+0=
 github.com/creachadair/gcsstore v0.0.0-20211014042516-41c2ce944a91/go.mod h1:Zh78mDM5Se/m/FofpGnMiSGdDc2DCeQ2A9jnPim8DYI=
 github.com/creachadair/getpass v0.1.1/go.mod h1:amWqqvJdxnT/Tk6PPgpFWX5Ik2RH4dnvfXequlcSXSc=
