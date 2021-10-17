@@ -28,6 +28,7 @@ import (
 	"github.com/creachadair/ffs/blob"
 	"github.com/creachadair/ffs/cmd/ffs/config"
 	"github.com/creachadair/ffs/file"
+	"github.com/creachadair/taskgroup"
 	"github.com/pkg/xattr"
 )
 
@@ -151,25 +152,63 @@ func putDir(ctx context.Context, s blob.CAS, path string) (*file.File, error) {
 	if err != nil {
 		return nil, err
 	}
-	for _, elt := range elts {
-		var kid *file.File
-		var err error
 
+	type entry struct {
+		sub  string
+		name string
+		fi   fs.FileInfo
+		kid  *file.File
+	}
+
+	// Partition the contents of the directory into plain files and directories.
+	var files, dirs []*entry
+	for _, elt := range elts {
 		sub := filepath.Join(path, elt.Name())
 		if elt.IsDir() {
-			kid, err = putDir(ctx, s, sub)
+			dirs = append(dirs, &entry{sub: sub, name: elt.Name()})
 		} else if t := elt.Type(); t != 0 && (t&fs.ModeSymlink == 0) {
 			continue // e.g., socket, pipe, device, fifo, etc.
 		} else if fi, err = elt.Info(); err != nil {
 			return nil, err
 		} else {
-			kid, err = putFile(ctx, s, sub, fi)
+			files = append(files, &entry{sub: sub, name: elt.Name(), fi: fi})
 		}
+	}
+
+	// Process subdirectories serially. We do this so that the recurrence does
+	// not explode concurrency.
+	for _, e := range dirs {
+		kid, err := putDir(ctx, s, e.sub)
 		if err != nil {
 			return nil, err
 		}
-		d.Child().Set(elt.Name(), kid)
+		d.Child().Set(e.name, kid)
 	}
+
+	// Process plain files in parallel.
+	if len(files) != 0 {
+		ctx, cancel := context.WithCancel(ctx)
+		defer cancel()
+		g := taskgroup.New(taskgroup.Trigger(cancel))
+		for _, e := range files {
+			e := e
+			g.Go(func() error {
+				kid, err := putFile(ctx, s, e.sub, e.fi)
+				if err != nil {
+					return err
+				}
+				e.kid = kid
+				return nil
+			})
+		}
+		if err := g.Wait(); err != nil {
+			return nil, err
+		}
+		for _, e := range files {
+			d.Child().Set(e.name, e.kid)
+		}
+	}
+
 	return d, nil
 }
 
