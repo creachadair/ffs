@@ -32,7 +32,10 @@ package block
 // TODO(Sep 2021): The LBFS paper seems to be inaccessible from MIT.
 // There's a presentation about it here: http://www.scs.stanford.edu/nyu/02fa/notes/l15.pdf
 
-import "io"
+import (
+	"bufio"
+	"io"
+)
 
 // These values are the defaults used if none are specified in the config.
 const (
@@ -100,8 +103,14 @@ func (c *SplitConfig) max() int {
 // it into blocks using the rolling hash from c. A nil *SplitConfig is ready
 // for use with default sizes and hash settings.
 func NewSplitter(r io.Reader, c *SplitConfig) *Splitter {
+	var buf *bufio.Reader
+	if v, ok := r.(*bufio.Reader); ok {
+		buf = v
+	} else {
+		buf = bufio.NewReader(r)
+	}
 	return &Splitter{
-		reader: r,
+		reader: buf,
 		config: c,
 
 		hash: c.Hash(),
@@ -114,8 +123,8 @@ func NewSplitter(r io.Reader, c *SplitConfig) *Splitter {
 // A Splitter wraps an underlying io.Reader to split the data from the reader
 // into blocks using a rolling hash.
 type Splitter struct {
-	reader io.Reader    // The underlying source of block data.
-	config *SplitConfig // a saved copy of the config
+	reader *bufio.Reader // The underlying source of block data.
+	config *SplitConfig  // a saved copy of the config
 
 	hash Hash   // The rolling hash used to find breakpoints.
 	min  int    // Minimum block size in bytes.
