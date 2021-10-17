@@ -19,6 +19,7 @@ import (
 	"flag"
 	"fmt"
 	"io/fs"
+	"log"
 	"os"
 	"path/filepath"
 	"strings"
@@ -31,8 +32,9 @@ import (
 )
 
 var putFlags struct {
-	Stat  bool
-	XAttr bool
+	Stat    bool
+	XAttr   bool
+	Verbose bool
 }
 
 var Command = &command.C{
@@ -46,6 +48,7 @@ Add each specified path to the store and print its storage key.
 	SetFlags: func(_ *command.Env, fs *flag.FlagSet) {
 		fs.BoolVar(&putFlags.Stat, "stat", false, "Capture file and directory stat")
 		fs.BoolVar(&putFlags.XAttr, "xattr", false, "Capture extended attributes")
+		fs.BoolVar(&putFlags.Verbose, "v", false, "Enable verbose logging")
 	},
 	Run: runPut,
 }
@@ -59,6 +62,9 @@ func runPut(env *command.Env, args []string) error {
 	return cfg.WithStore(cfg.Context, func(s blob.CAS) error {
 		keys := make([]string, len(args))
 		for i, path := range args {
+			if putFlags.Verbose {
+				log.Printf("put %q", path)
+			}
 			f, err := putDir(cfg.Context, s, path)
 			if err != nil {
 				return err
@@ -68,6 +74,9 @@ func runPut(env *command.Env, args []string) error {
 				return err
 			}
 			keys[i] = key
+			if putFlags.Verbose {
+				log.Printf("finished %q (%x)", path, key)
+			}
 		}
 		for _, key := range keys {
 			fmt.Printf("%x\n", key)
@@ -121,6 +130,9 @@ func putDir(ctx context.Context, s blob.CAS, path string) (*file.File, error) {
 	if !fi.IsDir() {
 		// Non-directory files, symlinks, etc.
 		return putFile(ctx, s, path, fi)
+	}
+	if putFlags.Verbose {
+		log.Printf("enter %q", path)
 	}
 
 	// Directory
