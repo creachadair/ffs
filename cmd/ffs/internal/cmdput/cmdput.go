@@ -202,7 +202,8 @@ func putDir(ctx context.Context, s blob.CAS, path string) (*file.File, error) {
 					if e.fi.Size() > 1<<20 {
 						st := time.Now()
 						defer func() {
-							log.Printf("finished %q [%v elapsed]", e.name, time.Since(st))
+							log.Printf("finished %q [%v elapsed]",
+								e.name, time.Since(st).Truncate(time.Millisecond))
 						}()
 					}
 				}
