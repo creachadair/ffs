@@ -8,7 +8,7 @@ require (
 	github.com/creachadair/boltstore v0.0.0-20211014042148-0a9777609a1b
 	github.com/creachadair/command v0.0.0-20211015205323-b773c3474453
 	github.com/creachadair/ctrl v0.1.1
-	github.com/creachadair/ffs v0.0.0-20211017235756-eb496c04d87f
+	github.com/creachadair/ffs v0.0.0-20211017235934-b1f62fbd6ff5
 	github.com/creachadair/ffs/storage v0.0.0-20211017235756-eb496c04d87f
 	github.com/creachadair/gcsstore v0.0.0-20211014042516-41c2ce944a91
 	github.com/creachadair/jrpc2 v0.28.0
@@ -68,10 +68,10 @@ require (
 	go.etcd.io/bbolt v1.3.6 // indirect
 	go.opencensus.io v0.23.0 // indirect
 	golang.org/x/exp v0.0.0-20211012155715-ffe10e552389 // indirect
-	golang.org/x/net v0.0.0-20211014222326-fd004c51d1d6 // indirect
+	golang.org/x/net v0.0.0-20211015210444-4f30a5c0130f // indirect
 	golang.org/x/oauth2 v0.0.0-20211005180243-6b3c2da341f1 // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
-	golang.org/x/sys v0.0.0-20211013075003-97ac67df715c // indirect
+	golang.org/x/sys v0.0.0-20211015200801-69063c4bb744 // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	google.golang.org/api v0.58.0 // indirect
