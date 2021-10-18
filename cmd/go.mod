@@ -3,12 +3,12 @@ module github.com/creachadair/ffs/cmd
 go 1.17
 
 require (
-	github.com/creachadair/badgerstore v0.0.8
+	github.com/creachadair/badgerstore v0.0.9
 	github.com/creachadair/bitcaskstore v0.0.0-20211014042139-7d627f006f60
 	github.com/creachadair/boltstore v0.0.0-20211014042148-0a9777609a1b
 	github.com/creachadair/command v0.0.0-20211015205323-b773c3474453
 	github.com/creachadair/ctrl v0.1.1
-	github.com/creachadair/ffs v0.0.0-20211017235934-b1f62fbd6ff5
+	github.com/creachadair/ffs v0.0.0-20211018003140-ff19b8570a9b
 	github.com/creachadair/ffs/storage v0.0.0-20211017235756-eb496c04d87f
 	github.com/creachadair/gcsstore v0.0.0-20211014042516-41c2ce944a91
 	github.com/creachadair/jrpc2 v0.28.0
