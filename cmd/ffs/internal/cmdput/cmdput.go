@@ -193,10 +193,10 @@ func putDir(ctx context.Context, s blob.CAS, path string) (*file.File, error) {
 		}
 		ctx, cancel := context.WithCancel(ctx)
 		defer cancel()
-		g := taskgroup.New(taskgroup.Trigger(cancel))
+		g, start := taskgroup.New(taskgroup.Trigger(cancel)).Limit(64)
 		for _, e := range files {
 			e := e
-			g.Go(func() error {
+			start(func() error {
 				if putFlags.Verbose {
 					log.Printf("copying %d bytes from %q", e.fi.Size(), e.name)
 					if e.fi.Size() > 1<<20 {
