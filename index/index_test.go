@@ -56,6 +56,9 @@ func TestIndex(t *testing.T) {
 	if stats.NumKeys != numAdded {
 		t.Errorf("Wrong number of keys: got %d, want %d", stats.NumKeys, numAdded)
 	}
+	if n := idx.Len(); n != stats.NumKeys || n != numAdded {
+		t.Errorf("Len: got %d, wanted %d == %d", n, stats.NumKeys, numAdded)
+	}
 	t.Logf("Total indexed key size: %d bytes", totalKeyBytes)
 
 	falses := make(map[bool]int)

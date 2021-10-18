@@ -72,6 +72,10 @@ func (idx *Index) Stats() Stats {
 	}
 }
 
+// Len reports the number of keys added to the index. This is shorthand for
+// idx.Stats().NumKeys.
+func (idx *Index) Len() int { return idx.numKeys }
+
 // init initializes the internal data structures for the index Bloom filter,
 // where n is the expected capacity in number of keys and p is the desired
 // false positive rate.
