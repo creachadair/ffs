@@ -39,7 +39,7 @@ var Command = &command.C{
 			Usage: "<root-key>",
 			Help:  "Print the representation of a filesystem root",
 
-			Run: runView,
+			Run: runShow,
 		},
 		{
 			Name: "list",
@@ -85,7 +85,7 @@ var Command = &command.C{
 	},
 }
 
-func runView(env *command.Env, args []string) error {
+func runShow(env *command.Env, args []string) error {
 	keys, err := config.RootKeys(args)
 	if err != nil {
 		return err
@@ -95,16 +95,21 @@ func runView(env *command.Env, args []string) error {
 
 	cfg := env.Config.(*config.Settings)
 	return cfg.WithStore(cfg.Context, func(s blob.CAS) error {
-		rp, err := root.Open(cfg.Context, s, keys[0])
-		if err != nil {
-			return err
+		var lastErr error
+		for _, key := range keys {
+			rp, err := root.Open(cfg.Context, s, key)
+			if err != nil {
+				fmt.Fprintf(env, "Error: %v\n", err)
+				lastErr = err
+				continue
+			}
+			msg := root.Encode(rp).Value.(*wiretype.Object_Root).Root
+			fmt.Println(config.ToJSON(map[string]interface{}{
+				"storageKey": key,
+				"root":       msg,
+			}))
 		}
-		msg := root.Encode(rp).Value.(*wiretype.Object_Root).Root
-		fmt.Println(config.ToJSON(map[string]interface{}{
-			"storageKey": keys[0],
-			"root":       msg,
-		}))
-		return nil
+		return lastErr
 	})
 }
 
