@@ -13,6 +13,15 @@
 // limitations under the License.
 
 // Program blobd exports a blob.Store via JSON-RPC.
+//
+// By default, building or installing this tool includes a minimal set of
+// storage backends, "file" and "memory. To build with additional storage
+// support, add build tags for each, for example:
+//
+//   go install -tags badger,s3 github.com/creachadair/ffs/cmd/blobd@latest
+//
+// To include all available storage implementations, use the tag "all".
+//
 package main
 
 import (
@@ -30,24 +39,13 @@ import (
 
 	"github.com/creachadair/ctrl"
 	"github.com/creachadair/ffs/blob"
+	"github.com/creachadair/ffs/blob/memstore"
 	"github.com/creachadair/ffs/cmd/blobd/store"
+	"github.com/creachadair/ffs/storage/filestore"
 	"github.com/creachadair/ffs/storage/wbstore"
 	"github.com/creachadair/jrpc2"
 	"github.com/creachadair/jrpc2/metrics"
 	"github.com/creachadair/rpcstore"
-
-	// Storage implementations (see the stores registry below).
-	"github.com/creachadair/badgerstore"
-	"github.com/creachadair/bitcaskstore"
-	"github.com/creachadair/boltstore"
-	"github.com/creachadair/ffs/blob/memstore"
-	"github.com/creachadair/ffs/storage/filestore"
-	"github.com/creachadair/gcsstore"
-	"github.com/creachadair/leveldbstore"
-	"github.com/creachadair/pebblestore"
-	"github.com/creachadair/pogrebstore"
-	"github.com/creachadair/s3store"
-	"github.com/creachadair/sqlitestore"
 )
 
 var (
@@ -59,28 +57,22 @@ var (
 	doDebug    = flag.Bool("debug", false, "Enable server debug logging")
 	zlibLevel  = flag.Int("zlib", 0, "Enable ZLIB compression (0 means no compression)")
 
+	// These storage implementations are built in by default.
+	// To include other stores, build with -tags set to their names.
+	// The known implementations are in the store_*.go files.
 	stores = store.Registry{
-		"badger":  badgerstore.Opener,
-		"bitcask": bitcaskstore.Opener,
-		"bolt":    boltstore.Opener,
-		"file":    filestore.Opener,
-		"gcs":     gcsstore.Opener,
-		"leveldb": leveldbstore.Opener,
-		"memory":  memstore.Opener,
-		"pebble":  pebblestore.Opener,
-		"pogreb":  pogrebstore.Opener,
-		"s3":      s3store.Opener,
-		"sqlite":  sqlitestore.Opener,
+		"file":   filestore.Opener,
+		"memory": memstore.Opener,
 	}
 )
 
 func init() {
-	var keys []string
-	for key := range stores {
-		keys = append(keys, key)
-	}
-	sort.Strings(keys)
 	flag.Usage = func() {
+		var keys []string
+		for key := range stores {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
 		fmt.Fprintf(os.Stderr, `Usage: %[1]s [options] -store <spec> -listen <addr>
 
 Start a JSON-RPC server that serves content from the blob.Store described by the -store
