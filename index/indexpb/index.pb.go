@@ -79,7 +79,7 @@ func (Index_HashFunc) EnumDescriptor() ([]byte, []int) {
 	return file_index_proto_rawDescGZIP(), []int{0, 0}
 }
 
-// An Indexis the storage encoding of a Bloom filter index.
+// An Index is the storage encoding of a Bloom filter index.
 type Index struct {
 	state         protoimpl.MessageState
 	sizeCache     protoimpl.SizeCache

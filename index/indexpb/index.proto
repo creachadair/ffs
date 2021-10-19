@@ -18,7 +18,7 @@ syntax = "proto3";
 package ffs.index;
 option go_package = "github.com/creachadair/ffs/index/indexpb";
 
-// An Indexis the storage encoding of a Bloom filter index.
+// An Index is the storage encoding of a Bloom filter index.
 message Index {
   uint64 num_keys = 1;           // total number of keys indexed
   repeated uint64 seeds = 2;     // hash seeds used for lookup
