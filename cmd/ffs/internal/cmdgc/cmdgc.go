@@ -18,7 +18,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -69,7 +68,7 @@ var Command = &command.C{
 				}
 				idx.Add(rp.FileKey)
 
-				log.Printf("Scanning data reachable from %q (%x)...", key, rp.FileKey)
+				fmt.Fprintf(env, "Scanning data reachable from %q (%x)...\n", key, rp.FileKey)
 				start := time.Now()
 				var numKeys int
 				if err := rf.Scan(cfg.Context, func(key string, isFile bool) bool {
@@ -79,14 +78,14 @@ var Command = &command.C{
 				}); err != nil {
 					return fmt.Errorf("scanning %q: %w", key, err)
 				}
-				log.Printf("Finished scanning %d blobs [%v elapsed]",
+				fmt.Fprintf(env, "Finished scanning %d blobs [%v elapsed]\n",
 					numKeys, time.Since(start).Truncate(10*time.Millisecond))
 			}
 
 			// Sweep phase: Remove blobs not indexed.
 			g := taskgroup.New(taskgroup.Trigger(cancel))
 
-			log.Printf("Begin sweep over %d blobs...", n)
+			fmt.Fprintf(env, "Begin sweep over %d blobs...\n", n)
 			start := time.Now()
 			var numKeep, numDrop uint32
 			for i := 0; i < 256; i++ {
@@ -105,12 +104,12 @@ var Command = &command.C{
 					})
 				})
 			}
-			log.Print("All key ranges listed, waiting for cleanup...")
+			fmt.Fprintln(env, "All key ranges listed, waiting for cleanup...")
 			if err := g.Wait(); err != nil {
 				return fmt.Errorf("sweeping failed: %w", err)
 			}
 			fmt.Fprintln(env, "*")
-			log.Printf("GC complete: keep %d, drop %d [%v elapsed]",
+			fmt.Fprintf(env, "GC complete: keep %d, drop %d [%v elapsed]\n",
 				numKeep, numDrop, time.Since(start).Truncate(10*time.Millisecond))
 			return nil
 		})
