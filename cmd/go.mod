@@ -8,8 +8,8 @@ require (
 	github.com/creachadair/boltstore v0.0.0-20211018004242-074f94d4f988
 	github.com/creachadair/command v0.0.0-20211015205323-b773c3474453
 	github.com/creachadair/ctrl v0.1.1
-	github.com/creachadair/ffs v0.0.0-20211018182530-521aacddb9cd
-	github.com/creachadair/ffs/storage v0.0.0-20211018182530-521aacddb9cd
+	github.com/creachadair/ffs v0.0.0-20211019052926-70056be6d573
+	github.com/creachadair/ffs/storage v0.0.0-20211019052926-70056be6d573
 	github.com/creachadair/gcsstore v0.0.0-20211014042516-41c2ce944a91
 	github.com/creachadair/jrpc2 v0.28.0
 	github.com/creachadair/keyfile v0.7.1

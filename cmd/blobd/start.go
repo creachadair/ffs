@@ -81,8 +81,12 @@ func mustOpenStore(ctx context.Context) (cas blob.CAS) {
 	defer func() {
 		if x := recover(); x != nil {
 			panic(x)
-		} else if buf != nil {
+		}
+		if buf != nil {
 			cas = wbstore.New(ctx, cas, buf)
+		}
+		if *cacheSize > 0 {
+			cas = cachestore.NewCAS(cas, *cacheSize<<20)
 		}
 	}()
 
@@ -99,9 +103,6 @@ func mustOpenStore(ctx context.Context) (cas blob.CAS) {
 	}
 	if *zlibLevel > 0 {
 		bs = encoded.New(bs, zlib.NewCodec(zlib.Level(*zlibLevel)))
-	}
-	if *cacheSize > 0 {
-		bs = cachestore.New(bs, *cacheSize<<20)
 	}
 	if *keyFile == "" {
 		return blob.NewCAS(bs, sha3.New256)
