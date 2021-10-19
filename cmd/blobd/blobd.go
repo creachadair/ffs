@@ -42,7 +42,6 @@ import (
 	"github.com/creachadair/ffs/blob/memstore"
 	"github.com/creachadair/ffs/cmd/blobd/store"
 	"github.com/creachadair/ffs/storage/filestore"
-	"github.com/creachadair/ffs/storage/wbstore"
 	"github.com/creachadair/jrpc2"
 	"github.com/creachadair/jrpc2/metrics"
 	"github.com/creachadair/rpcstore"
@@ -104,7 +103,7 @@ func main() {
 		}
 
 		ctx := context.Background()
-		bs := mustOpenStore(ctx)
+		bs, buf := mustOpenStore(ctx)
 		defer func() {
 			if err := blob.CloseStore(ctx, bs); err != nil {
 				log.Printf("Warning: closing store: %v", err)
@@ -133,9 +132,8 @@ func main() {
 		}
 		mx.SetLabel("blobd.compressed", *zlibLevel > 0)
 		mx.SetLabel("blobd.cacheSize", *cacheSize)
-		if *bufferDB != "" {
+		if buf != nil {
 			mx.SetLabel("blobd.buffer.db", *bufferDB)
-			buf := bs.(*wbstore.Store).Buffer()
 			mx.SetLabel("blobd.buffer.len", func() interface{} {
 				n, err := buf.Len(ctx)
 				if err != nil {

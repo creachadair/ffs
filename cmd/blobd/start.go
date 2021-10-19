@@ -76,8 +76,7 @@ func startNetServer(ctx context.Context, opts startConfig) (closer, <-chan error
 	}, errc
 }
 
-func mustOpenStore(ctx context.Context) (cas blob.CAS) {
-	var buf blob.Store
+func mustOpenStore(ctx context.Context) (cas blob.CAS, buf blob.Store) {
 	defer func() {
 		if x := recover(); x != nil {
 			panic(x)
@@ -105,7 +104,7 @@ func mustOpenStore(ctx context.Context) (cas blob.CAS) {
 		bs = encoded.New(bs, zlib.NewCodec(zlib.Level(*zlibLevel)))
 	}
 	if *keyFile == "" {
-		return blob.NewCAS(bs, sha3.New256)
+		return blob.NewCAS(bs, sha3.New256), buf
 	}
 
 	key, err := keyfile.LoadKey(*keyFile, func() (string, error) {
@@ -128,5 +127,5 @@ func mustOpenStore(ctx context.Context) (cas blob.CAS) {
 	bs = encoded.New(bs, encrypted.New(gcm, nil))
 	return blob.NewCAS(bs, func() hash.Hash {
 		return hmac.New(sha3.New256, key)
-	})
+	}), buf
 }
