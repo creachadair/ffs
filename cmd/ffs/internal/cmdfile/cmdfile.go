@@ -210,6 +210,9 @@ func (o *openInfo) flushRoot(ctx context.Context, s blob.CAS) (string, error) {
 		return "", err
 	}
 	if o.root != nil {
+		if o.root.FileKey != key {
+			o.root.IndexKey = "" // invalidate the index
+		}
 		o.root.FileKey = key
 		if err := o.root.Save(ctx, o.rootKey, true); err != nil {
 			return "", err

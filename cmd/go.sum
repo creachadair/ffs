@@ -169,8 +169,8 @@ github.com/creachadair/ffs v0.0.0-20211014033950-cb7a0e533e0f/go.mod h1:BNrBgicj
 github.com/creachadair/ffs v0.0.0-20211017235934-b1f62fbd6ff5/go.mod h1:BNrBgicjh5a9fi/kyaz6r/oGMjYXbm3nQ/uSo/v4MHo=
 github.com/creachadair/ffs v0.0.0-20211018003140-ff19b8570a9b/go.mod h1:BNrBgicjh5a9fi/kyaz6r/oGMjYXbm3nQ/uSo/v4MHo=
 github.com/creachadair/ffs v0.0.0-20211018182321-4c26f6b89e99/go.mod h1:BNrBgicjh5a9fi/kyaz6r/oGMjYXbm3nQ/uSo/v4MHo=
-github.com/creachadair/ffs v0.0.0-20211019052926-70056be6d573 h1:Ca6fE1iOW7ohLcUeasbQqwQwpL85sBanXWzxd/Drcn8=
-github.com/creachadair/ffs v0.0.0-20211019052926-70056be6d573/go.mod h1:BNrBgicjh5a9fi/kyaz6r/oGMjYXbm3nQ/uSo/v4MHo=
+github.com/creachadair/ffs v0.0.0-20211019070632-10ade093b63d h1:s4T27MJhPdoJl8jpzslSBuUObJ3V+mKgb+yndmsDrcY=
+github.com/creachadair/ffs v0.0.0-20211019070632-10ade093b63d/go.mod h1:BNrBgicjh5a9fi/kyaz6r/oGMjYXbm3nQ/uSo/v4MHo=
 github.com/creachadair/ffs/storage v0.0.0-20211014020421-4f17f651dc77/go.mod h1:JbHoXzCTKfIYF9e+uLhAZkomzMwAD/5B9X3TYuWgaAM=
 github.com/creachadair/ffs/storage v0.0.0-20211019052926-70056be6d573 h1:kmIXsXfKyj+SJNtWjlPsjaRbjrWSdWCdEtmpSb+7lV0=
 github.com/creachadair/ffs/storage v0.0.0-20211019052926-70056be6d573/go.mod h1:aU6DkG2417R8uynHbO42uWIu1vxWUohebcED+U7/zSQ=

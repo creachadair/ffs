@@ -200,6 +200,9 @@ func runEditFile(env *command.Env, args []string) error {
 	} else if _, err := file.Open(na.Context, na.Store, key); err != nil {
 		return err
 	}
+	if key != na.Root.FileKey {
+		na.Root.IndexKey = "" // invalidate the index
+	}
 	na.Root.FileKey = key
 	return na.Root.Save(na.Context, na.Key, true)
 }

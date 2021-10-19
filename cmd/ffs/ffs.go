@@ -26,6 +26,7 @@ import (
 	// Subcommands.
 	"github.com/creachadair/ffs/cmd/ffs/internal/cmdfile"
 	"github.com/creachadair/ffs/cmd/ffs/internal/cmdgc"
+	"github.com/creachadair/ffs/cmd/ffs/internal/cmdindex"
 	"github.com/creachadair/ffs/cmd/ffs/internal/cmdput"
 	"github.com/creachadair/ffs/cmd/ffs/internal/cmdroot"
 )
@@ -71,6 +72,7 @@ help [<command>]`,
 			cmdfile.Command,
 			cmdput.Command,
 			cmdgc.Command,
+			cmdindex.Command,
 			command.HelpCommand(nil),
 		},
 	}
