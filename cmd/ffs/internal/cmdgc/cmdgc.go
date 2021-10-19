@@ -26,6 +26,7 @@ import (
 	"github.com/creachadair/ffs/blob"
 	"github.com/creachadair/ffs/cmd/ffs/config"
 	"github.com/creachadair/ffs/file/root"
+	"github.com/creachadair/ffs/file/wiretype"
 	"github.com/creachadair/ffs/index"
 	"github.com/creachadair/taskgroup"
 )
@@ -52,7 +53,9 @@ var Command = &command.C{
 			} else if n == 0 {
 				return errors.New("the store is empty")
 			}
+			var idxs []*index.Index
 			idx := index.New(int(n), &index.Options{FalsePositiveRate: 0.005})
+			fmt.Fprintf(env, "Begin GC of %d blobs, roots=%+q\n", n, keys)
 
 			// Mark phase: Scan all roots.
 			for _, key := range keys {
@@ -62,6 +65,25 @@ var Command = &command.C{
 				}
 				idx.Add(key)
 
+				// If this root has a cached index, use that instead of scanning.
+				if rp.IndexKey != "" {
+					var obj wiretype.Object
+					if err := wiretype.Load(cfg.Context, s, rp.IndexKey, &obj); err != nil {
+						return fmt.Errorf("loading index: %w", err)
+					}
+					ridx := obj.GetIndex()
+					if ridx == nil {
+						return fmt.Errorf("no index in %x", rp.IndexKey)
+					}
+
+					idxs = append(idxs, index.Decode(ridx))
+					idx.Add(rp.IndexKey)
+					fmt.Fprintf(env, "Loaded cached index for %q (%x)\n", key, rp.IndexKey)
+					continue
+				}
+
+				// Otherwise, we need to compute the reachable set.
+				// TODO(creachadair): Maybe cache the results here too.
 				rf, err := rp.File(cfg.Context)
 				if err != nil {
 					return fmt.Errorf("opening %q: %w", rp.FileKey, err)
@@ -81,6 +103,7 @@ var Command = &command.C{
 				fmt.Fprintf(env, "Finished scanning %d blobs [%v elapsed]\n",
 					numKeys, time.Since(start).Truncate(10*time.Millisecond))
 			}
+			idxs = append(idxs, idx)
 
 			// Sweep phase: Remove blobs not indexed.
 			g := taskgroup.New(taskgroup.Trigger(cancel))
@@ -95,9 +118,12 @@ var Command = &command.C{
 					return s.List(cfg.Context, pfx, func(key string) error {
 						if !strings.HasPrefix(key, pfx) {
 							return blob.ErrStopListing
-						} else if idx.Has(key) {
-							atomic.AddUint32(&numKeep, 1)
-							return nil
+						}
+						for _, idx := range idxs {
+							if idx.Has(key) {
+								atomic.AddUint32(&numKeep, 1)
+								return nil
+							}
 						}
 						atomic.AddUint32(&numDrop, 1)
 						return s.Delete(ctx, key)
