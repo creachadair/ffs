@@ -38,8 +38,8 @@ type Store struct {
 	cache  *cache          // blob cache
 }
 
-// New constructs a new cache with the specified capacity in bytes.
-// It will panic if maxBytes < 0.
+// New constructs a new cached store with the specified capacity in bytes,
+// delegating storage operations to s.  It will panic if maxBytes < 0.
 func New(s blob.Store, maxBytes int) *Store {
 	return &Store{
 		base:   s,
@@ -132,4 +132,37 @@ func (s *Store) Close(ctx context.Context) error {
 	s.cache.clear()
 	s.nexist = nil
 	return blob.CloseStore(ctx, s.base)
+}
+
+// CAS implements a cached wrapper around a blob.CAS instance.
+type CAS struct {
+	*Store
+	cas blob.CAS
+}
+
+// NewCAS constructs a new cached store with the specified capacity in bytes,
+// delegating storage operations to cas.  It will panic if maxBytes < 0.
+func NewCAS(cas blob.CAS, maxBytes int) CAS {
+	return CAS{
+		Store: New(cas, maxBytes),
+		cas:   cas,
+	}
+}
+
+// CASPut implements part of blob.CAS using the underlying store.
+func (c CAS) CASPut(ctx context.Context, data []byte) (string, error) {
+	c.μ.Lock()
+	defer c.μ.Unlock()
+	key, err := c.cas.CASPut(ctx, data)
+	if err != nil {
+		return "", err
+	}
+	c.cache.put(key, data)
+	delete(c.nexist, key)
+	return key, nil
+}
+
+// CASKey implements part of blob.CAS using the underlying store.
+func (c CAS) CASKey(ctx context.Context, data []byte) (string, error) {
+	return c.cas.CASKey(ctx, data)
 }

@@ -15,8 +15,10 @@
 package cachestore_test
 
 import (
+	"crypto/sha1"
 	"testing"
 
+	"github.com/creachadair/ffs/blob"
 	"github.com/creachadair/ffs/blob/memstore"
 	"github.com/creachadair/ffs/blob/storetest"
 	"github.com/creachadair/ffs/storage/cachestore"
@@ -25,5 +27,11 @@ import (
 func TestStore(t *testing.T) {
 	m := memstore.New()
 	c := cachestore.New(m, 100)
+	storetest.Run(t, c)
+}
+
+func TestCAS(t *testing.T) {
+	bs := blob.NewCAS(memstore.New(), sha1.New)
+	c := cachestore.NewCAS(bs, 100)
 	storetest.Run(t, c)
 }
