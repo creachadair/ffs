@@ -33,6 +33,7 @@ func TestRoot(t *testing.T) {
 	r := root.New(cas, &root.Options{
 		Description: "Test root",
 		OwnerKey:    "whatever",
+		IndexKey:    "hey you get off of my cloud",
 	})
 
 	// Create a new empty file to use as the root file.
@@ -75,6 +76,9 @@ func TestRoot(t *testing.T) {
 		t.Errorf("Loaded desc: got %q, want %q", rc.Description, r.Description)
 	}
 	if rc.OwnerKey != r.OwnerKey {
-		t.Errorf("Loaded owner key: got %q, want %q", rc.OwnerKey, rc.OwnerKey)
+		t.Errorf("Loaded owner key: got %q, want %q", rc.OwnerKey, r.OwnerKey)
+	}
+	if rc.IndexKey != r.IndexKey {
+		t.Errorf("Loaded index key: got %q, want %q", rc.IndexKey, r.IndexKey)
 	}
 }
