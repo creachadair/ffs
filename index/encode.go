@@ -15,7 +15,6 @@
 package index
 
 import (
-	"github.com/cespare/xxhash/v2"
 	"github.com/creachadair/ffs/index/indexpb"
 )
 
@@ -35,7 +34,7 @@ func Decode(pb *indexpb.Index) *Index {
 		bits:    bitVector(pb.Segments),
 		nbits:   64 * uint64(len(pb.Segments)),
 		seeds:   pb.Seeds,
-		hash:    xxhash.Sum64String,
+		hash:    (*Options)(nil).hashFunc(), // the default
 
 		// TODO(creachadair): Check the hash_func value.
 	}
