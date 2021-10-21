@@ -96,7 +96,10 @@ func TestIndex(t *testing.T) {
 		cmpopts.IgnoreFields(index.Index{}, "hash"), // function, non-comparable
 	}
 
-	dec := index.Decode(&dpb)
+	dec, err := index.Decode(&dpb)
+	if err != nil {
+		t.Fatalf("Decode: unexpected error: %v", err)
+	}
 	if diff := cmp.Diff(dec, idx, opts...); diff != "" {
 		t.Errorf("Decoded index: (-want, +got)\n%s", diff)
 	}

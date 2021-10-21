@@ -20,10 +20,13 @@ option go_package = "github.com/creachadair/ffs/index/indexpb";
 
 // An Index is the storage encoding of a Bloom filter index.
 message Index {
-  uint64 num_keys = 1;           // total number of keys indexed
-  repeated uint64 seeds = 2;     // hash seeds used for lookup
-  repeated uint64 segments = 3;  // index vector segments
-  HashFunc hash_func = 4;        // which hash function was used
+  uint64 num_keys = 1;        // total number of keys indexed
+  repeated uint64 seeds = 2;  // hash seeds used for lookup
+  uint64 num_segments = 5;    // number of bit vector segments
+  bytes segment_data = 6;     // zlib-compressed segment data
+  HashFunc hash_func = 4;     // which hash function was used
 
   enum HashFunc { DEFAULT = 0; }
+
+  repeated uint64 segments = 3 [deprecated = true];  // index vector segments
 }
