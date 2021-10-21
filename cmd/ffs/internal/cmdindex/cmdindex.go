@@ -69,7 +69,7 @@ var Command = &command.C{
 				}
 
 				fmt.Fprintf(env, "Scanning data reachable from %q (%x)...\n", key, rp.FileKey)
-				idx := index.New(int(n), &index.Options{FalsePositiveRate: 0.005})
+				idx := index.New(int(n), &index.Options{FalsePositiveRate: 0.01})
 				start := time.Now()
 				if err := fp.Scan(cfg.Context, func(key string, isFile bool) bool {
 					idx.Add(key)

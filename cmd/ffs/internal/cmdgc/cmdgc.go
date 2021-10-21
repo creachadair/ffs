@@ -54,7 +54,7 @@ var Command = &command.C{
 				return errors.New("the store is empty")
 			}
 			var idxs []*index.Index
-			idx := index.New(int(n), &index.Options{FalsePositiveRate: 0.005})
+			idx := index.New(int(n), &index.Options{FalsePositiveRate: 0.01})
 			fmt.Fprintf(env, "Begin GC of %d blobs, roots=%+q\n", n, keys)
 
 			// Mark phase: Scan all roots.
