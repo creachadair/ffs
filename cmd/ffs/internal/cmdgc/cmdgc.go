@@ -76,7 +76,11 @@ var Command = &command.C{
 						return fmt.Errorf("no index in %x", rp.IndexKey)
 					}
 
-					idxs = append(idxs, index.Decode(ridx))
+					rpi, err := index.Decode(ridx)
+					if err != nil {
+						return fmt.Errorf("decoding index for %q: %w", key, err)
+					}
+					idxs = append(idxs, rpi)
 					idx.Add(rp.IndexKey)
 					fmt.Fprintf(env, "Loaded cached index for %q (%x)\n", key, rp.IndexKey)
 					continue
