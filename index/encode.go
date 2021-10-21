@@ -27,7 +27,8 @@ import (
 // Encode encodes idx as a protocol buffer message for storage.
 func Encode(idx *Index) *indexpb.Index {
 	var buf bytes.Buffer
-	w := zlib.NewWriter(&buf)
+	w, _ := zlib.NewWriterLevel(&buf, zlib.BestCompression)
+	// N.B. The only possible error is an invalid level.
 	for _, seg := range idx.bits {
 		var val [8]byte
 		binary.BigEndian.PutUint64(val[:], seg)
