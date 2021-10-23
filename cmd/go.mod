@@ -8,15 +8,15 @@ require (
 	github.com/creachadair/boltstore v0.0.0-20211018004242-074f94d4f988
 	github.com/creachadair/command v0.0.0-20211015205323-b773c3474453
 	github.com/creachadair/ctrl v0.1.1
-	github.com/creachadair/ffs v0.0.0-20211021051550-cc1bf5a4c79a
-	github.com/creachadair/ffs/storage v0.0.0-20211019074145-b0be4f7cb5f7
+	github.com/creachadair/ffs v0.0.0-20211023005905-4a9dba8ad9a2
+	github.com/creachadair/ffs/storage v0.0.0-20211023005905-4a9dba8ad9a2
 	github.com/creachadair/gcsstore v0.0.0-20211020043246-59f6c3bc5867
 	github.com/creachadair/jrpc2 v0.28.1
 	github.com/creachadair/keyfile v0.7.1
 	github.com/creachadair/leveldbstore v0.0.0-20211018004550-b4d77c94f48f
 	github.com/creachadair/pebblestore v0.0.0-20211018004726-9e18917d270a
 	github.com/creachadair/pogrebstore v0.0.0-20211018004756-7da80f7b169e
-	github.com/creachadair/rpcstore v0.0.0-20211018061002-ca1b80d73ab7
+	github.com/creachadair/rpcstore v0.0.0-20211023172957-77e4c0fa701d
 	github.com/creachadair/s3store v0.0.0-20211018004843-a651f39c9bfc
 	github.com/creachadair/sqlitestore v0.0.0-20211018005001-f369aaefe837
 	github.com/creachadair/taskgroup v0.3.1
@@ -35,12 +35,12 @@ require (
 	github.com/DataDog/zstd v1.4.8 // indirect
 	github.com/abcum/lcp v0.0.0-20201209214815-7a3f3840be81 // indirect
 	github.com/akrylysov/pogreb v0.10.1 // indirect
-	github.com/aws/aws-sdk-go v1.41.6 // indirect
+	github.com/aws/aws-sdk-go v1.41.9 // indirect
 	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/cockroachdb/errors v1.8.6 // indirect
 	github.com/cockroachdb/logtags v0.0.0-20190617123548-eb05cc24525f // indirect
-	github.com/cockroachdb/pebble v0.0.0-20211019184201-7fec828fc1af // indirect
+	github.com/cockroachdb/pebble v0.0.0-20211021161301-9106d5d2238f // indirect
 	github.com/cockroachdb/redact v1.1.3 // indirect
 	github.com/cockroachdb/sentry-go v0.6.1-cockroachdb.2 // indirect
 	github.com/creachadair/atomicfile v0.2.2 // indirect
@@ -68,14 +68,14 @@ require (
 	go.etcd.io/bbolt v1.3.6 // indirect
 	go.opencensus.io v0.23.0 // indirect
 	golang.org/x/exp v0.0.0-20211012155715-ffe10e552389 // indirect
-	golang.org/x/net v0.0.0-20211019232329-c6ed85c7a12d // indirect
+	golang.org/x/net v0.0.0-20211020060615-d418f374d309 // indirect
 	golang.org/x/oauth2 v0.0.0-20211005180243-6b3c2da341f1 // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
-	golang.org/x/sys v0.0.0-20211019181941-9d821ace8654 // indirect
+	golang.org/x/sys v0.0.0-20211023085530-d6a326fbbf70 // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
-	google.golang.org/api v0.58.0 // indirect
+	google.golang.org/api v0.59.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
-	google.golang.org/genproto v0.0.0-20211019152133-63b7e35f4404 // indirect
+	google.golang.org/genproto v0.0.0-20211021150943-2b146023228c // indirect
 	google.golang.org/grpc v1.41.0 // indirect
 )
