@@ -32,6 +32,7 @@ import (
 	"github.com/creachadair/ffs/blob"
 	"github.com/creachadair/jrpc2"
 	"github.com/creachadair/jrpc2/channel"
+	"github.com/creachadair/jrpc2/jhttp"
 	"github.com/creachadair/rpcstore"
 )
 
@@ -309,17 +310,19 @@ func storeFromEnv(env *command.Env) (rpcstore.CAS, error) {
 	if t.Store == "" {
 		return rpcstore.CAS{}, errors.New("no -store address was specified")
 	}
-	conn, err := net.Dial(jrpc2.Network(t.Store))
-	if err != nil {
+	var ch channel.Channel
+	if isHTTP(t.Store) {
+		ch = jhttp.NewChannel(t.Store, nil)
+	} else if conn, err := net.Dial(jrpc2.Network(t.Store)); err != nil {
 		return rpcstore.CAS{}, fmt.Errorf("dialing: %w", err)
+	} else {
+		ch = channel.Line(conn, conn)
 	}
 	var logger *log.Logger
 	if t.Debug {
 		logger = log.New(os.Stderr, "[client] ", log.LstdFlags)
 	}
-	cli := jrpc2.NewClient(channel.Line(conn, conn), &jrpc2.ClientOptions{
-		Logger: logger,
-	})
+	cli := jrpc2.NewClient(ch, &jrpc2.ClientOptions{Logger: logger})
 	return rpcstore.NewCAS(cli, nil), nil
 }
 
@@ -349,4 +352,8 @@ func parseKey(s string) (string, error) {
 		return "", fmt.Errorf("invalid key %q: %w", s, err)
 	}
 	return string(key), nil
+}
+
+func isHTTP(addr string) bool {
+	return strings.HasPrefix(addr, "http:") || strings.HasPrefix(addr, "https:")
 }
