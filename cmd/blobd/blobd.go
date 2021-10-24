@@ -81,7 +81,8 @@ of a Unix-domain socket.
 A store spec is a storage type and address: type:address
 The types understood are: %[2]s
 
-JSON-RPC requests are delimited by newlines.
+If -listen is an HTTP URL, start an HTTP server on the given path.
+Otherwise, JSON-RPC data are exchanged via a socket, delimited by newlines.
 
 With -keyfile, the store is opened with AES encryption.
 Use -cache to enable a memory cache over the underlying store.
@@ -147,7 +148,7 @@ func main() {
 		if *doDebug {
 			debug = log.New(os.Stderr, "[blobd] ", log.LstdFlags)
 		}
-		closer, errc := startNetServer(ctx, startConfig{
+		closer, errc := startServer(ctx, startConfig{
 			Address: *listenAddr,
 			Methods: rpcstore.NewService(bs, nil).Methods(),
 
