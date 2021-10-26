@@ -318,9 +318,9 @@ func storeFromEnv(env *command.Env) (rpcstore.CAS, error) {
 	} else {
 		ch = channel.Line(conn, conn)
 	}
-	var logger *log.Logger
+	var logger jrpc2.Logger
 	if t.Debug {
-		logger = log.New(os.Stderr, "[client] ", log.LstdFlags)
+		logger = jrpc2.StdLogger(log.New(os.Stderr, "[client] ", log.LstdFlags))
 	}
 	cli := jrpc2.NewClient(ch, &jrpc2.ClientOptions{Logger: logger})
 	return rpcstore.NewCAS(cli, nil), nil

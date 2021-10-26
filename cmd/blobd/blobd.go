@@ -144,9 +144,9 @@ func main() {
 			})
 		}
 
-		var debug *log.Logger
+		var debug jrpc2.Logger
 		if *doDebug {
-			debug = log.New(os.Stderr, "[blobd] ", log.LstdFlags)
+			debug = jrpc2.StdLogger(log.New(os.Stderr, "[blobd] ", log.LstdFlags))
 		}
 		closer, errc := startServer(ctx, startConfig{
 			Address: *listenAddr,
