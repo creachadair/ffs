@@ -47,11 +47,17 @@ type Settings struct {
 
 // OpenStore connects to the store service address in the configuration.  The
 // caller is responsible for closing the store when it is no longer needed.
-func (s *Settings) OpenStore(_ context.Context) (blob.CAS, error) {
-	if s.StoreAddress == "" {
+func (s *Settings) OpenStore(ctx context.Context) (blob.CAS, error) {
+	return OpenStore(ctx, s.StoreAddress)
+}
+
+// OpenStore connects to the store service at addr.  The caller is responsible
+// for closing the store when it is no longer needed.
+func OpenStore(_ context.Context, addr string) (blob.CAS, error) {
+	if addr == "" {
 		return nil, errors.New("no store service address")
 	}
-	conn, err := net.Dial(jrpc2.Network(s.StoreAddress))
+	conn, err := net.Dial(jrpc2.Network(addr))
 	if err != nil {
 		return nil, fmt.Errorf("dialing store: %w", err)
 	}
@@ -62,7 +68,13 @@ func (s *Settings) OpenStore(_ context.Context) (blob.CAS, error) {
 // WithStore calls f with a store opened from the configuration. The store is
 // closed after f returns. The error returned by f is returned by WithStore.
 func (s *Settings) WithStore(ctx context.Context, f func(blob.CAS) error) error {
-	bs, err := s.OpenStore(ctx)
+	return WithStore(ctx, s.StoreAddress, f)
+}
+
+// WithStore calls f with a store opened at addr. The store is closed after f
+// returns. The error returned by f is returned by WithStore.
+func WithStore(ctx context.Context, addr string, f func(blob.CAS) error) error {
+	bs, err := OpenStore(ctx, addr)
 	if err != nil {
 		return err
 	}
