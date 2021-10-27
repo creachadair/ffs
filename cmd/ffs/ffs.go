@@ -29,6 +29,7 @@ import (
 	"github.com/creachadair/ffs/cmd/ffs/internal/cmdindex"
 	"github.com/creachadair/ffs/cmd/ffs/internal/cmdput"
 	"github.com/creachadair/ffs/cmd/ffs/internal/cmdroot"
+	"github.com/creachadair/ffs/cmd/ffs/internal/cmdsync"
 )
 
 var (
@@ -73,6 +74,7 @@ help [<command>]`,
 			cmdput.Command,
 			cmdgc.Command,
 			cmdindex.Command,
+			cmdsync.Command,
 			command.HelpCommand(nil),
 		},
 	}
