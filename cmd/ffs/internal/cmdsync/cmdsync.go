@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/creachadair/command"
@@ -27,6 +28,7 @@ import (
 	"github.com/creachadair/ffs/cmd/ffs/config"
 	"github.com/creachadair/ffs/file"
 	"github.com/creachadair/ffs/file/root"
+	"github.com/creachadair/taskgroup"
 )
 
 var syncFlags struct {
@@ -114,16 +116,22 @@ func copyRoot(ctx context.Context, src, tgt blob.CAS, key string) error {
 }
 
 func copyFile(ctx context.Context, src, tgt blob.CAS, fp *file.File) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	g, run := taskgroup.New(taskgroup.Trigger(cancel)).Limit(64)
 	start := time.Now()
-	var cerr error
-	var nb int
+
+	var nb int64
 	if err := fp.Scan(ctx, func(key string, isFile bool) bool {
-		nb++
-		cerr = copyBlob(ctx, src, tgt, key, false)
-		return cerr == nil
+		run(func() error {
+			defer atomic.AddInt64(&nb, 1)
+			return copyBlob(ctx, src, tgt, key, false)
+		})
+		return true
 	}); err != nil {
 		return err
 	}
+	cerr := g.Wait()
 	debug("Copied %d blobs [%v elapsed]", nb, time.Since(start).Truncate(10*time.Millisecond))
 	return cerr
 }
