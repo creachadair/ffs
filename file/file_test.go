@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
-	"io/ioutil"
 	"sort"
 	"strings"
 	"testing"
@@ -80,7 +79,7 @@ func TestRoundTrip(t *testing.T) {
 	}
 
 	// Verify that file contents were preserved.
-	bits, err := ioutil.ReadAll(g.Cursor(ctx))
+	bits, err := io.ReadAll(g.Cursor(ctx))
 	if err != nil {
 		t.Errorf("Reading %x: %v", fkey, err)
 	}
@@ -116,7 +115,7 @@ func TestRoundTrip(t *testing.T) {
 		t.Errorf("Seek(0): unexpected error: %v", err)
 	} else if pos != 0 {
 		t.Errorf("Pos after Seek(0): got %d, want 0", pos)
-	} else if bits, err := ioutil.ReadAll(g.Cursor(ctx)); err != nil {
+	} else if bits, err := io.ReadAll(g.Cursor(ctx)); err != nil {
 		t.Errorf("Read failed: %v", err)
 	} else if got, want := string(bits), testMessage[:15]; got != want {
 		t.Errorf("Truncated message: got %q, want %q", got, want)

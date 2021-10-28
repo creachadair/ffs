@@ -22,7 +22,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"log"
 	"net"
 	"os"
@@ -296,9 +296,9 @@ func putCmd(env *command.Env, args []string) (err error) {
 
 func readData(ctx context.Context, cmd string, args []string) (data []byte, err error) {
 	if len(args) == 0 {
-		data, err = ioutil.ReadAll(os.Stdin)
+		data, err = io.ReadAll(os.Stdin)
 	} else if len(args) == 1 {
-		data, err = ioutil.ReadFile(args[0])
+		data, err = os.ReadFile(args[0])
 	} else {
 		return nil, fmt.Errorf("usage is: %s [<path>]", cmd)
 	}

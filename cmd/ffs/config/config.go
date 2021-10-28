@@ -24,7 +24,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
 	"strings"
@@ -132,7 +131,7 @@ func ExpandString(s *string) { *s = os.ExpandEnv(*s) }
 // Load reads and parses the contents of a config file from path.  If the
 // specified path does not exist, an empty config is returned without error.
 func Load(path string) (*Settings, error) {
-	data, err := ioutil.ReadFile(path)
+	data, err := os.ReadFile(path)
 	if os.IsNotExist(err) {
 		return new(Settings), nil
 	} else if err != nil {

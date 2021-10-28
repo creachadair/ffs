@@ -15,7 +15,7 @@
 package index_test
 
 import (
-	"io/ioutil"
+	"os"
 	"strings"
 	"testing"
 
@@ -27,7 +27,7 @@ import (
 )
 
 func TestIndex(t *testing.T) {
-	keyData, err := ioutil.ReadFile("testdata/keys.txt")
+	keyData, err := os.ReadFile("testdata/keys.txt")
 	if err != nil {
 		t.Fatalf("Reading keys: %v", err)
 	}

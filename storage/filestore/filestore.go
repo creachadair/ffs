@@ -22,7 +22,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"sort"
@@ -90,7 +89,7 @@ func blockSize(f *os.File) (int64, error) {
 // Get implements part of blob.Store. It linearizes to the point at which
 // opening the key path for reading returns.
 func (s *Store) Get(_ context.Context, key string) ([]byte, error) {
-	bits, err := ioutil.ReadFile(s.keyPath(key))
+	bits, err := os.ReadFile(s.keyPath(key))
 	if err != nil {
 		if os.IsNotExist(err) {
 			err = blob.KeyNotFound(key)

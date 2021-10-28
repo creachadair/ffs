@@ -16,7 +16,6 @@ package filestore_test
 
 import (
 	"flag"
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -27,7 +26,7 @@ import (
 var keepOutput = flag.Bool("keep", false, "Keep test output after running")
 
 func TestStore(t *testing.T) {
-	dir, err := ioutil.TempDir("", "filestore")
+	dir, err := os.MkdirTemp("", "filestore")
 	if err != nil {
 		t.Fatalf("Creating temp directory: %v", err)
 	}
