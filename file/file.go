@@ -447,6 +447,14 @@ func (x XAttr) List(attr func(key, value string)) {
 	}
 }
 
+// Clear removes all the extended attributes set on the file.
+func (x XAttr) Clear() {
+	if len(x.f.xattr) != 0 {
+		defer x.f.inval()
+		x.f.xattr = make(map[string]string)
+	}
+}
+
 // Child provides access to the children of a file.
 type Child struct{ f *File }
 
