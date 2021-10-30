@@ -51,9 +51,14 @@
 //
 // By default, a File does not persist stat metadata. To enable stat
 // persistence, you may either set the Stat field of file.NewOptions when the
-// File is created, or use the Clear and Update methods of the Stat value to
-// enable or disable persistence.  The file.Stat type defines the stat
-// attributes that can be persisted.
+// File is created, or use the Persist method of the Stat value to enable or
+// disable persistence:
+//
+//    s := f.Stat()
+//    s.ModTime = time.Now()
+//    s.Update().Persist(true)
+//
+// The file.Stat type defines the stat attributes that can be persisted.
 package file
 
 import (
