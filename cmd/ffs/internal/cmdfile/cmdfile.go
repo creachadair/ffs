@@ -78,7 +78,7 @@ If the origin is from a root, the root is updated with the modified origin.
 			Name: "remove",
 			Usage: `root:<root-key> <path>
 <origin-key> <path>`,
-			Help: `Remove the specified path from beneth the origin
+			Help: `Remove the specified path from beneath the origin
 
 The storage key of the modified origin is printed to stdout.
 If the origin is from a root, the root is updated with the modified origin.
