@@ -32,8 +32,8 @@ import (
 	"github.com/creachadair/ffs/fpath"
 )
 
-const fileCmdUsage = `root:<root-key> [path]
-<file-key> [path]`
+const fileCmdUsage = `root:<root-key>[/path]
+<file-key>[/path]`
 
 var Command = &command.C{
 	Name: "file",
@@ -91,31 +91,38 @@ If the origin is from a root, the root is updated with the modified origin.
 
 func runShow(env *command.Env, args []string) error {
 	if len(args) == 0 {
-		return env.Usagef("missing required storage key")
+		return env.Usagef("missing required origin/path")
 	}
 	cfg := env.Config.(*config.Settings)
 	return cfg.WithStore(cfg.Context, func(s blob.CAS) error {
-		of, err := openFile(cfg.Context, s, args[0], args[1:]...)
-		if err != nil {
-			return err
-		}
+		for _, arg := range args {
+			if arg == "" {
+				return env.Usagef("origin may not be empty")
+			}
+			parts := strings.SplitN(arg, "/", 2)
+			of, err := openFile(cfg.Context, s, parts[0], parts[1:]...)
+			if err != nil {
+				return err
+			}
 
-		msg := file.Encode(of.targetFile).Value.(*wiretype.Object_Node).Node
-		fmt.Println(config.ToJSON(map[string]interface{}{
-			"storageKey": []byte(of.targetKey),
-			"node":       msg,
-		}))
+			msg := file.Encode(of.targetFile).Value.(*wiretype.Object_Node).Node
+			fmt.Println(config.ToJSON(map[string]interface{}{
+				"storageKey": []byte(of.targetKey),
+				"node":       msg,
+			}))
+		}
 		return nil
 	})
 }
 
 func runRead(env *command.Env, args []string) error {
 	if len(args) == 0 {
-		return env.Usagef("missing required storage key")
+		return env.Usagef("missing required origin/path")
 	}
 	cfg := env.Config.(*config.Settings)
 	return cfg.WithStore(cfg.Context, func(s blob.CAS) error {
-		of, err := openFile(cfg.Context, s, args[0], args[1:]...)
+		parts := strings.SplitN(args[0], "/", 2)
+		of, err := openFile(cfg.Context, s, parts[0], parts[1:]...)
 		if err != nil {
 			return err
 		}
@@ -125,14 +132,14 @@ func runRead(env *command.Env, args []string) error {
 }
 
 func runSet(env *command.Env, args []string) error {
-	if len(args) != 3 {
-		return env.Usagef("got %d arguments, wanted origin, path, target", len(args))
+	if len(args) != 2 {
+		return env.Usagef("got %d arguments, wanted origin/path, target", len(args))
 	}
-	path := path.Clean(args[1])
-	if path == "" {
+	originPath := strings.SplitN(args[0], "/", 2)
+	if len(originPath) == 1 {
 		return env.Usagef("path must not be empty")
 	}
-	targetKey, err := config.ParseKey(args[2])
+	targetKey, err := config.ParseKey(args[1])
 	if err != nil {
 		return fmt.Errorf("target key: %w", err)
 	}
@@ -143,11 +150,12 @@ func runSet(env *command.Env, args []string) error {
 		if err != nil {
 			return fmt.Errorf("target file: %w", err)
 		}
-		of, err := openFile(cfg.Context, s, args[0]) // N.B. No path; see below.
+		of, err := openFile(cfg.Context, s, originPath[0]) // N.B. No path; see below.
 		if err != nil {
 			return err
 		}
 
+		path := path.Clean(originPath[1])
 		if _, err := fpath.Set(cfg.Context, of.rootFile, path, &fpath.SetOptions{
 			Create: true,
 			SetStat: func(st *file.Stat) {
