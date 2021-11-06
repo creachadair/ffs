@@ -32,8 +32,8 @@ import (
 	"github.com/creachadair/ffs/fpath"
 )
 
-const fileCmdUsage = `root:<root-key>[/path]
-<file-key>[/path]`
+const fileCmdUsage = `root:<root-key>[/path] ...
+<file-key>[/path] ...`
 
 var Command = &command.C{
 	Name: "file",
