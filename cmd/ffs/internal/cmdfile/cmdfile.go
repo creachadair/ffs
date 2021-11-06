@@ -64,8 +64,8 @@ a file may be specified in the following formats:
 		},
 		{
 			Name: "set",
-			Usage: `root:<root-key> <path> <target-key>
-<origin-key> <path> <file-key>`,
+			Usage: `root:<root-key>/<path> <target-key>
+<origin-key>/<path> <file-key>`,
 			Help: `Set the specified path beneath the origin to the given target
 
 The storage key of the modified origin is printed to stdout.
@@ -76,8 +76,8 @@ If the origin is from a root, the root is updated with the modified origin.
 		},
 		{
 			Name: "remove",
-			Usage: `root:<root-key> <path>
-<origin-key> <path>`,
+			Usage: `root:<root-key>/<path> ...
+<origin-key>/<path> ...`,
 			Help: `Remove the specified path from beneath the origin
 
 The storage key of the modified origin is printed to stdout.
@@ -177,29 +177,32 @@ func runSet(env *command.Env, args []string) error {
 }
 
 func runRemove(env *command.Env, args []string) error {
-	if len(args) != 2 {
-		return env.Usagef("got %d arguments, wanted origin, path", len(args))
-	}
-	path := path.Clean(args[1])
-	if path == "" {
-		return env.Usagef("path must not be empty")
+	if len(args) == 0 {
+		return env.Usagef("missing origin/path")
 	}
 
 	cfg := env.Config.(*config.Settings)
 	return cfg.WithStore(cfg.Context, func(s blob.CAS) error {
-		of, err := openFile(cfg.Context, s, args[0]) // N.B. No path; see below
-		if err != nil {
-			return err
-		}
+		for _, arg := range args {
+			parts := strings.SplitN(arg, "/", 2)
+			if len(parts) == 1 {
+				return fmt.Errorf("missing path %q", parts[0])
+			}
+			of, err := openFile(cfg.Context, s, parts[0]) // N.B. No path; see below
+			if err != nil {
+				return err
+			}
 
-		if err := fpath.Remove(cfg.Context, of.rootFile, path); err != nil {
-			return err
+			path := path.Clean(parts[1])
+			if err := fpath.Remove(cfg.Context, of.rootFile, path); err != nil {
+				return err
+			}
+			key, err := of.flushRoot(cfg.Context, s)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("%x\n", key)
 		}
-		key, err := of.flushRoot(cfg.Context, s)
-		if err != nil {
-			return err
-		}
-		fmt.Printf("%x\n", key)
 		return nil
 	})
 }
