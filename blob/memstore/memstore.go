@@ -50,8 +50,12 @@ func (s *Store) Clear() {
 }
 
 // Snapshot copies a snapshot of the keys and values of s into m.
+// If m == nil, a new empty map is allocated and returned.
 // It returns m to allow chaining with construction.
 func (s *Store) Snapshot(m map[string]string) map[string]string {
+	if m == nil {
+		m = make(map[string]string)
+	}
 	s.μ.Lock()
 	defer s.μ.Unlock()
 	for key, val := range s.m {

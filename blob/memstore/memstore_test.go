@@ -15,13 +15,35 @@
 package memstore_test
 
 import (
+	"context"
 	"testing"
 
+	"github.com/creachadair/ffs/blob"
 	"github.com/creachadair/ffs/blob/memstore"
 	"github.com/creachadair/ffs/blob/storetest"
+	"github.com/google/go-cmp/cmp"
 )
 
 func TestStore(t *testing.T) {
 	m := memstore.New()
 	storetest.Run(t, m)
+}
+
+func TestSnapshot(t *testing.T) {
+	m := memstore.New()
+	m.Put(context.Background(), blob.PutOptions{
+		Key:  "foo",
+		Data: []byte("bar"),
+	})
+	m.Put(context.Background(), blob.PutOptions{
+		Key:  "baz",
+		Data: []byte("quux"),
+	})
+	m.Delete(context.Background(), "baz")
+
+	got := m.Snapshot(nil)
+	want := map[string]string{"foo": "bar"}
+	if diff := cmp.Diff(want, got); diff != "" {
+		t.Errorf("Wrong snapshot: (-want, +got):\n%s", diff)
+	}
 }
