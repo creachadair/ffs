@@ -214,7 +214,7 @@ type Root struct {
 	unknownFields protoimpl.UnknownFields
 
 	// The storage key of the root of the tree.
-	// The blob contains a Node message in wire format.
+	// The blob contains a an object holding a Node message.
 	// This field must be non-empty for a root to be valid.
 	FileKey []byte `protobuf:"bytes,1,opt,name=file_key,json=fileKey,proto3" json:"file_key,omitempty"`
 	// A human-readable descriptive label for the root.

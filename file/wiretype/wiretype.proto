@@ -38,7 +38,7 @@ message Object {
 // A Root records the location of a root node of a file tree.
 message Root {
   // The storage key of the root of the tree.
-  // The blob contains a Node message in wire format.
+  // The blob contains a an object holding a Node message.
   // This field must be non-empty for a root to be valid.
   bytes file_key = 1;
 
