@@ -99,7 +99,8 @@ var Command = &command.C{
 				}
 				idx.Add(rp.FileKey)
 
-				fmt.Fprintf(env, "Scanning data reachable from %q (%x)...\n", key, rp.FileKey)
+				fmt.Fprintf(env, "Scanning data reachable from %q (%x)...\n",
+					config.PrintableKey(key), rp.FileKey)
 				start := time.Now()
 				var numKeys int
 				if err := rf.Scan(cfg.Context, func(key string, isFile bool) bool {

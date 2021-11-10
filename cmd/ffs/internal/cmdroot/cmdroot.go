@@ -106,21 +106,12 @@ func runShow(env *command.Env, args []string) error {
 			}
 			msg := root.Encode(rp).Value.(*wiretype.Object_Root).Root
 			fmt.Println(config.ToJSON(map[string]interface{}{
-				"storageKey": printableKey(key),
+				"storageKey": config.PrintableKey(key),
 				"root":       msg,
 			}))
 		}
 		return lastErr
 	})
-}
-
-func printableKey(key string) interface{} {
-	for i := 0; i < len(key); i++ {
-		if key[i] < ' ' || key[i] > '~' {
-			return []byte(key)
-		}
-	}
-	return key
 }
 
 func runList(env *command.Env, args []string) error {
