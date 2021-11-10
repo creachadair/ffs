@@ -58,12 +58,17 @@ var Command = &command.C{
 			fmt.Fprintf(env, "Begin GC of %d blobs, roots=%+q\n", n, keys)
 
 			// Mark phase: Scan all roots.
-			for _, key := range keys {
+			for i := 0; i < len(keys); i++ {
+				key := keys[i]
 				rp, err := root.Open(cfg.Context, s, key)
 				if err != nil {
 					return fmt.Errorf("opening %q: %w", key, err)
 				}
 				idx.Add(key)
+				// If this root has a predecessor, add it to the root set.
+				if rp.Predecessor != "" {
+					keys = append(keys, rp.Predecessor)
+				}
 
 				// If this root has a cached index, use that instead of scanning.
 				if rp.IndexKey != "" {

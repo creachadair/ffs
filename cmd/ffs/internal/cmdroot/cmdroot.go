@@ -65,6 +65,7 @@ var Command = &command.C{
 
 			SetFlags: func(_ *command.Env, fs *flag.FlagSet) {
 				fs.BoolVar(&copyFlags.Replace, "replace", false, "Replace an existing target root name")
+				fs.BoolVar(&copyFlags.Link, "link", false, "Link source root as target predecessor")
 			},
 			Run: runCopy,
 		},
@@ -165,6 +166,7 @@ func runCreate(env *command.Env, args []string) error {
 
 var copyFlags struct {
 	Replace bool
+	Link    bool
 }
 
 func runCopy(env *command.Env, args []string) error {
@@ -174,6 +176,23 @@ func runCopy(env *command.Env, args []string) error {
 	}
 	defer na.Close()
 	key := config.RootKey(na.Args[0])
+	if copyFlags.Link {
+		// Save a content-addressed copy of the original root, and update the
+		// predecessor pointer. The original key is not sufficient, since it may
+		// be updated to some other location later.
+		cfg := env.Config.(*config.Settings)
+		err := cfg.WithStore(cfg.Context, func(src blob.CAS) error {
+			old, err := wiretype.Save(cfg.Context, src, root.Encode(na.Root))
+			if err != nil {
+				return err
+			}
+			na.Root.Predecessor = old
+			return nil
+		})
+		if err != nil {
+			return fmt.Errorf("saving predecessor root: %w", err)
+		}
+	}
 	return na.Root.Save(na.Context, key, copyFlags.Replace)
 }
 

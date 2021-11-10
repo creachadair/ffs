@@ -100,6 +100,11 @@ func copyRoot(ctx context.Context, src, tgt blob.CAS, key string) error {
 	if err := copyBlob(ctx, src, tgt, rp.IndexKey, false); err != nil {
 		return fmt.Errorf("copying index: %w", err)
 	}
+	if rp.Predecessor != "" {
+		if err := copyRoot(ctx, src, tgt, rp.Predecessor); err != nil {
+			return err
+		}
+	}
 	fp, err := rp.File(ctx)
 	if err != nil {
 		return err
@@ -112,6 +117,7 @@ func copyRoot(ctx context.Context, src, tgt blob.CAS, key string) error {
 		Description: rp.Description,
 		FileKey:     rp.FileKey,
 		IndexKey:    rp.IndexKey,
+		Predecessor: rp.Predecessor,
 	}).Save(ctx, key, true)
 }
 
