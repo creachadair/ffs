@@ -38,6 +38,7 @@ type Root struct {
 	Description string // a human-readable description
 	FileKey     string // the storage key of the file node
 	IndexKey    string // the storage key of the blob index
+	Predecessor string // the storage key of the predecessor root
 
 	file *file.File
 }
@@ -54,6 +55,8 @@ func New(s blob.CAS, opts *Options) *Root {
 		OwnerKey:    opts.OwnerKey,
 		Description: opts.Description,
 		FileKey:     opts.FileKey,
+		IndexKey:    opts.IndexKey,
+		Predecessor: opts.Predecessor,
 	}
 }
 
@@ -127,6 +130,7 @@ func Encode(r *Root) *wiretype.Object {
 				Description: r.Description,
 				OwnerKey:    []byte(r.OwnerKey),
 				IndexKey:    []byte(r.IndexKey),
+				Predecessor: []byte(r.Predecessor),
 			},
 		},
 	}
@@ -146,6 +150,7 @@ func Decode(s blob.CAS, obj *wiretype.Object) (*Root, error) {
 		Description: pb.Root.Description,
 		FileKey:     string(pb.Root.FileKey),
 		IndexKey:    string(pb.Root.IndexKey),
+		Predecessor: string(pb.Root.Predecessor),
 	}, nil
 }
 
@@ -156,4 +161,5 @@ type Options struct {
 	Description string
 	OwnerKey    string
 	IndexKey    string
+	Predecessor string
 }

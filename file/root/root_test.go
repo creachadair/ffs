@@ -34,6 +34,7 @@ func TestRoot(t *testing.T) {
 		Description: "Test root",
 		OwnerKey:    "whatever",
 		IndexKey:    "hey you get off of my cloud",
+		Predecessor: "talk to that lady",
 	})
 
 	// Create a new empty file to use as the root file.
@@ -80,5 +81,8 @@ func TestRoot(t *testing.T) {
 	}
 	if rc.IndexKey != r.IndexKey {
 		t.Errorf("Loaded index key: got %q, want %q", rc.IndexKey, r.IndexKey)
+	}
+	if rc.Predecessor != r.Predecessor {
+		t.Errorf("Loaded predecessor: got %q, want %q", rc.Predecessor, r.Predecessor)
 	}
 }
