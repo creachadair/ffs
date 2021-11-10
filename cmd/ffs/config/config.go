@@ -110,8 +110,15 @@ func RootKeys(args []string) ([]string, error) {
 	for i, arg := range args {
 		if arg == "" {
 			return nil, errors.New("empty root key")
+		} else if strings.HasPrefix(arg, "@") {
+			key, err := ParseKey(arg[1:])
+			if err != nil {
+				return nil, err
+			}
+			keys[i] = key
+		} else {
+			keys[i] = RootKey(arg)
 		}
-		keys[i] = RootKey(arg)
 	}
 	return keys, nil
 }
