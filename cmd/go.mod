@@ -8,8 +8,8 @@ require (
 	github.com/creachadair/boltstore v0.0.0-20211109225639-7f5d26381c87
 	github.com/creachadair/command v0.0.0-20211028212402-8b5d811f2262
 	github.com/creachadair/ctrl v0.1.1
-	github.com/creachadair/ffs v0.0.0-20211109224825-db29b4e30c39
-	github.com/creachadair/ffs/storage v0.0.0-20211109224825-db29b4e30c39
+	github.com/creachadair/ffs v0.0.0-20211110175839-822cede8e9dc
+	github.com/creachadair/ffs/storage v0.0.0-20211110175839-822cede8e9dc
 	github.com/creachadair/gcsstore v0.0.0-20211109225901-31f671e56045
 	github.com/creachadair/jrpc2 v0.30.1
 	github.com/creachadair/keyfile v0.7.1
@@ -30,7 +30,7 @@ require (
 require (
 	cloud.google.com/go v0.97.0 // indirect
 	cloud.google.com/go/storage v1.18.2 // indirect
-	crawshaw.io/sqlite v0.3.3-0.20211106231744-c2c3906bc844 // indirect
+	crawshaw.io/sqlite v0.3.3-0.20211110021503-9d454769e7b5 // indirect
 	git.mills.io/prologic/bitcask v1.0.2 // indirect
 	github.com/DataDog/zstd v1.4.8 // indirect
 	github.com/abcum/lcp v0.0.0-20201209214815-7a3f3840be81 // indirect
@@ -43,7 +43,7 @@ require (
 	github.com/cncf/xds/go v0.0.0-20211011173535-cb28da3451f1 // indirect
 	github.com/cockroachdb/errors v1.8.6 // indirect
 	github.com/cockroachdb/logtags v0.0.0-20190617123548-eb05cc24525f // indirect
-	github.com/cockroachdb/pebble v0.0.0-20211108190208-c0661aef47c5 // indirect
+	github.com/cockroachdb/pebble v0.0.0-20211110160322-cb8172c0dc82 // indirect
 	github.com/cockroachdb/redact v1.1.3 // indirect
 	github.com/cockroachdb/sentry-go v0.6.1-cockroachdb.2 // indirect
 	github.com/creachadair/atomicfile v0.2.2 // indirect
@@ -76,7 +76,7 @@ require (
 	golang.org/x/net v0.0.0-20211109214657-ef0fda0de508 // indirect
 	golang.org/x/oauth2 v0.0.0-20211104180415-d3ed0bb246c8 // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
-	golang.org/x/sys v0.0.0-20211109184856-51b60fd695b3 // indirect
+	golang.org/x/sys v0.0.0-20211110154304-99a53858aa08 // indirect
 	golang.org/x/text v0.3.7 // indirect
 	golang.org/x/xerrors v0.0.0-20200804184101-5ec99f83aff1 // indirect
 	google.golang.org/api v0.60.0 // indirect
