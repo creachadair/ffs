@@ -38,7 +38,7 @@ message Object {
 // A Root records the location of a root node of a file tree.
 message Root {
   // The storage key of the root of the tree.
-  // The blob contains a an object holding a Node message.
+  // The blob contains an Object holding a Node message.
   // This field must be non-empty for a root to be valid.
   bytes file_key = 1;
 
@@ -53,7 +53,11 @@ message Root {
   // The blob contains a Object holding an ffs.index.Index message.
   bytes index_key = 4;
 
-  // next id: 5
+  // The storage key of a predecessor root. The blob contains an
+  // Object holding a Root message that this root is related to.
+  bytes predecessor = 5;
+
+  // next id: 6
 }
 
 // A Node is the top-level encoding of a file.
