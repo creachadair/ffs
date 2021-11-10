@@ -4,6 +4,8 @@ github.com/creachadair/atomicfile v0.2.2/go.mod h1:BRq8Une6ckFneYXZQ+kO7p1ZZP3I2
 github.com/creachadair/ffs v0.0.0-20211013230823-ae39e39f88f2/go.mod h1:MVxbSGbJi3n6az0h3DYBEauFTzOawCFmh0W5vL3tzzw=
 github.com/creachadair/ffs v0.0.0-20211018182321-4c26f6b89e99 h1:jUflQrhdtqPvV+iXaM/wy2NIo91Y7RH8IIe56JluC4g=
 github.com/creachadair/ffs v0.0.0-20211018182321-4c26f6b89e99/go.mod h1:BNrBgicjh5a9fi/kyaz6r/oGMjYXbm3nQ/uSo/v4MHo=
+github.com/creachadair/ffs v0.0.0-20211110161128-b6d3a50b0507 h1:u+HA7jy3XpFuQp+yH7p0mmCpr3yyEuA8DHUmd2hoYMk=
+github.com/creachadair/ffs v0.0.0-20211110161128-b6d3a50b0507/go.mod h1:BNrBgicjh5a9fi/kyaz6r/oGMjYXbm3nQ/uSo/v4MHo=
 github.com/creachadair/ffs/storage v0.0.0-20211014020421-4f17f651dc77/go.mod h1:JbHoXzCTKfIYF9e+uLhAZkomzMwAD/5B9X3TYuWgaAM=
 github.com/creachadair/taskgroup v0.3.1 h1:Mpi0sc005YWdsDEJsh8vGPOygp9b0rLR0OW6VBOp9Pc=
 github.com/creachadair/taskgroup v0.3.1/go.mod h1:q490pQxvbLXtIe4w8xlf5tcO6RR1AhRfWHXO0MotmHs=
