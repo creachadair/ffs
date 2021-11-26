@@ -4,21 +4,21 @@ go 1.17
 
 require (
 	github.com/creachadair/badgerstore v0.1.2
-	github.com/creachadair/bitcaskstore v0.0.0-20211126150150-d2f622f93747
-	github.com/creachadair/boltstore v0.0.0-20211126150240-a5dddc3f10bb
-	github.com/creachadair/command v0.0.0-20211028212402-8b5d811f2262
+	github.com/creachadair/bitcaskstore v0.0.0-20211126155254-62e9f5b842ab
+	github.com/creachadair/boltstore v0.0.0-20211126171446-d7c4d785fa21
+	github.com/creachadair/command v0.0.0-20211126171518-aeb2c1414eea
 	github.com/creachadair/ctrl v0.1.1
-	github.com/creachadair/ffs v0.0.0-20211126150346-8d05842380a7
-	github.com/creachadair/ffs/storage v0.0.0-20211126150346-8d05842380a7
-	github.com/creachadair/gcsstore v0.0.0-20211126150407-d1c251709cc9
-	github.com/creachadair/jrpc2 v0.31.0
+	github.com/creachadair/ffs v0.0.0-20211126171514-36fcdad6420b
+	github.com/creachadair/ffs/storage v0.0.0-20211126171514-36fcdad6420b
+	github.com/creachadair/gcsstore v0.0.0-20211126155353-6413ed482e0e
+	github.com/creachadair/jrpc2 v0.32.0
 	github.com/creachadair/keyfile v0.7.1
-	github.com/creachadair/leveldbstore v0.0.0-20211126150532-bd0cfccf2184
-	github.com/creachadair/pebblestore v0.0.0-20211126150601-9f71eef3ce0c
-	github.com/creachadair/pogrebstore v0.0.0-20211126150606-afec95294d01
-	github.com/creachadair/rpcstore v0.0.0-20211126150616-3e910e698034
-	github.com/creachadair/s3store v0.0.0-20211126150628-89204127feca
-	github.com/creachadair/sqlitestore v0.0.0-20211126150636-365b7492e49a
+	github.com/creachadair/leveldbstore v0.0.0-20211126171454-7be0b8503a82
+	github.com/creachadair/pebblestore v0.0.0-20211126171451-90e52f0a88a7
+	github.com/creachadair/pogrebstore v0.0.0-20211126171439-df9f88a7d1e5
+	github.com/creachadair/rpcstore v0.0.0-20211126171507-3d9f0d74c3c0
+	github.com/creachadair/s3store v0.0.0-20211126171505-294f861de204
+	github.com/creachadair/sqlitestore v0.0.0-20211126171512-b477387ed235
 	github.com/creachadair/taskgroup v0.3.1
 	github.com/pkg/xattr v0.4.4
 	golang.org/x/crypto v0.0.0-20211117183948-ae814b36b871
@@ -35,7 +35,7 @@ require (
 	github.com/DataDog/zstd v1.5.0 // indirect
 	github.com/abcum/lcp v0.0.0-20201209214815-7a3f3840be81 // indirect
 	github.com/akrylysov/pogreb v0.10.1 // indirect
-	github.com/aws/aws-sdk-go v1.42.12 // indirect
+	github.com/aws/aws-sdk-go v1.42.13 // indirect
 	github.com/census-instrumentation/opencensus-proto v0.3.0 // indirect
 	github.com/cespare/xxhash v1.1.0 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
