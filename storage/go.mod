@@ -12,3 +12,5 @@ require (
 	github.com/creachadair/taskgroup v0.3.1
 	github.com/google/go-cmp v0.5.6
 )
+
+replace github.com/creachadair/ffs => ../
