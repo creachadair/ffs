@@ -84,7 +84,3 @@ require (
 	google.golang.org/genproto v0.0.0-20211118181313-81c1377c94b1 // indirect
 	google.golang.org/grpc v1.42.0 // indirect
 )
-
-replace github.com/creachadair/ffs => ../
-
-replace github.com/creachadair/ffs/storage => ../storage
