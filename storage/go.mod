@@ -4,7 +4,7 @@ go 1.17
 
 require (
 	github.com/creachadair/atomicfile v0.2.2
-	github.com/creachadair/ffs v0.0.0-20211202183745-4d55a0508d03
+	github.com/creachadair/ffs v0.0.0-20211203034358-6ad1f6b276b4
 	github.com/golang/snappy v0.0.4
 )
 
