@@ -6,6 +6,7 @@ package wbstore
 import (
 	"context"
 	"errors"
+	"net"
 	"strings"
 	"sync"
 
@@ -176,12 +177,20 @@ func (s *Store) run(ctx context.Context) {
 				})
 			})
 		}
-		if err := g.Wait(); err != nil {
+		if err := g.Wait(); err != nil && !isRetryableError(err) {
 			s.wdone <- err
 			return
 		}
 		s.bufClean.Broadcast()
 	}
+}
+
+func isRetryableError(err error) bool {
+	var derr *net.DNSError
+	if errors.As(err, &derr) {
+		return derr.Temporary()
+	}
+	return false
 }
 
 type getResult struct {
