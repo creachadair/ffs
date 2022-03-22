@@ -190,7 +190,7 @@ func (s *Store) run(ctx context.Context) {
 func isRetryableError(err error) bool {
 	var derr *net.DNSError
 	if errors.As(err, &derr) {
-		return derr.Temporary()
+		return derr.Temporary() || derr.IsNotFound
 	}
 	return false
 }
