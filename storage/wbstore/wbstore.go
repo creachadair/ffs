@@ -6,6 +6,7 @@ package wbstore
 import (
 	"context"
 	"errors"
+	"log"
 	"net"
 	"strings"
 	"sync"
@@ -178,6 +179,7 @@ func (s *Store) run(ctx context.Context) {
 			})
 		}
 		if err := g.Wait(); err != nil && !isRetryableError(err) {
+			log.Printf("DEBUG :: error in writeback, exiting: %v", err)
 			s.wdone <- err
 			return
 		}
