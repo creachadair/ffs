@@ -39,8 +39,6 @@ type Root struct {
 	FileKey     string // the storage key of the file node
 	IndexKey    string // the storage key of the blob index
 	Predecessor string // the storage key of the predecessor root
-
-	file *file.File
 }
 
 // New constructs a new empty Root associated with the given store.
@@ -69,47 +67,23 @@ func Open(ctx context.Context, s blob.CAS, key string) (*Root, error) {
 	return Decode(s, &obj)
 }
 
-// File loads and returns the root file of r, if one exists.
-// If no file exists, it returns ErrNoData.
-func (r *Root) File(ctx context.Context) (*file.File, error) {
-	if r.file != nil {
-		return r.file, nil
-	} else if r.FileKey == "" {
+// File loads and returns the root file of r from s, if one exists.  If no file
+// exists, it returns ErrNoData. If s == nil, it uses the same store as r.
+func (r *Root) File(ctx context.Context, s blob.CAS) (*file.File, error) {
+	if r.FileKey == "" {
 		return nil, ErrNoData
 	}
-	f, err := file.Open(ctx, r.cas, r.FileKey)
-	if err != nil {
-		return nil, err
+	if s == nil {
+		s = r.cas
 	}
-	r.file = f
-	return f, nil
-}
-
-// SetFile replaces the root file of r by opening the specified file key.
-func (r *Root) SetFile(ctx context.Context, key string) (*file.File, error) {
-	f, err := file.Open(ctx, r.cas, key)
-	if err != nil {
-		return nil, err
-	}
-	r.FileKey = key
-	r.file = f
-	return f, nil
+	return file.Open(ctx, s, r.FileKey)
 }
 
 // Save writes r in wire format to the given storage key in s.
 func (r *Root) Save(ctx context.Context, key string, replace bool) error {
-	// If there is a cached file, flush it and update the storage key.
-	// Otherwise, it is an error if there is no storage key set.
-	if r.file != nil {
-		fkey, err := r.file.Flush(ctx)
-		if err != nil {
-			return fmt.Errorf("flushing file: %w", err)
-		}
-		r.FileKey = fkey
-	} else if r.FileKey == "" {
+	if r.FileKey == "" {
 		return errors.New("missing file key")
 	}
-
 	bits, err := proto.Marshal(Encode(r))
 	if err != nil {
 		return err

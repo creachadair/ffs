@@ -45,14 +45,13 @@ func TestRoot(t *testing.T) {
 		t.Fatalf("Flushing root file: %v", err)
 	}
 
-	// Verify that setting the root file gives the right values.
-	if _, err = r.SetFile(ctx, rfKey); err != nil {
-		t.Errorf("SetFile: unexpected error: %v", err)
-	} else if r.FileKey != rfKey {
-		t.Errorf("SetFile: got key %q, want %q", r.FileKey, rfKey)
+	// Saving the root blob to storage should fail if there is no file key set.
+	if err := r.Save(ctx, "test-root", true); err == nil {
+		t.Error("Save should not have succeeded with an empty FileKey")
 	}
 
-	// Save the root blob to storage.
+	// Saving the root should succeed once the file key is present.
+	r.FileKey = rfKey
 	if err := r.Save(ctx, "test-root", true); err != nil {
 		t.Fatalf("Save failed: %v", err)
 	}
@@ -64,7 +63,7 @@ func TestRoot(t *testing.T) {
 	}
 
 	// Check the root file.
-	if rfc, err := rc.File(ctx); err != nil {
+	if rfc, err := rc.File(ctx, nil); err != nil {
 		t.Errorf("Loading root file: %v", err)
 	} else if rfcKey, err := rfc.Flush(ctx); err != nil {
 		t.Errorf("Flush failed: %v", err)
