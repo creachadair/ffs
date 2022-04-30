@@ -32,10 +32,17 @@ type Store struct {
 	prefix string
 }
 
-// New creates a Store associated with the specified store. The initial store
-// is exactly equivalent to the underlying store; use Derive to create clones
-// that use a different prefix.
-func New(store blob.Store) *Store { return &Store{real: store} }
+// New creates a Store associated with the specified s. The initial store is
+// exactly equivalent to the underlying store; use Derive to create clones that
+// use a different prefix.
+//
+// Prefixes do not nest: If s is already a prefixed.Store, it is returned as-is.
+func New(s blob.Store) *Store {
+	if p, ok := s.(*Store); ok {
+		return p
+	}
+	return &Store{real: s}
+}
 
 // Derive creates a clone of s that delegates to the same underlying store, but
 // using a different prefix. If prefix == "", Derive returns s unchanged.
@@ -100,7 +107,11 @@ type CAS struct {
 }
 
 // NewCAS creates a new prefixed Store associated with the specified cas.
+// Prefixes do not nest: If cas is already a prefixed.CAS, it is returned as.is.
 func NewCAS(cas blob.CAS) CAS {
+	if p, ok := cas.(CAS); ok {
+		return p
+	}
 	return CAS{Store: New(cas), cas: cas}
 }
 
