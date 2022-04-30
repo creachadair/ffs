@@ -54,14 +54,46 @@ func TestPrefixes(t *testing.T) {
 	mustPut(t, p2, "foo", "baz")
 	mustPut(t, p1, "xyzzy", "plugh")
 	mustPut(t, p2, "foo", "quux")
+	mustPut(t, p2, "bar", "plover")
 
-	snap := m.Snapshot(make(map[string]string))
+	t.Run("Snapshot", func(t *testing.T) {
+		snap := m.Snapshot(make(map[string]string))
 
-	if diff := cmp.Diff(map[string]string{
-		"A:foo":   "bar",
-		"B:foo":   "quux",
-		"A:xyzzy": "plugh",
-	}, snap); diff != "" {
-		t.Errorf("Prefixed store: wrong content (-want, +got)\n%s", diff)
-	}
+		if diff := cmp.Diff(map[string]string{
+			"A:foo":   "bar",
+			"B:foo":   "quux",
+			"A:xyzzy": "plugh",
+			"B:bar":   "plover",
+		}, snap); diff != "" {
+			t.Errorf("Prefixed store: wrong content (-want, +got)\n%s", diff)
+		}
+	})
+
+	t.Run("List-1", func(t *testing.T) {
+		var got []string
+		if err := p1.List(context.Background(), "", func(key string) error {
+			got = append(got, key)
+			return nil
+		}); err != nil {
+			t.Fatalf("List p1: %v", err)
+		}
+		want := []string{"foo", "xyzzy"}
+		if diff := cmp.Diff(want, got); diff != "" {
+			t.Errorf("p1 keys: (-want, +got)\n%s", diff)
+		}
+	})
+
+	t.Run("List-2", func(t *testing.T) {
+		var got []string
+		if err := p2.List(context.Background(), "", func(key string) error {
+			got = append(got, key)
+			return nil
+		}); err != nil {
+			t.Fatalf("List p1: %v", err)
+		}
+		want := []string{"bar", "foo"}
+		if diff := cmp.Diff(want, got); diff != "" {
+			t.Errorf("p2 keys: (-want, +got)\n%s", diff)
+		}
+	})
 }
