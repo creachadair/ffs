@@ -102,6 +102,48 @@ func TestPrefixes(t *testing.T) {
 	t.Run("List-3", runList(p3, "foo", "hexxus", "zuul"))
 }
 
+func TestNesting(t *testing.T) {
+	m := memstore.New()
+	p1 := prefixed.New(m)
+	c1 := prefixed.NewCAS(selfCAS{m})
+
+	t.Run("Renew", func(t *testing.T) {
+		if p2 := prefixed.New(p1); p2 != p1 {
+			t.Errorf("Wrapped new: got %v, want %v", p2, p1)
+		}
+	})
+	t.Run("RenewCAS", func(t *testing.T) {
+		if c2 := prefixed.NewCAS(c1); c2 != c1 {
+			t.Errorf("Wrapped new: got %v, want %v", c2, c1)
+		}
+	})
+
+	p2 := p1.Derive("X:")
+	p3 := p1.Derive("Y:")
+	p4 := p2.Derive("Z:") // derivation replaces existing keys
+	p5 := p2.Derive("")   // empty prefix does not change anything
+
+	mustPut(t, p1, "foo", "1")
+	mustPut(t, p2, "foo", "2")
+	mustPut(t, p3, "foo", "3")
+	mustPut(t, p4, "foo", "4")
+	mustPut(t, p5, "bar", "5")
+
+	t.Run("Snapshot", func(t *testing.T) {
+		snap := m.Snapshot(make(map[string]string))
+
+		if diff := cmp.Diff(map[string]string{
+			"foo":   "1", // unprefixed from p1
+			"X:foo": "2", // from p2
+			"Y:foo": "3", // from p3
+			"Z:foo": "4", // from p4
+			"X:bar": "5", // from p5 (eqv. p2)
+		}, snap); diff != "" {
+			t.Errorf("Prefixed store: wrong content (-want, +got)\n%s", diff)
+		}
+	})
+}
+
 type selfCAS struct {
 	blob.Store
 }
