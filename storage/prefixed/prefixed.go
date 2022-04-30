@@ -92,3 +92,44 @@ func (s *Store) List(ctx context.Context, start string, f func(string) error) er
 // Len implements part of blob.Store by delegation. It reports the total number
 // of keys in the underlying store, not only those with the chosen prefix.
 func (s *Store) Len(ctx context.Context) (int64, error) { return s.real.Len(ctx) }
+
+// CAS implements a prefixed wrapper around a blob.CAS instance.
+type CAS struct {
+	*Store
+	cas blob.CAS
+}
+
+// NewCAS creates a new prefixed Store associated with the specified cas.
+func NewCAS(cas blob.CAS) CAS {
+	return CAS{Store: New(cas), cas: cas}
+}
+
+// Derive creates a clone of c that delegates to the same underlying store, but
+// using a different prefix. If prefix == "", Derive returns c unchanged.
+func (c CAS) Derive(prefix string) CAS {
+	if prefix == "" {
+		return c
+	}
+	return CAS{Store: c.Store.Derive(prefix), cas: c.cas}
+}
+
+// CASPut implements part of the blob.CAS interface.
+func (c CAS) CASPut(ctx context.Context, data []byte) (string, error) {
+	key, err := c.cas.CASKey(ctx, data)
+	if err != nil {
+		return "", err
+	}
+	if err := c.Store.Put(ctx, blob.PutOptions{
+		Key:     key,
+		Data:    data,
+		Replace: false,
+	}); err != nil && !blob.IsKeyExists(err) {
+		return key, err
+	}
+	return key, nil
+}
+
+// CASKey implements part of the blob.CAS interface.
+func (c CAS) CASKey(ctx context.Context, data []byte) (string, error) {
+	return c.cas.CASKey(ctx, data)
+}

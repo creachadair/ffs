@@ -42,10 +42,26 @@ func mustPut(t *testing.T, s blob.Store, key, val string) {
 	}
 }
 
+func runList(p blob.Store, want ...string) func(t *testing.T) {
+	return func(t *testing.T) {
+		var got []string
+		if err := p.List(context.Background(), "", func(key string) error {
+			got = append(got, key)
+			return nil
+		}); err != nil {
+			t.Fatalf("List p1: %v", err)
+		}
+		if diff := cmp.Diff(want, got); diff != "" {
+			t.Errorf("p keys: (-want, +got)\n%s", diff)
+		}
+	}
+}
+
 func TestPrefixes(t *testing.T) {
 	m := memstore.New()
 	p1 := prefixed.New(m).Derive("A:")
 	p2 := p1.Derive("B:")
+	p3 := prefixed.NewCAS(selfCAS{m}).Derive("C:")
 
 	// Verify that the keys that arrive in the underlying store reflect the
 	// correct prefixes, and that the namespaces are disjoint as long as the
@@ -55,45 +71,50 @@ func TestPrefixes(t *testing.T) {
 	mustPut(t, p1, "xyzzy", "plugh")
 	mustPut(t, p2, "foo", "quux")
 	mustPut(t, p2, "bar", "plover")
+	mustPut(t, p3, "foo", "bizzle")
+	mustPut(t, p3, "zuul", "dana")
+
+	// Verify that a CAS key is properly prefixed, but that the key returned
+	// does not have the prefix.
+	ckey, err := p3.CASPut(context.Background(), []byte("hexxus"))
+	if err != nil {
+		t.Errorf("p3 CAS put: %v", err)
+	}
 
 	t.Run("Snapshot", func(t *testing.T) {
 		snap := m.Snapshot(make(map[string]string))
 
 		if diff := cmp.Diff(map[string]string{
-			"A:foo":   "bar",
-			"B:foo":   "quux",
-			"A:xyzzy": "plugh",
-			"B:bar":   "plover",
+			"A:foo":     "bar",
+			"A:xyzzy":   "plugh",
+			"B:foo":     "quux",
+			"B:bar":     "plover",
+			"C:foo":     "bizzle",
+			"C:zuul":    "dana",   // from p3.Put
+			"C:" + ckey: "hexxus", // from p3.CASPut
 		}, snap); diff != "" {
 			t.Errorf("Prefixed store: wrong content (-want, +got)\n%s", diff)
 		}
 	})
 
-	t.Run("List-1", func(t *testing.T) {
-		var got []string
-		if err := p1.List(context.Background(), "", func(key string) error {
-			got = append(got, key)
-			return nil
-		}); err != nil {
-			t.Fatalf("List p1: %v", err)
-		}
-		want := []string{"foo", "xyzzy"}
-		if diff := cmp.Diff(want, got); diff != "" {
-			t.Errorf("p1 keys: (-want, +got)\n%s", diff)
-		}
-	})
+	t.Run("List-1", runList(p1, "foo", "xyzzy"))
+	t.Run("List-2", runList(p2, "bar", "foo"))
+	t.Run("List-3", runList(p3, "foo", "hexxus", "zuul"))
+}
 
-	t.Run("List-2", func(t *testing.T) {
-		var got []string
-		if err := p2.List(context.Background(), "", func(key string) error {
-			got = append(got, key)
-			return nil
-		}); err != nil {
-			t.Fatalf("List p1: %v", err)
-		}
-		want := []string{"bar", "foo"}
-		if diff := cmp.Diff(want, got); diff != "" {
-			t.Errorf("p2 keys: (-want, +got)\n%s", diff)
-		}
-	})
+type selfCAS struct {
+	blob.Store
+}
+
+func (selfCAS) CASKey(_ context.Context, data []byte) (string, error) {
+	return string(data), nil
+}
+
+func (s selfCAS) CASPut(ctx context.Context, data []byte) (string, error) {
+	key := string(data)
+	err := s.Put(ctx, blob.PutOptions{Key: key, Data: data})
+	if err != nil && !blob.IsKeyExists(err) {
+		return key, err
+	}
+	return key, nil
 }
