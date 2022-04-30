@@ -32,14 +32,22 @@ type Store struct {
 	prefix string
 }
 
-// New creates a Store associated with the specified prefix and store.
-// This function will panic if prefix == "".
-func New(store blob.Store, prefix string) *Store {
+// New creates a Store associated with the specified store. The initial store
+// is exactly equivalent to the underlying store; use Derive to create clones
+// that use a different prefix.
+func New(store blob.Store) *Store { return &Store{real: store} }
+
+// Derive creates a clone of s that delegates to the same underlying store, but
+// using a different prefix. If prefix == "", Derive returns s unchanged.
+func (s *Store) Derive(prefix string) *Store {
 	if prefix == "" {
-		panic("empty key prefix")
+		return s
 	}
-	return &Store{real: store, prefix: prefix}
+	return &Store{real: s.real, prefix: prefix}
 }
+
+// Prefix returns the key prefix associated with s.
+func (s *Store) Prefix() string { return s.prefix }
 
 func (s *Store) wrapKey(key string) string { return s.prefix + key }
 

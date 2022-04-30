@@ -27,7 +27,7 @@ import (
 
 func TestStore(t *testing.T) {
 	m := memstore.New()
-	p := prefixed.New(m, "POG:")
+	p := prefixed.New(m).Derive("POG:")
 	storetest.Run(t, p)
 }
 
@@ -44,8 +44,8 @@ func mustPut(t *testing.T, s blob.Store, key, val string) {
 
 func TestPrefixes(t *testing.T) {
 	m := memstore.New()
-	p1 := prefixed.New(m, "A:")
-	p2 := prefixed.New(m, "B:")
+	p1 := prefixed.New(m).Derive("A:")
+	p2 := p1.Derive("B:")
 
 	// Verify that the keys that arrive in the underlying store reflect the
 	// correct prefixes, and that the namespaces are disjoint as long as the
