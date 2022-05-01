@@ -18,7 +18,6 @@ import (
 	"context"
 	"errors"
 	"io"
-	"log"
 
 	"github.com/creachadair/ffs/blob"
 	"github.com/creachadair/ffs/block"
@@ -320,7 +319,6 @@ walkSpan:
 		// The output is not full, and offset at or past the start of this extent.
 		// Find the first block containing offset and walk forward.
 		i, base := ext.findBlock(offset)
-		log.Printf("MJF :: offset=%d i=%d base=%d", offset, i, base)
 		for _, blk := range ext.blocks[i:] {
 			if base > end {
 				break walkSpan
@@ -334,7 +332,6 @@ walkSpan:
 
 			pos := int(offset - base)
 			cp := min(len(bits)-pos, len(data)-nr)
-			log.Printf("MJF :: pos=%d len(bits)=%d len(data)=%d nr=%d", pos, len(bits), len(data), nr)
 			nr += copy(data[nr:], bits[pos:pos+cp])
 			if nr == len(data) {
 				break walkSpan
@@ -528,18 +525,14 @@ func (e *extent) findBlock(offset int64) (int, int64) {
 				// remainder of the offsets cache.
 			}
 		}
-		log.Printf("MJF :: AM HERE idx=%d base=%d", idx, base)
 		return idx, base
 	}
 
 	// Subsequent searches binary search.
 	lo, hi := 0, len(e.starts)
-	log.Printf("MJF :: BEGIN BSEARCH offset=%d lo=%d hi=%d", offset, lo, hi)
 	for lo < hi {
 		mid := (lo + hi) / 2
 		base := e.starts[mid]
-		log.Printf("MJF :: AM BSEARCH lo=%d mid=%d hi=%d base=%d bytes=%d",
-			lo, mid, hi, base, e.blocks[mid].bytes)
 		if offset < base {
 			hi = mid
 		} else if offset > base+e.blocks[mid].bytes {
