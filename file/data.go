@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"log"
 
 	"github.com/creachadair/ffs/blob"
 	"github.com/creachadair/ffs/block"
@@ -33,22 +34,32 @@ type fileData struct {
 	extents    []*extent
 }
 
+// isSingleBlock reports whether d can be represented as a single-block node.
+func (d *fileData) isSingleBlock() bool {
+	return len(d.extents) == 1 && d.extents[0].base == 0 && // one extent starting at offset 0
+		len(d.extents[0].blocks) == 1 && // it contains exactly one block
+		d.extents[0].blocks[0].bytes == d.totalBytes // that block is the entire content
+}
+
 // toWireType converts d to wire encoding.
 func (d *fileData) toWireType() *wiretype.Index {
 	if d.totalBytes == 0 && len(d.extents) == 0 {
 		// No data in this file.
 		return nil
-	} else if len(d.extents) == 1 && d.extents[0].base == 0 && len(d.extents[0].blocks) == 1 {
-		// There is exactly one block in this file, and it starts at offset zero.
-		// Store it as a single key, and no normalization is needed.
+	}
+
+	// Many small files contain just one block of data spanning the entire file.
+	// When that occurs, just store the key of that block. No normalization is
+	// required in this case and we save a few bytes.
+	if d.isSingleBlock() {
 		return &wiretype.Index{
 			TotalBytes: uint64(d.totalBytes),
 			Single:     []byte(d.extents[0].blocks[0].key),
 		}
 	}
 
-	// At this point we have multiple blocks, so we actually have to do some
-	// work to pack and normalize the extents.
+	// At this point we have multiple blocks and/or a weird shape (e.g., sparse
+	// extents), so we actually have to do some work to pack and normalize them.
 	w := &wiretype.Index{
 		TotalBytes: uint64(d.totalBytes),
 		Extents:    make([]*wiretype.Extent, len(d.extents)),
@@ -309,6 +320,7 @@ walkSpan:
 		// The output is not full, and offset at or past the start of this extent.
 		// Find the first block containing offset and walk forward.
 		i, base := ext.findBlock(offset)
+		log.Printf("MJF :: offset=%d i=%d base=%d", offset, i, base)
 		for _, blk := range ext.blocks[i:] {
 			if base > end {
 				break walkSpan
@@ -322,6 +334,7 @@ walkSpan:
 
 			pos := int(offset - base)
 			cp := min(len(bits)-pos, len(data)-nr)
+			log.Printf("MJF :: pos=%d len(bits)=%d len(data)=%d nr=%d", pos, len(bits), len(data), nr)
 			nr += copy(data[nr:], bits[pos:pos+cp])
 			if nr == len(data) {
 				break walkSpan
@@ -368,7 +381,7 @@ func (d *fileData) splitBlobs(ctx context.Context, s blob.CAS, blobs ...[]byte) 
 		}
 
 		if isWorthTrimming(zhead, n) {
-			// There is a trance of zeroes at the head. Inject a "fake" zero block
+			// There is a tranch of zeroes at the head. Inject a "fake" zero block
 			// for the prefix, and remove it from the block to be stored.
 			blks = append(blks, cblock{bytes: int64(zhead)})
 			blk = blk[zhead:]
@@ -515,14 +528,18 @@ func (e *extent) findBlock(offset int64) (int, int64) {
 				// remainder of the offsets cache.
 			}
 		}
+		log.Printf("MJF :: AM HERE idx=%d base=%d", idx, base)
 		return idx, base
 	}
 
 	// Subsequent searches binary search.
 	lo, hi := 0, len(e.starts)
+	log.Printf("MJF :: BEGIN BSEARCH offset=%d lo=%d hi=%d", offset, lo, hi)
 	for lo < hi {
 		mid := (lo + hi) / 2
 		base := e.starts[mid]
+		log.Printf("MJF :: AM BSEARCH lo=%d mid=%d hi=%d base=%d bytes=%d",
+			lo, mid, hi, base, e.blocks[mid].bytes)
 		if offset < base {
 			hi = mid
 		} else if offset > base+e.blocks[mid].bytes {
