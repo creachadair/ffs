@@ -283,3 +283,28 @@ func (s *Store) CASPut(ctx context.Context, data []byte) (string, error) {
 	}
 	return key, err
 }
+
+// Put implements part of blob.Store. It delegates to the base store directly
+// for writes that request replacement; otherwise it stores the blob into the
+// buffer for writeback.
+func (s *Store) Put(ctx context.Context, opts blob.PutOptions) error {
+	select {
+	case <-s.exited:
+		return s.err
+	default:
+	}
+	if opts.Replace {
+		// Don't buffer writes that request replacement.
+		return s.CAS.Put(ctx, opts)
+	}
+	if err := s.buf.Put(ctx, opts); err != nil {
+		return err
+	}
+	// Leave a token for the backround writer. If this fails, it means the
+	// writer already has one, which is fine.
+	select {
+	case s.nempty <- struct{}{}:
+	default:
+	}
+	return nil
+}
