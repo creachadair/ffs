@@ -4,6 +4,13 @@
 
 An work-in-progress experimental storage-agnostic filesystem representation.
 
+This project began as a way of sharing state for a transportable agent system
+I started building as a hobby project between undergrad and grad school. I 
+lost interest in that, but found the idea behind the storage was still worth
+having. The original was built in a combination of Python and C and used a
+custom binary format; this re-implementation in Go uses Protocol Buffers and
+eliminates the need for FFI.  
+
 ## Summary
 
 A file in FFS is represented as a Merkle tree encoded in a [content-addressable
