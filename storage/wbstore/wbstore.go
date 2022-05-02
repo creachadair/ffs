@@ -9,7 +9,6 @@ import (
 	"log"
 	"net"
 	"strings"
-	"sync"
 
 	"github.com/creachadair/ffs/blob"
 	"github.com/creachadair/taskgroup"
@@ -31,17 +30,15 @@ type Store struct {
 	blob.CAS
 	buf blob.Store
 
-	exited chan struct{} // closed to signal completion
-	wdone  chan error    // closed when background writer exits
+	exited chan struct{} // closed when background writer is done
 	stop   func()        // signals the background writer to exit
 	err    error         // error that caused shutdown
 
 	// The background writer waits on nempty when it finds no blobs to push.
-	nempty chan struct{}
+	nempty *handoff
 
 	// Callers of Sync wait on this condition.
-	mu       *sync.Mutex
-	bufClean *sync.Cond
+	bufClean *cond
 }
 
 // New constructs a store wrapper that delegates to base and uses buf as the
@@ -59,28 +56,26 @@ func New(ctx context.Context, base blob.CAS, buf blob.Store) *Store {
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
-	mu := new(sync.Mutex)
 	s := &Store{
 		CAS:      base,
 		buf:      buf,
 		exited:   make(chan struct{}),
-		wdone:    make(chan error, 1),
 		stop:     cancel,
-		nempty:   make(chan struct{}, 1),
-		mu:       mu,
-		bufClean: sync.NewCond(mu),
+		nempty:   newHandoff(),
+		bufClean: newCond(),
 	}
+
+	s.nempty.Set(nil) // prime
+	g := taskgroup.New(nil).Go(func() error {
+		return s.run(ctx)
+	})
 
 	// When the background writer exits, record the error it reported.
 	// A goroutine observing s.exited as closed may safely read s.err.
 	go func() {
-		s.err = <-s.wdone
+		s.err = g.Wait()
 		close(s.exited)
 	}()
-
-	s.nempty <- struct{}{} // prime
-	go s.run(ctx)
-
 	return s
 }
 
@@ -105,50 +100,32 @@ func (s *Store) Close(ctx context.Context) error {
 
 // Sync blocks until the buffer is empty or ctx ends.
 func (s *Store) Sync(ctx context.Context) error {
-	done := make(chan struct{})
-	defer close(done) // unblock context watcher at exit
-
-	var ctxErr error
-	go func() {
-		select {
-		case <-ctx.Done():
-			ctxErr = ctx.Err()
-			s.bufClean.Broadcast()
-		case <-s.exited:
-			ctxErr = s.err
-			s.bufClean.Broadcast()
-		case <-done:
-			// normal return
-		}
-	}()
-
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	for ctxErr == nil {
+	for {
 		n, err := s.buf.Len(ctx)
 		if err != nil {
 			return err
 		} else if n == 0 {
 			return nil
 		}
-		s.bufClean.Wait()
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-s.bufClean.Ready():
+			// try again
+		}
 	}
-	return ctxErr
 }
 
 // run implements the backround writer. It runs until ctx terminates or until
 // it receives an unrecoverable error.
-func (s *Store) run(ctx context.Context) {
-	defer close(s.wdone)
-
+func (s *Store) run(ctx context.Context) error {
 	g := taskgroup.New(nil)
 	for {
 		// Check for cancellation.
 		select {
 		case <-ctx.Done():
-			s.wdone <- errWriterStopped // normal shutdown
-			return
-		case <-s.nempty:
+			return errWriterStopped // normal shutdown
+		case <-s.nempty.Ready():
 		}
 
 		for i := 0; i < 256; i++ {
@@ -180,10 +157,9 @@ func (s *Store) run(ctx context.Context) {
 		}
 		if err := g.Wait(); err != nil && !isRetryableError(err) {
 			log.Printf("DEBUG :: error in writeback, exiting: %v", err)
-			s.wdone <- err
-			return
+			return err
 		}
-		s.bufClean.Broadcast()
+		s.bufClean.Signal()
 	}
 }
 
@@ -274,12 +250,7 @@ func (s *Store) CASPut(ctx context.Context, data []byte) (string, error) {
 		err = nil // ignore, this is fine for a CAS write
 	}
 	if err == nil {
-		// Leave a token for the background writer. If this fails, it means the
-		// writer already has one, which is fine.
-		select {
-		case s.nempty <- struct{}{}:
-		default:
-		}
+		s.nempty.Set(nil)
 	}
 	return key, err
 }
@@ -300,11 +271,6 @@ func (s *Store) Put(ctx context.Context, opts blob.PutOptions) error {
 	if err := s.buf.Put(ctx, opts); err != nil {
 		return err
 	}
-	// Leave a token for the backround writer. If this fails, it means the
-	// writer already has one, which is fine.
-	select {
-	case s.nempty <- struct{}{}:
-	default:
-	}
+	s.nempty.Set(nil)
 	return nil
 }
