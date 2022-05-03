@@ -102,6 +102,7 @@ func (s *Store) Close(ctx context.Context) error {
 // Sync blocks until the buffer is empty or ctx ends.
 func (s *Store) Sync(ctx context.Context) error {
 	for {
+		ready := s.bufClean.Ready()
 		n, err := s.buf.Len(ctx)
 		if err != nil {
 			return err
@@ -111,7 +112,7 @@ func (s *Store) Sync(ctx context.Context) error {
 		select {
 		case <-ctx.Done():
 			return ctx.Err()
-		case <-s.bufClean.Ready():
+		case <-ready:
 			// try again
 		}
 	}
