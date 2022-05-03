@@ -36,7 +36,7 @@ type Store struct {
 	err    error         // error that caused shutdown
 
 	// The background writer waits on nempty when it finds no blobs to push.
-	nempty msync.Handoff
+	nempty *msync.Handoff[any]
 
 	// Callers of Sync wait on this condition.
 	bufClean *msync.Trigger
@@ -62,7 +62,7 @@ func New(ctx context.Context, base blob.CAS, buf blob.Store) *Store {
 		buf:      buf,
 		exited:   make(chan struct{}),
 		stop:     cancel,
-		nempty:   msync.NewHandoff(),
+		nempty:   msync.NewHandoff[any](),
 		bufClean: msync.NewTrigger(),
 	}
 

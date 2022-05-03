@@ -2,8 +2,8 @@ github.com/cespare/xxhash/v2 v2.1.2 h1:YRXhKfTDauu4ajMg1TPgFO5jnlC2HCbmLXMcTG5cb
 github.com/cespare/xxhash/v2 v2.1.2/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=
 github.com/creachadair/atomicfile v0.2.5 h1:wkOlpsjyJOvJ3Hd8juHKdirJnCSIPacvtY21/3nYjAo=
 github.com/creachadair/atomicfile v0.2.5/go.mod h1:BRq8Une6ckFneYXZQ+kO7p1ZZP3I2fzVzf28JxrIkBc=
-github.com/creachadair/msync v0.0.0-20220503003853-c527c4b21fc5 h1:ciXES6A+Ww/nP7nCxpya3/veVjjrYLQ3wxir5dsoU5Q=
-github.com/creachadair/msync v0.0.0-20220503003853-c527c4b21fc5/go.mod h1:6UuXMEnymbJkxDZjKQt3ynrkbwuJYVtrybIK1z93cA0=
+github.com/creachadair/msync v0.0.0-20220503185027-96bf55dad0a9 h1:64JHUon27tOAR5hLIu1sQRjfkKojRiB89iSjCDVbaJo=
+github.com/creachadair/msync v0.0.0-20220503185027-96bf55dad0a9/go.mod h1:6UuXMEnymbJkxDZjKQt3ynrkbwuJYVtrybIK1z93cA0=
 github.com/creachadair/taskgroup v0.3.2 h1:zlfutDS+5XG40AOxcHDSThxKzns8Tnr9jnr6VqkYlkM=
 github.com/creachadair/taskgroup v0.3.2/go.mod h1:wieWwecHVzsidg2CsUnFinW1faVN4+kq+TDlRJQ0Wbk=
 github.com/fortytw2/leaktest v1.3.0 h1:u8491cBMTQ8ft8aeV+adlcytMZylmA5nnwwkRZjI8vw=
