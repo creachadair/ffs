@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/creachadair/ffs/blob"
+	"github.com/creachadair/msync"
 	"github.com/creachadair/taskgroup"
 )
 
@@ -35,10 +36,10 @@ type Store struct {
 	err    error         // error that caused shutdown
 
 	// The background writer waits on nempty when it finds no blobs to push.
-	nempty *handoff
+	nempty msync.Handoff
 
 	// Callers of Sync wait on this condition.
-	bufClean *cond
+	bufClean *msync.Trigger
 }
 
 // New constructs a store wrapper that delegates to base and uses buf as the
@@ -61,11 +62,11 @@ func New(ctx context.Context, base blob.CAS, buf blob.Store) *Store {
 		buf:      buf,
 		exited:   make(chan struct{}),
 		stop:     cancel,
-		nempty:   newHandoff(),
-		bufClean: newCond(),
+		nempty:   msync.NewHandoff(),
+		bufClean: msync.NewTrigger(),
 	}
 
-	s.nempty.Set(nil) // prime
+	s.nempty.Send(nil) // prime
 	g := taskgroup.New(nil).Go(func() error {
 		return s.run(ctx)
 	})
@@ -250,7 +251,7 @@ func (s *Store) CASPut(ctx context.Context, data []byte) (string, error) {
 		err = nil // ignore, this is fine for a CAS write
 	}
 	if err == nil {
-		s.nempty.Set(nil)
+		s.nempty.Send(nil)
 	}
 	return key, err
 }
@@ -271,6 +272,6 @@ func (s *Store) Put(ctx context.Context, opts blob.PutOptions) error {
 	if err := s.buf.Put(ctx, opts); err != nil {
 		return err
 	}
-	s.nempty.Set(nil)
+	s.nempty.Send(nil)
 	return nil
 }

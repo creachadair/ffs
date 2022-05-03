@@ -10,3 +10,5 @@ require (
 	github.com/google/go-cmp v0.5.8
 	google.golang.org/protobuf v1.28.0
 )
+
+require github.com/creachadair/msync v0.0.0-20220503003853-c527c4b21fc5
