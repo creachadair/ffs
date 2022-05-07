@@ -41,9 +41,7 @@ type Store struct {
 	cache  *cache                        // blob cache
 
 	// The keymap is initialized to the keyspace of the underlying store.
-	// Additional keys are added by store queries. The value flag is true if the
-	// key is known to exist in the base store; it is false if the key is known
-	// not to exist in the base store (a negative-hit cache).
+	// Additional keys are added by store queries.
 }
 
 // New constructs a new cached store with the specified capacity in bytes,
@@ -60,20 +58,19 @@ func New(s blob.Store, maxBytes int) *Store {
 func (s *Store) Get(ctx context.Context, key string) ([]byte, error) {
 	s.μ.Lock()
 	defer s.μ.Unlock()
-	if in, ok := s.keymap.Lookup(key); ok && !in {
-		return nil, blob.KeyNotFound(key)
-	} else if data, ok := s.cache.get(key, true); ok {
+	if data, ok := s.cache.getCopy(key); ok {
 		return data, nil
+	} else if _, ok := s.keymap.Lookup(key); !ok {
+		return nil, blob.KeyNotFound(key)
 	}
 	data, err := s.base.Get(ctx, key)
 	if err != nil {
 		if blob.IsKeyNotFound(err) {
-			s.keymap.Replace(key, false)
+			s.keymap.Remove(key)
 		}
 		return nil, err
 	}
 	s.cache.put(key, data)
-	s.keymap.Replace(key, true)
 	return data, nil
 }
 
@@ -82,7 +79,7 @@ func (s *Store) Put(ctx context.Context, opts blob.PutOptions) error {
 	s.μ.Lock()
 	defer s.μ.Unlock()
 	if !opts.Replace {
-		if _, ok := s.cache.get(opts.Key, false); ok {
+		if _, ok := s.cache.rawGet(opts.Key); ok {
 			return blob.KeyExists(opts.Key)
 		}
 	}
@@ -94,10 +91,7 @@ func (s *Store) Put(ctx context.Context, opts blob.PutOptions) error {
 	return nil
 }
 
-// Delete implements a method of blob.Store.  Although a successful Delete
-// certifies the key does not exist, deletes are not cached as negative hits.
-// This avoids cluttering the cache with keys for blobs whose content are not
-// interesting enough to fetch.
+// Delete implements a method of blob.Store.
 func (s *Store) Delete(ctx context.Context, key string) error {
 	s.μ.Lock()
 	defer s.μ.Unlock()
@@ -113,12 +107,14 @@ func (s *Store) Delete(ctx context.Context, key string) error {
 func (s *Store) Size(ctx context.Context, key string) (int64, error) {
 	s.μ.Lock()
 	defer s.μ.Unlock()
-	if in, ok := s.keymap.Lookup(key); ok && !in {
+	if data, ok := s.cache.rawGet(key); ok {
+		return int64(len(data)), nil
+	} else if _, ok := s.keymap.Lookup(key); !ok {
 		return 0, blob.KeyNotFound(key)
 	}
 	size, err := s.base.Size(ctx, key)
 	if blob.IsKeyNotFound(err) {
-		s.keymap.Replace(key, false)
+		s.keymap.Remove(key)
 	} else if err == nil {
 		s.keymap.Replace(key, true)
 	}
@@ -149,10 +145,8 @@ func (s *Store) List(ctx context.Context, start string, f func(string) error) er
 	}
 
 	var ferr error
-	s.keymap.InorderAfter(start, func(key string, ok bool) bool {
-		if ok { // skip keys flagged non-existent
-			ferr = f(key)
-		}
+	s.keymap.InorderAfter(start, func(key string, _ bool) bool {
+		ferr = f(key)
 		return ferr == nil
 	})
 	if errors.Is(ferr, blob.ErrStopListing) {
@@ -169,10 +163,8 @@ func (s *Store) Len(ctx context.Context) (int64, error) {
 		return 0, err
 	}
 	var n int64
-	s.keymap.Inorder(func(key string, ok bool) bool {
-		if ok {
-			n++
-		}
+	s.keymap.Inorder(func(key string, _ bool) bool {
+		n++
 		return true
 	})
 	return n, nil
