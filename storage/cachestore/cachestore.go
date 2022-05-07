@@ -18,9 +18,11 @@ package cachestore
 
 import (
 	"context"
+	"errors"
 	"sync"
 
 	"github.com/creachadair/ffs/blob"
+	"github.com/creachadair/scapegoat"
 )
 
 // Store implements a blob.Store that delegates to an underlying store through
@@ -34,8 +36,14 @@ type Store struct {
 	base blob.Store
 
 	μ      sync.Mutex
-	nexist map[string]bool // non-existence cache
-	cache  *cache          // blob cache
+	listed bool                          // keymap has a complete list
+	keymap *scapegoat.Tree[string, bool] // known keys
+	cache  *cache                        // blob cache
+
+	// The keymap is initialized to the keyspace of the underlying store.
+	// Additional keys are added by store queries. The value flag is true if the
+	// key is known to exist in the base store; it is false if the key is known
+	// not to exist in the base store (a negative-hit cache).
 }
 
 // New constructs a new cached store with the specified capacity in bytes,
@@ -43,7 +51,7 @@ type Store struct {
 func New(s blob.Store, maxBytes int) *Store {
 	return &Store{
 		base:   s,
-		nexist: make(map[string]bool),
+		keymap: scapegoat.New[string, bool](300, scapegoat.LessThan[string]),
 		cache:  newCache(maxBytes),
 	}
 }
@@ -52,7 +60,7 @@ func New(s blob.Store, maxBytes int) *Store {
 func (s *Store) Get(ctx context.Context, key string) ([]byte, error) {
 	s.μ.Lock()
 	defer s.μ.Unlock()
-	if s.nexist[key] {
+	if in, ok := s.keymap.Lookup(key); ok && !in {
 		return nil, blob.KeyNotFound(key)
 	} else if data, ok := s.cache.get(key, true); ok {
 		return data, nil
@@ -60,11 +68,12 @@ func (s *Store) Get(ctx context.Context, key string) ([]byte, error) {
 	data, err := s.base.Get(ctx, key)
 	if err != nil {
 		if blob.IsKeyNotFound(err) {
-			s.nexist[key] = true
+			s.keymap.Replace(key, false)
 		}
 		return nil, err
 	}
 	s.cache.put(key, data)
+	s.keymap.Replace(key, true)
 	return data, nil
 }
 
@@ -81,7 +90,7 @@ func (s *Store) Put(ctx context.Context, opts blob.PutOptions) error {
 		return err
 	}
 	s.cache.put(opts.Key, opts.Data)
-	delete(s.nexist, opts.Key)
+	s.keymap.Replace(opts.Key, true)
 	return nil
 }
 
@@ -96,6 +105,7 @@ func (s *Store) Delete(ctx context.Context, key string) error {
 		return err
 	}
 	s.cache.drop(key)
+	s.keymap.Remove(key)
 	return nil
 }
 
@@ -103,24 +113,69 @@ func (s *Store) Delete(ctx context.Context, key string) error {
 func (s *Store) Size(ctx context.Context, key string) (int64, error) {
 	s.μ.Lock()
 	defer s.μ.Unlock()
-	if s.nexist[key] {
+	if in, ok := s.keymap.Lookup(key); ok && !in {
 		return 0, blob.KeyNotFound(key)
 	}
 	size, err := s.base.Size(ctx, key)
 	if blob.IsKeyNotFound(err) {
-		s.nexist[key] = true
+		s.keymap.Replace(key, false)
+	} else if err == nil {
+		s.keymap.Replace(key, true)
 	}
 	return size, err
 }
 
-// List implements a method of blob.Store. The results are not cached.
-func (s *Store) List(ctx context.Context, start string, f func(string) error) error {
-	return s.base.List(ctx, start, f)
+// initKeyMap fills the key map from the base store.  The caller must hold s.μ.
+func (s *Store) initKeyMap(ctx context.Context) error {
+	if s.listed {
+		return nil
+	}
+	if err := s.base.List(ctx, "", func(key string) error {
+		s.keymap.Replace(key, true)
+		return nil
+	}); err != nil {
+		return err
+	}
+	s.listed = true
+	return nil
 }
 
-// Len implements a method of blob.Store. This result is not cached.
+// List implements a method of blob.Store.
+func (s *Store) List(ctx context.Context, start string, f func(string) error) error {
+	s.μ.Lock()
+	defer s.μ.Unlock()
+	if err := s.initKeyMap(ctx); err != nil {
+		return err
+	}
+
+	var ferr error
+	s.keymap.InorderAfter(start, func(key string, ok bool) bool {
+		if ok { // skip keys flagged non-existent
+			ferr = f(key)
+		}
+		return ferr == nil
+	})
+	if errors.Is(ferr, blob.ErrStopListing) {
+		return nil
+	}
+	return ferr
+}
+
+// Len implements a method of blob.Store.
 func (s *Store) Len(ctx context.Context) (int64, error) {
-	return s.base.Len(ctx)
+	s.μ.Lock()
+	defer s.μ.Unlock()
+	if err := s.initKeyMap(ctx); err != nil {
+		return 0, err
+	}
+	var n int64
+	s.keymap.Inorder(func(key string, ok bool) bool {
+		if ok {
+			n++
+		}
+		return true
+	})
+	return n, nil
 }
 
 // Close implements blob.Closer by closing the underlying store.
@@ -130,7 +185,7 @@ func (s *Store) Close(ctx context.Context) error {
 
 	// Release the memory held by the caches.
 	s.cache.clear()
-	s.nexist = nil
+	s.keymap = nil
 	return blob.CloseStore(ctx, s.base)
 }
 
@@ -158,7 +213,7 @@ func (c CAS) CASPut(ctx context.Context, data []byte) (string, error) {
 		return "", err
 	}
 	c.cache.put(key, data)
-	delete(c.nexist, key)
+	c.keymap.Replace(key, true)
 	return key, nil
 }
 
