@@ -8,7 +8,6 @@ import (
 	"errors"
 	"log"
 	"net"
-	"strings"
 
 	"github.com/creachadair/ffs/blob"
 	"github.com/creachadair/msync"
@@ -18,7 +17,7 @@ import (
 var errWriterStopped = errors.New("background writer stopped")
 
 // A Store implements the blob.CAS interface delegated to an underlying (base)
-// store. Content-addressed writes are cached locally in a buffer store, and
+// store. Non-replacement writes are cached locally in a buffer store, and
 // written behind to the base store in the background. Get and Size queries
 // respect the buffer cache, so that the local application sees a consistent
 // view. Other store operations delegate directly to the base store.
@@ -121,7 +120,7 @@ func (s *Store) Sync(ctx context.Context) error {
 // run implements the backround writer. It runs until ctx terminates or until
 // it receives an unrecoverable error.
 func (s *Store) run(ctx context.Context) error {
-	g := taskgroup.New(nil)
+	g, run := taskgroup.New(nil).Limit(256)
 	for {
 		// Check for cancellation.
 		select {
@@ -130,35 +129,31 @@ func (s *Store) run(ctx context.Context) error {
 		case <-s.nempty.Ready():
 		}
 
-		for i := 0; i < 256; i++ {
-			pfx := string([]byte{byte(i)})
-			g.Go(func() error {
-				// Scan the buffer.
-				return s.buf.List(ctx, pfx, func(key string) error {
-					if !strings.HasPrefix(key, pfx) {
-						return blob.ErrStopListing
-					}
-					// Read the blob and forward it to the base store, then delete it.
-					// Because the buffer contains only content-addressed blobs, it is
-					// safe to delete the blob even if another copy was written while we
-					// worked, since the content will be the same.
-					data, err := s.buf.Get(ctx, key)
-					if err != nil {
-						return err
-					}
-					if err := s.CAS.Put(ctx, blob.PutOptions{
-						Key:     key,
-						Data:    data,
-						Replace: false,
-					}); err != nil && !blob.IsKeyExists(err) {
-						return err
-					}
-					if err := s.buf.Delete(ctx, key); err != nil && !blob.IsKeyNotFound(err) {
-						return err
-					}
-					return nil
-				})
+		if err := s.buf.List(ctx, "", func(key string) error {
+			run(func() error {
+				// Read the blob and forward it to the base store, then delete it.
+				// Because the buffer contains only non-replacement blobs, it is
+				// safe to delete the blob even if another copy was written while
+				// we worked, since the content will be the same.
+				data, err := s.buf.Get(ctx, key)
+				if err != nil {
+					return err
+				}
+				if err := s.CAS.Put(ctx, blob.PutOptions{
+					Key:     key,
+					Data:    data,
+					Replace: false,
+				}); err != nil && !blob.IsKeyExists(err) {
+					return err
+				}
+				if err := s.buf.Delete(ctx, key); err != nil && !blob.IsKeyNotFound(err) {
+					return err
+				}
+				return nil
 			})
+			return nil
+		}); err != nil {
+			log.Printf("DEBUG :: error scanning buffer: %v", err)
 		}
 		if err := g.Wait(); err != nil && !isRetryableError(err) {
 			log.Printf("DEBUG :: error in writeback, exiting: %v", err)
