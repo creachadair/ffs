@@ -18,6 +18,7 @@ package cachestore
 
 import (
 	"context"
+	"errors"
 	"sync"
 
 	"github.com/creachadair/ffs/blob"
@@ -154,6 +155,9 @@ func (s *Store) List(ctx context.Context, start string, f func(string) error) er
 		}
 		return ferr == nil
 	})
+	if errors.Is(ferr, blob.ErrStopListing) {
+		return nil
+	}
 	return ferr
 }
 
