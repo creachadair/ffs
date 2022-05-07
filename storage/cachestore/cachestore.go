@@ -95,10 +95,14 @@ func (s *Store) Put(ctx context.Context, opts blob.PutOptions) error {
 func (s *Store) Delete(ctx context.Context, key string) error {
 	s.μ.Lock()
 	defer s.μ.Unlock()
+
+	// Even if we fail to delete the key from the underlying store, take this as
+	// a signal that we should forget about its data.
+	s.cache.drop(key)
+
 	if err := s.base.Delete(ctx, key); err != nil {
 		return err
 	}
-	s.cache.drop(key)
 	s.keymap.Remove(key)
 	return nil
 }
