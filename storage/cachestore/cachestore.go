@@ -67,6 +67,7 @@ func (s *Store) Get(ctx context.Context, key string) ([]byte, error) {
 		return nil, err
 	}
 	s.cache.put(key, data)
+	s.keymap.Replace(key, true)
 	return data, nil
 }
 
@@ -112,6 +113,8 @@ func (s *Store) Size(ctx context.Context, key string) (int64, error) {
 	size, err := s.base.Size(ctx, key)
 	if blob.IsKeyNotFound(err) {
 		s.keymap.Replace(key, false)
+	} else if err == nil {
+		s.keymap.Replace(key, true)
 	}
 	return size, err
 }
