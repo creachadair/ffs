@@ -55,7 +55,7 @@ message Root {
 
   // The storage key of a predecessor root. The blob contains an
   // Object holding a Root message that this root is related to.
-  bytes predecessor = 5;
+  bytes predecessor = 5 [deprecated = true];
 
   // next id: 6
 }
