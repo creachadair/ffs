@@ -38,6 +38,11 @@ type Store struct {
 	listed bool                          // keymap has a complete list
 	keymap *scapegoat.Tree[string, bool] // known keys
 	cache  *cache                        // blob cache
+
+	// The keymap is initialized to the keyspace of the underlying store.
+	// Additional keys are added by store queries. The value flag is true if the
+	// key is known to exist in the base store; it is false if the key is known
+	// not to exist in the base store (a negative-hit cache).
 }
 
 // New constructs a new cached store with the specified capacity in bytes,
