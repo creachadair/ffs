@@ -11,4 +11,4 @@ require (
 	google.golang.org/protobuf v1.28.0
 )
 
-require github.com/creachadair/msync v0.0.0-20220503185027-96bf55dad0a9
+require github.com/creachadair/msync v0.0.1
