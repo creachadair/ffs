@@ -153,7 +153,10 @@ func (s *Store) run(ctx context.Context) error {
 					}); err != nil && !blob.IsKeyExists(err) {
 						return err
 					}
-					return s.buf.Delete(ctx, key)
+					if err := s.buf.Delete(ctx, key); err != nil && !blob.IsKeyNotFound(err) {
+						return err
+					}
+					return nil
 				})
 			})
 		}
@@ -229,6 +232,18 @@ func (s *Store) Size(ctx context.Context, key string) (int64, error) {
 		return s.CAS.Size(ctx, key)
 	}
 	return 0, err
+}
+
+// Delete implements part of blob.Store. The key is deleted from both the
+// buffer and the base store, and succeeds as long as either of those
+// operations succeeds.
+func (s *Store) Delete(ctx context.Context, key string) error {
+	cerr := s.buf.Delete(ctx, key)
+	berr := s.CAS.Delete(ctx, key)
+	if cerr != nil && berr != nil {
+		return berr
+	}
+	return nil
 }
 
 // CASPut implements part of blob.CAS. It queries the base store for the
