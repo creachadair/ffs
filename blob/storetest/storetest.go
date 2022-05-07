@@ -72,8 +72,14 @@ var script = []op{
 
 	opPut("0", "ahoy there", false, nil),
 	opLen(5),
-	opList("", "0", "animal", "beverage", "fruit", "nut"),
 	opGet("0", "ahoy there", nil),
+	opList("", "0", "animal", "beverage", "fruit", "nut"),
+
+	// Verify that listing respects the stop condition without error.
+	opListRange("", "cola", "0", "animal", "beverage"),
+	opListRange("animal", "last", "animal", "beverage", "fruit"),
+	opListRange("baker", "crude", "beverage"),
+	opListRange("cut", "done"),
 
 	// A missing empty key must report the correct error.
 	opSize("", 0, blob.ErrKeyNotFound),
@@ -151,10 +157,17 @@ func opDelete(key string, werr error) op {
 }
 
 func opList(from string, want ...string) op {
+	return opListRange(from, "", want...)
+}
+
+func opListRange(from, to string, want ...string) op {
 	return func(ctx context.Context, t *testing.T, s blob.Store) {
 		t.Helper()
 		var got []string
 		err := s.List(ctx, from, func(key string) error {
+			if to != "" && key >= to {
+				return blob.ErrStopListing
+			}
 			got = append(got, key)
 			return nil
 		})
