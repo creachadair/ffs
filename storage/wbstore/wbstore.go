@@ -134,9 +134,12 @@ func (s *Store) run(ctx context.Context) error {
 				// Read the blob and forward it to the base store, then delete it.
 				// Because the buffer contains only non-replacement blobs, it is
 				// safe to delete the blob even if another copy was written while
-				// we worked, since the content will be the same.
+				// we worked, since the content will be the same.  If Get or Delete
+				// fails, it means someone deleted the key before us. That's fine.
 				data, err := s.buf.Get(ctx, key)
-				if err != nil {
+				if blob.IsKeyNotFound(err) {
+					return nil
+				} else if err != nil {
 					return err
 				}
 				if err := s.CAS.Put(ctx, blob.PutOptions{
