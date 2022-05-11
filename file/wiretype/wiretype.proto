@@ -53,11 +53,9 @@ message Root {
   // The blob contains a Object holding an ffs.index.Index message.
   bytes index_key = 4;
 
-  // The storage key of a predecessor root. The blob contains an
-  // Object holding a Root message that this root is related to.
-  bytes predecessor = 5 [deprecated = true];
-
   // next id: 6
+
+  reserved 5;  // was: predecessor
 }
 
 // A Node is the top-level encoding of a file.
