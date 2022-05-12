@@ -44,6 +44,9 @@ func New(s blob.Store) *Store {
 	return &Store{real: s}
 }
 
+// Base returns the underlying store associated with s.
+func (s *Store) Base() blob.Store { return s.real }
+
 // Derive creates a clone of s that delegates to the same underlying store, but
 // using a different prefix. If prefix == "", Derive returns s unchanged.
 func (s *Store) Derive(prefix string) *Store {
