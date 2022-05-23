@@ -58,7 +58,9 @@ func New(s blob.Store, maxBytes int) *Store {
 func (s *Store) Get(ctx context.Context, key string) ([]byte, error) {
 	s.μ.Lock()
 	defer s.μ.Unlock()
-	if data, ok := s.cache.getCopy(key); ok {
+	if err := s.initKeyMap(ctx); err != nil {
+		return nil, err
+	} else if data, ok := s.cache.getCopy(key); ok {
 		return data, nil
 	} else if _, ok := s.keymap.Lookup(key); !ok {
 		return nil, blob.KeyNotFound(key)
@@ -78,6 +80,9 @@ func (s *Store) Get(ctx context.Context, key string) ([]byte, error) {
 func (s *Store) Put(ctx context.Context, opts blob.PutOptions) error {
 	s.μ.Lock()
 	defer s.μ.Unlock()
+	if err := s.initKeyMap(ctx); err != nil {
+		return err
+	}
 	if !opts.Replace {
 		if _, ok := s.cache.rawGet(opts.Key); ok {
 			return blob.KeyExists(opts.Key)
@@ -95,6 +100,9 @@ func (s *Store) Put(ctx context.Context, opts blob.PutOptions) error {
 func (s *Store) Delete(ctx context.Context, key string) error {
 	s.μ.Lock()
 	defer s.μ.Unlock()
+	if err := s.initKeyMap(ctx); err != nil {
+		return err
+	}
 
 	// Even if we fail to delete the key from the underlying store, take this as
 	// a signal that we should forget about its data.
@@ -111,7 +119,9 @@ func (s *Store) Delete(ctx context.Context, key string) error {
 func (s *Store) Size(ctx context.Context, key string) (int64, error) {
 	s.μ.Lock()
 	defer s.μ.Unlock()
-	if data, ok := s.cache.rawGet(key); ok {
+	if err := s.initKeyMap(ctx); err != nil {
+		return 0, err
+	} else if data, ok := s.cache.rawGet(key); ok {
 		return int64(len(data)), nil
 	} else if _, ok := s.keymap.Lookup(key); !ok {
 		return 0, blob.KeyNotFound(key)
@@ -204,6 +214,10 @@ func NewCAS(cas blob.CAS, maxBytes int) CAS {
 func (c CAS) CASPut(ctx context.Context, data []byte) (string, error) {
 	c.μ.Lock()
 	defer c.μ.Unlock()
+	if err := c.initKeyMap(ctx); err != nil {
+		return "", err
+	}
+
 	key, err := c.cas.CASPut(ctx, data)
 	if err != nil {
 		return "", err

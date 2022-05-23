@@ -15,6 +15,7 @@
 package cachestore_test
 
 import (
+	"context"
 	"crypto/sha1"
 	"testing"
 
@@ -34,4 +35,20 @@ func TestCAS(t *testing.T) {
 	bs := blob.NewCAS(memstore.New(), sha1.New)
 	c := cachestore.NewCAS(bs, 100)
 	storetest.Run(t, c)
+}
+
+func TestRegression_keyMap(t *testing.T) {
+	const data = "stuff"
+	m := memstore.New()
+	m.Put(context.Background(), blob.PutOptions{
+		Key:  "init",
+		Data: []byte(data),
+	})
+	c := cachestore.New(m, 100)
+	got, err := c.Get(context.Background(), "init")
+	if err != nil {
+		t.Fatalf("Get failed: %v", err)
+	} else if s := string(got); s != data {
+		t.Fatalf("Wrong data: got %#q, want %#q", s, data)
+	}
 }
