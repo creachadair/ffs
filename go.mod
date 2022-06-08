@@ -16,4 +16,4 @@ require (
 	github.com/creachadair/scapegoat v0.5.0
 )
 
-require golang.org/x/exp v0.0.0-20220602145555-4a0574d9293f // indirect
+require golang.org/x/exp v0.0.0-20220608143224-64259d1afd70 // indirect
