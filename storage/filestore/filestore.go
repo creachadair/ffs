@@ -151,7 +151,7 @@ func (s *Store) List(_ context.Context, start string, f func(string) error) erro
 			return err
 		}
 		for _, tail := range keys {
-			if strings.HasPrefix(tail, "tmp.") {
+			if strings.HasPrefix(tail, "aftmp.") {
 				continue // skip writer temporaries
 			}
 			key, err := decodeKey(root + tail)
