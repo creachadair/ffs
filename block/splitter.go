@@ -17,16 +17,15 @@
 //
 // The algorithm used to split data into blocks is based on the one from LBFS:
 //
-//  http://pdos.csail.mit.edu/lbfs/
+//	http://pdos.csail.mit.edu/lbfs/
 //
 // As described in the SOSP 2001 paper "A Low-Bandwidth Network File System":
 //
-//  https://pdos.csail.mit.edu/papers/lbfs:sosp01/lbfs.pdf
+//	https://pdos.csail.mit.edu/papers/lbfs:sosp01/lbfs.pdf
 //
 // This package provides an implementation of the Rabin-Karp modular rolling
 // hash algorithm; other algorithms can be plugged in by implementing the
 // Hasher and Hash interfaces.
-//
 package block
 
 // TODO(Sep 2021): The LBFS paper seems to be inaccessible from MIT.

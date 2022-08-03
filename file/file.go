@@ -24,26 +24,26 @@
 //
 // Basic usage:
 //
-//   ctx := context.Background()
+//	ctx := context.Background()
 //
-//   f := file.New(cas, nil)   // create a new, empty file
-//   f.WriteAt(ctx, data, 0)   // write some data to the file
-//   key, err := f.Flush(ctx)  // commit the file to storage
+//	f := file.New(cas, nil)   // create a new, empty file
+//	f.WriteAt(ctx, data, 0)   // write some data to the file
+//	key, err := f.Flush(ctx)  // commit the file to storage
 //
 // To open an existing file,
 //
-//   f, err := file.Open(ctx, cas, key)
+//	f, err := file.Open(ctx, cas, key)
 //
 // The I/O methods of a File require a context argument. For compatibility with
 // the standard interfaces in the io package, a File provides a wrapper for a
 // request-scoped context:
 //
-//    _, err := io.Copy(dst, f.Cursor(ctx))
+//	_, err := io.Copy(dst, f.Cursor(ctx))
 //
 // A value of the file.Cursor type should not be used outside the dynamic
 // extent of the request whose context it captures.
 //
-// Metadata
+// # Metadata
 //
 // A File supports a subset of POSIX style data metadata, including mode,
 // modification time, and owner/group identity. These metadata are not
@@ -54,9 +54,9 @@
 // File is created, or use the Persist method of the Stat value to enable or
 // disable persistence:
 //
-//    s := f.Stat()
-//    s.ModTime = time.Now()
-//    s.Update().Persist(true)
+//	s := f.Stat()
+//	s.ModTime = time.Now()
+//	s.Update().Persist(true)
 //
 // The file.Stat type defines the stat attributes that can be persisted.
 package file
