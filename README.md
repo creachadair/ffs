@@ -23,16 +23,16 @@ Files are encoded in storage using wire-format [protocol
 buffer](https://developers.google.com/protocol-buffers) messages as defined in
 [`wiretype.proto`](./file/wiretype/wiretype.proto). The key messages are:
 
-- A [`Node`](./file/wiretype/wiretype.proto#L53) is the top-level encoding of a
+- A [`Node`](./file/wiretype/wiretype.proto#L62) is the top-level encoding of a
   file. The storage key for a file is the content address (**storage key**) of
   its wire-encoded node message. An empty `Node` message is a valid encoding of
   an empty file with no children and no metadata.
 
-- An [`Index`](./file/wiretype/wiretype.proto#L111) records the binary content
+- An [`Index`](./file/wiretype/wiretype.proto#L120) records the binary content
   of a file, if any. An index records the total size of the file along with the
   sizes, offsets, and storage keys of its data blocks.
 
-- A [`Child`](./file/wiretype/wiretype.proto#L156) records the name and storage
+- A [`Child`](./file/wiretype/wiretype.proto#L165) records the name and storage
   key of a child of a file. Children are ordered lexicographically by name.
 
 ### Binary Content
