@@ -5,11 +5,11 @@
 An work-in-progress experimental storage-agnostic filesystem representation.
 
 This project began as a way of sharing state for a transportable agent system
-I started building as a hobby project between undergrad and grad school. I 
+I started building as a hobby project between undergrad and grad school. I
 lost interest in that, but found the idea behind the storage was still worth
 having. The original was built in a combination of Python and C and used a
 custom binary format; this re-implementation in Go uses Protocol Buffers and
-eliminates the need for FFI.  
+eliminates the need for FFI.
 
 ## Summary
 
@@ -57,8 +57,8 @@ it is fine for multiple children to share the same storage key.
 ### Metadata
 
 Files have no required metadata, but for convenience the node representation
-includes optional [`Stat`](./file/wiretype/wiretype.proto#L65) and
-[`XAttr`](./file/wiretype/wiretype.proto#L148) messages that encode typical
+includes optional [`Stat`](./file/wiretype/wiretype.proto#L74) and
+[`XAttr`](./file/wiretype/wiretype.proto#L157) messages that encode typical
 filesystem metadata like POSIX permissions, file type, modification timestamp,
 and ownership. These fields are persisted in the encoding of a node, and thus
 affect its storage key, but are not otherwise interpreted.
