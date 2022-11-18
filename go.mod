@@ -12,8 +12,8 @@ require (
 )
 
 require (
-	github.com/creachadair/msync v0.0.1
+	github.com/creachadair/msync v0.0.2
 	github.com/creachadair/scapegoat v0.5.1
 )
 
-require golang.org/x/exp v0.0.0-20221106115401-f9659909a136 // indirect
+require golang.org/x/exp v0.0.0-20221114191408-850992195362 // indirect
