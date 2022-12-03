@@ -12,7 +12,7 @@ require (
 )
 
 require (
-	github.com/creachadair/msync v0.0.2
+	github.com/creachadair/msync v0.0.3
 	github.com/creachadair/scapegoat v0.5.1
 )
 

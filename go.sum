@@ -3,8 +3,8 @@ github.com/cespare/xxhash/v2 v2.1.2 h1:YRXhKfTDauu4ajMg1TPgFO5jnlC2HCbmLXMcTG5cb
 github.com/cespare/xxhash/v2 v2.1.2/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=
 github.com/creachadair/atomicfile v0.2.7 h1:LiL/QmAUO7ZDsjSJ6xj3PlsXaYXYKMS8g/Po5S9IIk4=
 github.com/creachadair/atomicfile v0.2.7/go.mod h1:BRq8Une6ckFneYXZQ+kO7p1ZZP3I2fzVzf28JxrIkBc=
-github.com/creachadair/msync v0.0.2 h1:4vxFov+zPoi9GQdqwbjWtd87ly3mvAp2XkkOoPWRqR8=
-github.com/creachadair/msync v0.0.2/go.mod h1:5+WcF2IjxUVydSOxqTcUWCgK6pZJwX8uxbGF+FuQkZI=
+github.com/creachadair/msync v0.0.3 h1:dOzBhh3K7SQNafcxyxzbzy4i8M/AZoycx6obvaq3Po4=
+github.com/creachadair/msync v0.0.3/go.mod h1:5+WcF2IjxUVydSOxqTcUWCgK6pZJwX8uxbGF+FuQkZI=
 github.com/creachadair/scapegoat v0.5.1 h1:mFbSa61YMpLuFc8Qv/r60h1wD1KdJ54enUPSbXYjtNE=
 github.com/creachadair/scapegoat v0.5.1/go.mod h1:ZcUq65PEI+JAvJCOLStsRj4SQLgKv3Cft8jrLwVko9Y=
 github.com/creachadair/taskgroup v0.3.2 h1:zlfutDS+5XG40AOxcHDSThxKzns8Tnr9jnr6VqkYlkM=
