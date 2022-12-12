@@ -119,11 +119,11 @@ type NewOptions struct {
 func Open(ctx context.Context, s blob.CAS, key string) (*File, error) {
 	var obj wiretype.Object
 	if err := wiretype.Load(ctx, s, key, &obj); err != nil {
-		return nil, fmt.Errorf("loading file %q: %w", key, err)
+		return nil, fmt.Errorf("loading file %x: %w", key, err)
 	}
 	f := &File{s: s, key: key}
 	if err := f.fromWireType(&obj); err != nil {
-		return nil, fmt.Errorf("decoding file %q: %w", key, err)
+		return nil, fmt.Errorf("decoding file %x: %w", key, err)
 	}
 	f.stat.f = f
 	return f, nil
@@ -290,7 +290,7 @@ func (f *File) recFlush(ctx context.Context, path []*File) (string, error) {
 	if needsUpdate {
 		key, err := wiretype.Save(ctx, f.s, f.toWireType())
 		if err != nil {
-			return "", fmt.Errorf("flushing file %q: %w", key, err)
+			return "", fmt.Errorf("flushing file %x: %w", key, err)
 		}
 		f.key = key
 	}
