@@ -5,8 +5,8 @@ github.com/creachadair/atomicfile v0.2.7 h1:LiL/QmAUO7ZDsjSJ6xj3PlsXaYXYKMS8g/Po
 github.com/creachadair/atomicfile v0.2.7/go.mod h1:BRq8Une6ckFneYXZQ+kO7p1ZZP3I2fzVzf28JxrIkBc=
 github.com/creachadair/msync v0.0.3 h1:dOzBhh3K7SQNafcxyxzbzy4i8M/AZoycx6obvaq3Po4=
 github.com/creachadair/msync v0.0.3/go.mod h1:5+WcF2IjxUVydSOxqTcUWCgK6pZJwX8uxbGF+FuQkZI=
-github.com/creachadair/scapegoat v0.6.0 h1:g9zwuqXSWgvswpRz2qeEuv31M+hM8W9XaAXpicbZ7ho=
-github.com/creachadair/scapegoat v0.6.0/go.mod h1:bFre5Z04F4pMC0S1/uvPSGlqfiMx4WWJoWEhY3z/QCw=
+github.com/creachadair/scapegoat v0.7.0 h1:wn1OSne3PBwVBkWBVBmwc/PMxwGYWNQn9dvA4bvsBAg=
+github.com/creachadair/scapegoat v0.7.0/go.mod h1:bFre5Z04F4pMC0S1/uvPSGlqfiMx4WWJoWEhY3z/QCw=
 github.com/creachadair/taskgroup v0.3.2 h1:zlfutDS+5XG40AOxcHDSThxKzns8Tnr9jnr6VqkYlkM=
 github.com/creachadair/taskgroup v0.3.2/go.mod h1:wieWwecHVzsidg2CsUnFinW1faVN4+kq+TDlRJQ0Wbk=
 github.com/fortytw2/leaktest v1.3.0 h1:u8491cBMTQ8ft8aeV+adlcytMZylmA5nnwwkRZjI8vw=

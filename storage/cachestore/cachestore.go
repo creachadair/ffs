@@ -49,7 +49,7 @@ type Store struct {
 func New(s blob.Store, maxBytes int) *Store {
 	return &Store{
 		base:   s,
-		keymap: scapegoat.New[string](300, scapegoat.LessThan[string]),
+		keymap: scapegoat.New[string](300, scapegoat.Less[string]),
 		cache:  newCache(maxBytes),
 	}
 }
