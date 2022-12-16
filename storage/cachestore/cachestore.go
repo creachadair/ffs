@@ -36,9 +36,9 @@ type Store struct {
 	base blob.Store
 
 	μ      sync.Mutex
-	listed bool                          // keymap has a complete list
-	keymap *scapegoat.Tree[string, bool] // known keys
-	cache  *cache                        // blob cache
+	listed bool                    // keymap has a complete list
+	keymap *scapegoat.Tree[string] // known keys
+	cache  *cache                  // blob cache
 
 	// The keymap is initialized to the keyspace of the underlying store.
 	// Additional keys are added by store queries.
@@ -49,7 +49,7 @@ type Store struct {
 func New(s blob.Store, maxBytes int) *Store {
 	return &Store{
 		base:   s,
-		keymap: scapegoat.New[string, bool](300, scapegoat.LessThan[string]),
+		keymap: scapegoat.New[string](300, scapegoat.LessThan[string]),
 		cache:  newCache(maxBytes),
 	}
 }
@@ -92,7 +92,7 @@ func (s *Store) Put(ctx context.Context, opts blob.PutOptions) error {
 		return err
 	}
 	s.cache.put(opts.Key, opts.Data)
-	s.keymap.Replace(opts.Key, true)
+	s.keymap.Replace(opts.Key)
 	return nil
 }
 
@@ -130,7 +130,7 @@ func (s *Store) Size(ctx context.Context, key string) (int64, error) {
 	if blob.IsKeyNotFound(err) {
 		s.keymap.Remove(key)
 	} else if err == nil {
-		s.keymap.Replace(key, true)
+		s.keymap.Replace(key)
 	}
 	return size, err
 }
@@ -141,7 +141,7 @@ func (s *Store) initKeyMap(ctx context.Context) error {
 		return nil
 	}
 	if err := s.base.List(ctx, "", func(key string) error {
-		s.keymap.Replace(key, true)
+		s.keymap.Replace(key)
 		return nil
 	}); err != nil {
 		return err
@@ -159,7 +159,7 @@ func (s *Store) List(ctx context.Context, start string, f func(string) error) er
 	}
 
 	var ferr error
-	s.keymap.InorderAfter(start, func(key string, _ bool) bool {
+	s.keymap.InorderAfter(start, func(key string) bool {
 		ferr = f(key)
 		return ferr == nil
 	})
@@ -177,7 +177,7 @@ func (s *Store) Len(ctx context.Context) (int64, error) {
 		return 0, err
 	}
 	var n int64
-	s.keymap.Inorder(func(key string, _ bool) bool {
+	s.keymap.Inorder(func(key string) bool {
 		n++
 		return true
 	})
@@ -223,7 +223,7 @@ func (c CAS) CASPut(ctx context.Context, data []byte) (string, error) {
 		return "", err
 	}
 	c.cache.put(key, data)
-	c.keymap.Replace(key, true)
+	c.keymap.Replace(key)
 	return key, nil
 }
 
