@@ -151,9 +151,6 @@ func (s *Store) List(_ context.Context, start string, f func(string) error) erro
 			return err
 		}
 		for _, tail := range keys {
-			if strings.HasPrefix(tail, "aftmp.") {
-				continue // skip writer temporaries
-			}
 			key, err := decodeKey(root + tail)
 			if err != nil || key < start {
 				continue // skip non-key files and keys prior to the start
