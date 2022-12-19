@@ -57,8 +57,8 @@ func New(dir string) (*Store, error) {
 
 func (s *Store) keyPath(key string) string {
 	base := hex.EncodeToString([]byte(key))
-	// Pad short keys to be at least four bytes long, so the two-byte directory
-	// prefix and filename are never empty.
+	// Pad short keys to be at least four bytes long, so the directory prefix
+	// and filename are never empty.
 	//
 	// The padding goes at the end so as to preserve lexicographic ordering on
 	// the hex-encoded portion of the key. The pad character is "-" (Unicode 45)
@@ -69,7 +69,7 @@ func (s *Store) keyPath(key string) string {
 	if n := len(base); n < 4 {
 		base += "----"[n:]
 	}
-	return filepath.Join(s.dir, base[:2], base[2:])
+	return filepath.Join(s.dir, base[:3], base[3:])
 }
 
 func decodeKey(enc string) (string, error) {
