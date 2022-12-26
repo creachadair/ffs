@@ -432,6 +432,9 @@ func (x XAttr) Get(key string) (string, bool) { s, ok := x.f.xattr[key]; return 
 // Set sets the specified xattr.
 func (x XAttr) Set(key, value string) { defer x.f.inval(); x.f.xattr[key] = value }
 
+// Len reports the number of extended attributes defined on f.
+func (x XAttr) Len() int { return len(x.f.xattr) }
+
 // Remove removes the specified xattr.
 func (x XAttr) Remove(key string) {
 	if _, ok := x.f.xattr[key]; ok {
