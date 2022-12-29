@@ -22,7 +22,7 @@ import (
 	"sync"
 
 	"github.com/creachadair/ffs/blob"
-	"github.com/creachadair/scapegoat"
+	"github.com/creachadair/mds/stree"
 )
 
 // Store implements a blob.Store that delegates to an underlying store through
@@ -36,9 +36,9 @@ type Store struct {
 	base blob.Store
 
 	μ      sync.Mutex
-	listed bool                    // keymap has a complete list
-	keymap *scapegoat.Tree[string] // known keys
-	cache  *cache                  // blob cache
+	listed bool                // keymap has a complete list
+	keymap *stree.Tree[string] // known keys
+	cache  *cache              // blob cache
 
 	// The keymap is initialized to the keyspace of the underlying store.
 	// Additional keys are added by store queries.
@@ -49,7 +49,7 @@ type Store struct {
 func New(s blob.Store, maxBytes int) *Store {
 	return &Store{
 		base:   s,
-		keymap: scapegoat.New[string](300, scapegoat.Less[string]),
+		keymap: stree.New[string](300, func(a, b string) bool { return a < b }),
 		cache:  newCache(maxBytes),
 	}
 }
@@ -62,7 +62,7 @@ func (s *Store) Get(ctx context.Context, key string) ([]byte, error) {
 		return nil, err
 	} else if data, ok := s.cache.getCopy(key); ok {
 		return data, nil
-	} else if _, ok := s.keymap.Lookup(key); !ok {
+	} else if _, ok := s.keymap.Get(key); !ok {
 		return nil, blob.KeyNotFound(key)
 	}
 	data, err := s.base.Get(ctx, key)
@@ -123,7 +123,7 @@ func (s *Store) Size(ctx context.Context, key string) (int64, error) {
 		return 0, err
 	} else if data, ok := s.cache.rawGet(key); ok {
 		return int64(len(data)), nil
-	} else if _, ok := s.keymap.Lookup(key); !ok {
+	} else if _, ok := s.keymap.Get(key); !ok {
 		return 0, blob.KeyNotFound(key)
 	}
 	size, err := s.base.Size(ctx, key)
