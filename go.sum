@@ -2,8 +2,8 @@ github.com/cespare/xxhash/v2 v2.2.0 h1:DC2CZ1Ep5Y4k3ZQ899DldepgrayRUGE6BBZ/cd9Cj
 github.com/cespare/xxhash/v2 v2.2.0/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=
 github.com/creachadair/atomicfile v0.2.7 h1:LiL/QmAUO7ZDsjSJ6xj3PlsXaYXYKMS8g/Po5S9IIk4=
 github.com/creachadair/atomicfile v0.2.7/go.mod h1:BRq8Une6ckFneYXZQ+kO7p1ZZP3I2fzVzf28JxrIkBc=
-github.com/creachadair/mds v0.0.0-20221229014046-b28864a24cab h1:PIulmKxbUEgq06VcBIe6pf5S7zrok9b75CJCJAwbpNQ=
-github.com/creachadair/mds v0.0.0-20221229014046-b28864a24cab/go.mod h1:caBACU+n1Q/rZ252FTzfnG0/H+ZUi+UnIQtEOraMv/g=
+github.com/creachadair/mds v0.0.0-20221230081554-c272d6fe9760 h1:xHTo3td6R6s4AJ6BpJq1prPN3z/LlxgnbCM0YYR60gg=
+github.com/creachadair/mds v0.0.0-20221230081554-c272d6fe9760/go.mod h1:caBACU+n1Q/rZ252FTzfnG0/H+ZUi+UnIQtEOraMv/g=
 github.com/creachadair/msync v0.0.3 h1:dOzBhh3K7SQNafcxyxzbzy4i8M/AZoycx6obvaq3Po4=
 github.com/creachadair/msync v0.0.3/go.mod h1:5+WcF2IjxUVydSOxqTcUWCgK6pZJwX8uxbGF+FuQkZI=
 github.com/creachadair/taskgroup v0.3.2 h1:zlfutDS+5XG40AOxcHDSThxKzns8Tnr9jnr6VqkYlkM=
