@@ -66,7 +66,7 @@ func New(ctx context.Context, base blob.CAS, buf blob.Store) *Store {
 	}
 
 	s.nempty.Send(nil) // prime
-	g := taskgroup.New(nil).Go(func() error {
+	g := taskgroup.Single(func() error {
 		return s.run(ctx)
 	})
 
