@@ -31,6 +31,23 @@ type fileData struct {
 	sc         *block.SplitConfig
 	totalBytes int64
 	extents    []*extent
+
+	// Cache of last successfully-read block. This helps avoid reloading the
+	// same block repeatedly during incremental reads.
+	lastKey  string
+	lastData []byte
+}
+
+func (d *fileData) getBlock(ctx context.Context, s blob.CAS, key string) ([]byte, error) {
+	if key == d.lastKey {
+		return d.lastData, nil
+	}
+	data, err := s.Get(ctx, key)
+	if err == nil {
+		d.lastKey = key
+		d.lastData = data
+	}
+	return data, err
 }
 
 // isSingleBlock reports whether d can be represented as a single-block node.
@@ -325,7 +342,7 @@ walkSpan:
 			}
 
 			// Fetch the block contents and copy whatever we can.
-			bits, err := s.Get(ctx, blk.key)
+			bits, err := d.getBlock(ctx, s, blk.key)
 			if err != nil {
 				return 0, err
 			}
