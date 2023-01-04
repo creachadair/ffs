@@ -53,6 +53,9 @@ func TestRoundTrip(t *testing.T) {
 	if n := f.Size(); n != 0 {
 		t.Errorf("Size: got %d, want 0", n)
 	}
+	if key := f.Key(); key != "" {
+		t.Errorf("Key: got %q, want empty", key)
+	}
 	ctx := context.Background()
 
 	wantx := map[string]string{
@@ -71,6 +74,9 @@ func TestRoundTrip(t *testing.T) {
 	fkey, err := f.Flush(ctx)
 	if err != nil {
 		t.Fatalf("Flushing failed: %v", err)
+	}
+	if key := f.Key(); key != fkey {
+		t.Errorf("Key: got %x, want %x", key, fkey)
 	}
 
 	g, err := file.Open(ctx, cas, fkey)

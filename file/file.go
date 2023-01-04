@@ -249,6 +249,10 @@ func (f *File) Flush(ctx context.Context) (string, error) {
 	return f.recFlush(ctx, nil)
 }
 
+// Key returns the storage key of f if it is known, or "" if the file has not
+// been flushed to storage in its current form.
+func (f *File) Key() string { return f.key }
+
 // recFlush recursively flushes f and all its child nodes. The path gives the
 // path of nodes from the root to the current flush target, and is used to
 // verify that there are no cycles in the graph.
