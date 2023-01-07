@@ -330,42 +330,49 @@ func (f *File) SetData(ctx context.Context, r io.Reader) error {
 // file and was not assigned a name at creation.
 func (f *File) Name() string { return f.name }
 
-// A ScanFunc is called by the Scan method to report the storage key for an
-// object in the file tree. It accepts the storage key and a flag that reports
-// whether the key corresponds to a file (true) or a data block (false).
-// If the ScanFunc returns false, the substructure of the specified object is
-// not further traversed.
-type ScanFunc func(key string, isFile bool) bool
+// A ScanItem is the argument to the Scan callback.
+type ScanItem struct {
+	*File // the current file being visited
 
-// Scan recursively visits f and all its descendants, and calls visit for each
-// storage key k corresponding to a file or data block. If visit(k) returns
-// false, storage keys reachable through k are not visited.
-func (f *File) Scan(ctx context.Context, visit ScanFunc) error {
-	fk, err := f.Flush(ctx)
-	if err != nil {
+	Parent *File  // the parent file (nil at the root)
+	Name   string // the name of File within its parent ("" at the root)
+}
+
+// Scan recursively visits f and all its descendants in depth-first
+// left-to-right order, calling visit for each file.  If visit returns false,
+// no descendants of f are visited.
+func (f *File) Scan(ctx context.Context, visit func(ScanItem) bool) error {
+	if _, err := f.Flush(ctx); err != nil {
 		return err
-	} else if !visit(fk, true) {
-		return nil
 	}
-	for _, ext := range f.data.extents {
-		for _, blk := range ext.blocks {
-			visit(blk.key, false) // data blocks have no substructure
+
+	q := []ScanItem{{File: f}}
+	for len(q) != 0 {
+		next := q[len(q)-1]
+		q = q[:len(q)-1]
+
+		if !visit(next) {
+			return nil
 		}
-	}
-	for _, kid := range f.kids {
-		// We already flushed f, so all the kids have storage keys.  We have to
-		// open each child to recur on it, but don't cache the open files for
-		// children that weren't already open.
-		kf := kid.File
-		if kf == nil {
-			var err error
-			kf, err = Open(ctx, f.s, kid.Key)
-			if err != nil {
-				return err
+		for i := len(next.kids) - 1; i >= 0; i-- {
+			kid := next.kids[i]
+
+			// We already flushed f, so all the kids have storage keys.  We have
+			// to open each child to recur on it, but don't cache the open files
+			// for children that weren't already open.
+			kf := kid.File
+			if kf == nil {
+				var err error
+				kf, err = Open(ctx, next.s, kid.Key)
+				if err != nil {
+					return err
+				}
 			}
-		}
-		if err := kf.Scan(ctx, visit); err != nil {
-			return err
+			q = append(q, ScanItem{
+				File:   kf,
+				Parent: next.File,
+				Name:   kid.Name,
+			})
 		}
 	}
 	return nil

@@ -126,15 +126,46 @@ func TestRoundTrip(t *testing.T) {
 	}
 
 	// Exercise the scanner.
-	if err := f.Scan(ctx, func(key string, isFile bool) bool {
-		if isFile && key != fkey {
+	if err := f.Scan(ctx, func(v file.ScanItem) bool {
+		if key := v.Key(); key != fkey {
 			t.Errorf("File key: got %x, want %x", key, fkey)
-		} else {
-			t.Logf("Data key %x OK", key)
 		}
 		return true
 	}); err != nil {
 		t.Fatalf("Scan failed: %v", err)
+	}
+}
+
+func TestScan(t *testing.T) {
+	cas := blob.NewCAS(memstore.New(), sha1.New)
+	ctx := context.Background()
+
+	root := file.New(cas, nil)
+	setFile := func(ss ...string) {
+		cur := root
+		for _, s := range ss {
+			sub := root.New(nil)
+			cur.Child().Set(s, sub)
+			cur = sub
+		}
+	}
+
+	setFile("1", "4")
+	setFile("A", "B")
+	setFile("1", "2", "3")
+	setFile("9")
+	setFile("5", "6", "7", "8")
+
+	var got []string
+	if err := root.Scan(ctx, func(e file.ScanItem) bool {
+		got = append(got, e.Name)
+		return true
+	}); err != nil {
+		t.Fatalf("Scan failed: %v", err)
+	}
+
+	if !sort.StringsAreSorted(got) {
+		t.Errorf("Scan result: %q, should be sorted", got)
 	}
 }
 
