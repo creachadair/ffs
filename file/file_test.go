@@ -95,12 +95,10 @@ func TestRoundTrip(t *testing.T) {
 
 	// Verify that extended attributes were preserved.
 	gotx := make(map[string]string)
-	g.XAttr().List(func(key, val string) {
-		if v, ok := g.XAttr().Get(key); !ok || v != val {
-			t.Errorf("GetXAttr(%q): got (%q, %v), want (%q, true)", key, v, ok, val)
-		}
-		gotx[key] = val
-	})
+	xa := g.XAttr()
+	for _, key := range xa.Names() {
+		gotx[key] = xa.Get(key)
+	}
 	if diff := cmp.Diff(wantx, gotx); diff != "" {
 		t.Errorf("XAttr (-want, +got)\n%s", diff)
 	}

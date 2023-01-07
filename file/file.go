@@ -430,8 +430,12 @@ func (f *File) toWireType() *wiretype.Object {
 // XAttr provides access to the extended attributes of a file.
 type XAttr struct{ f *File }
 
-// Get reports whether the specified key is set, and if so returns its value.
-func (x XAttr) Get(key string) (string, bool) { s, ok := x.f.xattr[key]; return s, ok }
+// Has reports whether the specified attribute is defined.
+func (x XAttr) Has(key string) bool { _, ok := x.f.xattr[key]; return ok }
+
+// Get returns the value corresponding to the given key, or "" if the key is
+// not defined.
+func (x XAttr) Get(key string) string { return x.f.xattr[key] }
 
 // Set sets the specified xattr.
 func (x XAttr) Set(key, value string) { defer x.f.inval(); x.f.xattr[key] = value }
@@ -441,17 +445,20 @@ func (x XAttr) Len() int { return len(x.f.xattr) }
 
 // Remove removes the specified xattr.
 func (x XAttr) Remove(key string) {
-	if _, ok := x.f.xattr[key]; ok {
+	if x.Has(key) {
 		delete(x.f.xattr, key)
 		x.f.inval()
 	}
 }
 
-// List calls attr with the key and value of each xattr in unspecified order.
-func (x XAttr) List(attr func(key, value string)) {
-	for key, val := range x.f.xattr {
-		attr(key, val)
+// Names returns a slice of the names of all the extended attributes defined.
+func (x XAttr) Names() []string {
+	names := make([]string, 0, len(x.f.xattr))
+	for key := range x.f.xattr {
+		names = append(names, key)
 	}
+	sort.Strings(names)
+	return names
 }
 
 // Clear removes all the extended attributes set on the file.
@@ -490,6 +497,9 @@ func (c Child) Set(name string, kid *File) {
 	}
 }
 
+// Len returns the number of children of the file.
+func (c Child) Len() int { return len(c.f.kids) }
+
 // Remove removes name as a child of f, and reports whether a change was made.
 func (c Child) Remove(name string) bool {
 	if i, ok := c.f.findChild(name); ok {
@@ -509,9 +519,6 @@ func (c Child) Names() []string {
 	}
 	return out
 }
-
-// Len returns the number of children of the file.
-func (c Child) Len() int { return len(c.f.kids) }
 
 // Encode translates f as a protobuf message for storage.
 func Encode(f *File) *wiretype.Object { return f.toWireType() }
