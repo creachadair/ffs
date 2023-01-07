@@ -352,7 +352,7 @@ func (f *File) Scan(ctx context.Context, visit func(ScanItem) bool) error {
 		q = q[:len(q)-1]
 
 		if !visit(next) {
-			return nil
+			continue
 		}
 		for i := len(next.kids) - 1; i >= 0; i-- {
 			kid := next.kids[i]
