@@ -67,6 +67,37 @@ func (c Child) Names() []string {
 	return out
 }
 
+// Data is a view of the data associated with a file.
+type Data struct{ f *File }
+
+// Size returns the effective size of the file content in bytes.
+func (d Data) Size() int64 { return d.f.data.totalBytes }
+
+// Len returns the number of data blocks for the file.
+func (d Data) Len() int {
+	var nb int
+	for _, e := range d.f.data.extents {
+		nb += len(e.blocks)
+	}
+	return nb
+}
+
+// Keys returns the storage keys of the data blocks for the file.  If the file
+// has no binary data, the slice is empty.
+func (d Data) Keys() []string {
+	nb := d.Len()
+	if nb == 0 {
+		return nil
+	}
+	keys := make([]string, 0, nb)
+	for _, e := range d.f.data.extents {
+		for _, blk := range e.blocks {
+			keys = append(keys, blk.key)
+		}
+	}
+	return keys
+}
+
 // XAttr provides access to the extended attributes of a file.
 type XAttr struct{ f *File }
 

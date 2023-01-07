@@ -93,7 +93,7 @@ func (c *Cursor) Stat() (fs.FileInfo, error) { return FileInfo{file: c.file}, ni
 type FileInfo struct{ file *File }
 
 func (n FileInfo) Name() string       { return n.file.name }
-func (n FileInfo) Size() int64        { return n.file.Size() }
+func (n FileInfo) Size() int64        { return n.file.Data().Size() }
 func (n FileInfo) Mode() fs.FileMode  { return n.file.stat.Mode }
 func (n FileInfo) ModTime() time.Time { return n.file.stat.ModTime }
 func (n FileInfo) IsDir() bool        { return n.file.stat.Mode.IsDir() }

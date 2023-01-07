@@ -193,9 +193,6 @@ func (f *File) New(opts *NewOptions) *File {
 	return out
 }
 
-// Size returns the effective size of the file content in bytes.
-func (f *File) Size() int64 { return f.data.totalBytes }
-
 // Stat returns the current stat metadata for f. Calling this method does not
 // change stat persistence for f, use the Clear and Update methods of the Stat
 // value to do that.
@@ -204,6 +201,9 @@ func (f *File) Stat() Stat {
 	cp.f = f
 	return cp
 }
+
+// Data returns a view of the file content for f.
+func (f *File) Data() Data { return Data{f: f} }
 
 var (
 	// ErrChildNotFound indicates that a requested child file does not exist.

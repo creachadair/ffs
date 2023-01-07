@@ -50,7 +50,7 @@ func TestRoundTrip(t *testing.T) {
 		Stat:  &file.Stat{Mode: 0640},
 		Split: &block.SplitConfig{Min: 17, Size: 84, Max: 500},
 	})
-	if n := f.Size(); n != 0 {
+	if n := f.Data().Size(); n != 0 {
 		t.Errorf("Size: got %d, want 0", n)
 	}
 	if key := f.Key(); key != "" {
@@ -68,7 +68,7 @@ func TestRoundTrip(t *testing.T) {
 
 	const testMessage = "Four fat fennel farmers fell feverishly for Felicia Frances"
 	fmt.Fprint(f.Cursor(ctx), testMessage)
-	if n := f.Size(); n != int64(len(testMessage)) {
+	if n := f.Data().Size(); n != int64(len(testMessage)) {
 		t.Errorf("Size: got %d, want %d", n, len(testMessage))
 	}
 	fkey, err := f.Flush(ctx)
