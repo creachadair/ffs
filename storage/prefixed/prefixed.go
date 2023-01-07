@@ -37,55 +37,55 @@ type Store struct {
 // use a different prefix.
 //
 // Prefixes do not nest: If s is already a prefixed.Store, it is returned as-is.
-func New(s blob.Store) *Store {
-	if p, ok := s.(*Store); ok {
+func New(s blob.Store) Store {
+	if p, ok := s.(Store); ok {
 		return p
 	}
-	return &Store{real: s}
+	return Store{real: s}
 }
 
 // Base returns the underlying store associated with s.
-func (s *Store) Base() blob.Store { return s.real }
+func (s Store) Base() blob.Store { return s.real }
 
 // Derive creates a clone of s that delegates to the same underlying store, but
 // using a different prefix. If prefix == "", Derive returns a store that is
 // equivalent to the original base store.
-func (s *Store) Derive(prefix string) *Store {
-	return &Store{real: s.real, prefix: prefix}
+func (s Store) Derive(prefix string) Store {
+	return Store{real: s.real, prefix: prefix}
 }
 
 // Prefix returns the key prefix associated with s.
-func (s *Store) Prefix() string { return s.prefix }
+func (s Store) Prefix() string { return s.prefix }
 
-func (s *Store) wrapKey(key string) string { return s.prefix + key }
+func (s Store) wrapKey(key string) string { return s.prefix + key }
 
-func (s *Store) unwrapKey(key string) string { return strings.TrimPrefix(key, s.prefix) }
+func (s Store) unwrapKey(key string) string { return strings.TrimPrefix(key, s.prefix) }
 
 // Get implements part of blob.Store by delegation.
-func (s *Store) Get(ctx context.Context, key string) ([]byte, error) {
+func (s Store) Get(ctx context.Context, key string) ([]byte, error) {
 	return s.real.Get(ctx, s.wrapKey(key))
 }
 
 // Put implements part of blob.Store by delegation.
-func (s *Store) Put(ctx context.Context, opts blob.PutOptions) error {
+func (s Store) Put(ctx context.Context, opts blob.PutOptions) error {
 	// Leave the options as-given, except the key must be wrapped.
 	opts.Key = s.wrapKey(opts.Key)
 	return s.real.Put(ctx, opts)
 }
 
 // Size implements part of blob.Store by delegation.
-func (s *Store) Size(ctx context.Context, key string) (int64, error) {
+func (s Store) Size(ctx context.Context, key string) (int64, error) {
 	return s.real.Size(ctx, s.wrapKey(key))
 }
 
 // Delete implements part of blob.Store by delegation.
-func (s *Store) Delete(ctx context.Context, key string) error {
+func (s Store) Delete(ctx context.Context, key string) error {
 	return s.real.Delete(ctx, s.wrapKey(key))
 }
 
 // List implements part of blob.Store by delegation. It filters the underlying
 // list results to include only keys prefixed for this store.
-func (s *Store) List(ctx context.Context, start string, f func(string) error) error {
+func (s Store) List(ctx context.Context, start string, f func(string) error) error {
 	return s.real.List(ctx, s.wrapKey(start), func(wrappedKey string) error {
 		// Since keys are listed lexicographically, all the keys starting with
 		// our prefix should be grouped together. Thus, once we find any key that
@@ -99,7 +99,7 @@ func (s *Store) List(ctx context.Context, start string, f func(string) error) er
 
 // Len implements part of blob.Store by delegation. It reports only the number
 // of keys matching the current prefix.
-func (s *Store) Len(ctx context.Context) (int64, error) {
+func (s Store) Len(ctx context.Context) (int64, error) {
 	// If the prefix is empty, we can delegate directly to the base.
 	if s.prefix == "" {
 		return s.real.Len(ctx)
@@ -119,7 +119,7 @@ func (s *Store) Len(ctx context.Context) (int64, error) {
 
 // CAS implements a prefixed wrapper around a blob.CAS instance.
 type CAS struct {
-	*Store
+	Store
 	cas blob.CAS
 }
 
@@ -135,9 +135,6 @@ func NewCAS(cas blob.CAS) CAS {
 // Derive creates a clone of c that delegates to the same underlying store, but
 // using a different prefix. If prefix == "", Derive returns c unchanged.
 func (c CAS) Derive(prefix string) CAS {
-	if prefix == "" {
-		return c
-	}
 	return CAS{Store: c.Store.Derive(prefix), cas: c.cas}
 }
 
