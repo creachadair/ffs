@@ -48,11 +48,9 @@ func New(s blob.Store) *Store {
 func (s *Store) Base() blob.Store { return s.real }
 
 // Derive creates a clone of s that delegates to the same underlying store, but
-// using a different prefix. If prefix == "", Derive returns s unchanged.
+// using a different prefix. If prefix == "", Derive returns a store that is
+// equivalent to the original base store.
 func (s *Store) Derive(prefix string) *Store {
-	if prefix == "" {
-		return s
-	}
 	return &Store{real: s.real, prefix: prefix}
 }
 
@@ -99,9 +97,25 @@ func (s *Store) List(ctx context.Context, start string, f func(string) error) er
 	})
 }
 
-// Len implements part of blob.Store by delegation. It reports the total number
-// of keys in the underlying store, not only those with the chosen prefix.
-func (s *Store) Len(ctx context.Context) (int64, error) { return s.real.Len(ctx) }
+// Len implements part of blob.Store by delegation. It reports only the number
+// of keys matching the current prefix.
+func (s *Store) Len(ctx context.Context) (int64, error) {
+	// If the prefix is empty, we can delegate directly to the base.
+	if s.prefix == "" {
+		return s.real.Len(ctx)
+	}
+
+	// Otherwise, we have to iterate.
+	var nk int64
+	err := s.real.List(ctx, s.prefix, func(cur string) error {
+		if !strings.HasPrefix(cur, s.prefix) {
+			return blob.ErrStopListing
+		}
+		nk++
+		return nil
+	})
+	return nk, err
+}
 
 // CAS implements a prefixed wrapper around a blob.CAS instance.
 type CAS struct {

@@ -102,6 +102,40 @@ func TestPrefixes(t *testing.T) {
 	t.Run("List-3", runList(p3, "foo", "hexxus", "zuul"))
 }
 
+func TestLen(t *testing.T) {
+	m := memstore.New()
+	p0 := prefixed.New(m)
+	p1 := p0.Derive("X:")
+	p2 := p1.Derive("Y:")
+
+	mustPut(t, p0, "starfruit", "0")
+	mustPut(t, p1, "apple", "1")
+	mustPut(t, p1, "pear", "1")
+	mustPut(t, p2, "plum", "2")
+	mustPut(t, p2, "cherry", "2")
+	mustPut(t, p2, "mango", "2")
+
+	tests := []struct {
+		store blob.Store
+		want  int64
+	}{
+		{m, 6},  // base store: all the keys
+		{p0, 6}, // empty prefix, equivalent to base
+		{p1, 2},
+		{p2, 3},
+	}
+	for _, test := range tests {
+		got, err := test.store.Len(context.Background())
+		if err != nil {
+			t.Errorf("Len failed: %v", err)
+			continue
+		}
+		if got != test.want {
+			t.Errorf("Len: got %v, want %v", got, test.want)
+		}
+	}
+}
+
 func TestNesting(t *testing.T) {
 	m := memstore.New()
 	p1 := prefixed.New(m)
@@ -121,7 +155,7 @@ func TestNesting(t *testing.T) {
 	p2 := p1.Derive("X:")
 	p3 := p1.Derive("Y:")
 	p4 := p2.Derive("Z:") // derivation replaces existing keys
-	p5 := p2.Derive("")   // empty prefix does not change anything
+	p5 := p2.Derive("")   // empty prefix goes back to the original
 
 	mustPut(t, p1, "foo", "1")
 	mustPut(t, p2, "foo", "2")
@@ -137,7 +171,7 @@ func TestNesting(t *testing.T) {
 			"X:foo": "2", // from p2
 			"Y:foo": "3", // from p3
 			"Z:foo": "4", // from p4
-			"X:bar": "5", // from p5 (eqv. p2)
+			"bar":   "5", // from p5 (eqv. to p1)
 		}, snap); diff != "" {
 			t.Errorf("Prefixed store: wrong content (-want, +got)\n%s", diff)
 		}
