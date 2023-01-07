@@ -189,9 +189,9 @@ func TestPaths(t *testing.T) {
 		want := []string{"a", "boring", "sludge", "of", "words"}
 		var got []string
 		for i, elt := range fs {
-			elt.Stat().Edit(func(stat *file.Stat) {
-				stat.Mode = os.ModeDir | 0750
-			}).Update()
+			fs := elt.Stat()
+			fs.Mode = os.ModeDir | 0750
+			fs.Update()
 			elt.XAttr().Set("index", strconv.Itoa(i+1))
 			got = append(got, elt.Name())
 		}

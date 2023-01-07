@@ -125,7 +125,6 @@ func Open(ctx context.Context, s blob.CAS, key string) (*File, error) {
 	if err := f.fromWireType(&obj); err != nil {
 		return nil, fmt.Errorf("decoding file %x: %w", key, err)
 	}
-	f.stat.f = f
 	return f, nil
 }
 
@@ -169,7 +168,6 @@ func (f *File) findChild(name string) (int, bool) {
 
 func (f *File) setStat(s Stat) {
 	f.stat = s
-	f.stat.f = f
 	if f.saveStat {
 		f.inval()
 	}
@@ -201,7 +199,11 @@ func (f *File) Size() int64 { return f.data.totalBytes }
 // Stat returns the current stat metadata for f. Calling this method does not
 // change stat persistence for f, use the Clear and Update methods of the Stat
 // value to do that.
-func (f *File) Stat() Stat { return f.stat }
+func (f *File) Stat() Stat {
+	cp := f.stat
+	cp.f = f
+	return cp
+}
 
 var (
 	// ErrChildNotFound indicates that a requested child file does not exist.

@@ -91,7 +91,9 @@ func (s *SetOptions) target() *file.File {
 
 func (s *SetOptions) setStat(f *file.File) *file.File {
 	if s != nil && s.SetStat != nil {
-		f.Stat().Edit(s.SetStat).Update()
+		fs := f.Stat()
+		s.SetStat(&fs)
+		fs.Update()
 	}
 	return f
 }
