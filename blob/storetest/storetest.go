@@ -26,6 +26,7 @@ import (
 	"testing"
 
 	"github.com/creachadair/ffs/blob"
+	"github.com/creachadair/mds/mapset"
 	"github.com/google/go-cmp/cmp"
 )
 
@@ -241,10 +242,10 @@ func Run(t *testing.T, s blob.Store) {
 			// List all the keys currently in the store, and pick out all those
 			// that belong to this task.
 			mine := fmt.Sprintf("task-%d-", i)
-			got := make(map[string]bool)
+			got := mapset.New[string]()
 			if err := s.List(ctx, "", func(key string) error {
 				if strings.HasPrefix(key, mine) {
-					got[key] = true
+					got.Add(key)
 				}
 				return nil
 			}); err != nil {
@@ -258,7 +259,7 @@ func Run(t *testing.T, s blob.Store) {
 				}
 
 				// Verify that List did not miss any of this task's keys.
-				if !got[key] {
+				if !got.Has(key) {
 					t.Errorf("Task %d: s.List missing key %q", i, key)
 				}
 			}

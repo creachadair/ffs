@@ -28,6 +28,7 @@ import (
 	"github.com/creachadair/ffs/blob/memstore"
 	"github.com/creachadair/ffs/block"
 	"github.com/creachadair/ffs/file/wiretype"
+	"github.com/creachadair/mds/mapset"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 )
@@ -334,7 +335,7 @@ func TestReblocking(t *testing.T) {
 
 type testInput struct {
 	template string
-	splits   map[int]bool
+	splits   mapset.Set[int]
 	input    string
 	pos      int
 }
@@ -507,11 +508,11 @@ func (d *dataTester) truncate(at int64) {
 
 func newTestInput(template string) *testInput {
 	parts := strings.Split(template, "|")
-	splits := make(map[int]bool)
+	splits := mapset.New[int]()
 	pos := 0
 	for _, p := range parts {
 		pos += len(p)
-		splits[pos] = true
+		splits.Add(pos)
 		pos++
 	}
 	return &testInput{
@@ -528,7 +529,7 @@ func (ti *testInput) inc()                    { ti.pos++ }
 func (ti *testInput) Hash() block.Hash { return ti }
 func (ti *testInput) Update(b byte) uint64 {
 	defer ti.inc()
-	if ti.splits[ti.pos] {
+	if ti.splits.Has(ti.pos) {
 		return 1
 	}
 	return 2
