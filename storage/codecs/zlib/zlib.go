@@ -48,10 +48,13 @@ func (c Codec) Encode(w io.Writer, src []byte) error {
 	z, err := zlib.NewWriterLevel(w, int(c.level))
 	if err != nil {
 		return err
-	} else if _, err := z.Write(src); err != nil {
+	}
+	_, err = z.Write(src)
+	cerr := z.Close()
+	if err != nil {
 		return err
 	}
-	return z.Close()
+	return cerr
 }
 
 // Decode decompresses src via zlib and writes it to w.
