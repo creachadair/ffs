@@ -107,12 +107,8 @@ func (s *Store) Delete(ctx context.Context, key string) error {
 	// Even if we fail to delete the key from the underlying store, take this as
 	// a signal that we should forget about its data.
 	s.cache.drop(key)
-
-	if err := s.base.Delete(ctx, key); err != nil {
-		return err
-	}
 	s.keymap.Remove(key)
-	return nil
+	return s.base.Delete(ctx, key)
 }
 
 // Size implements a method of blob.Store.
