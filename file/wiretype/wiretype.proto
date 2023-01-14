@@ -45,16 +45,13 @@ message Root {
   // A human-readable descriptive label for the root.
   string description = 2;
 
-  // The storage key of the owner metadata for the root.
-  // The blob format is implementation-defined.
-  bytes owner_key = 3;
-
   // The storage key of a blob index for the root.
   // The blob contains a Object holding an ffs.index.Index message.
   bytes index_key = 4;
 
   // next id: 6
 
+  reserved 3;  // was: owner_key
   reserved 5;  // was: predecessor
 }
 
