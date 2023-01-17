@@ -25,6 +25,11 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
+var (
+	_ blob.Store  = prefixed.Store{}
+	_ blob.Closer = prefixed.Store{}
+)
+
 func TestStore(t *testing.T) {
 	m := memstore.New()
 	p := prefixed.New(m).Derive("POG:")

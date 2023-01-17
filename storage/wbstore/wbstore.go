@@ -87,15 +87,23 @@ func (s *Store) Buffer() blob.Store { return s.buf }
 // ends.
 func (s *Store) Close(ctx context.Context) error {
 	s.stop()
+	var wberr error
 	select {
 	case <-ctx.Done():
-		return ctx.Err()
+		wberr = ctx.Err()
 	case <-s.exited:
-		if s.err == errWriterStopped || s.err == context.Canceled {
-			return nil
+		if s.err != errWriterStopped && s.err != context.Canceled {
+			wberr = s.err
 		}
-		return s.err
 	}
+	caserr := blob.CloseStore(ctx, s.CAS)
+	buferr := blob.CloseStore(ctx, s.buf)
+	if wberr != nil {
+		return wberr
+	} else if caserr != nil {
+		return caserr
+	}
+	return buferr
 }
 
 // Sync blocks until the buffer is empty or ctx ends.

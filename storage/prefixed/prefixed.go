@@ -61,6 +61,12 @@ func (s Store) wrapKey(key string) string { return s.prefix + key }
 
 func (s Store) unwrapKey(key string) string { return strings.TrimPrefix(key, s.prefix) }
 
+// Close implements the optional blob.Closer interface. It delegates to the
+// underlying store if possible.
+func (s Store) Close(ctx context.Context) error {
+	return blob.CloseStore(ctx, s.real)
+}
+
 // Get implements part of blob.Store by delegation.
 func (s Store) Get(ctx context.Context, key string) ([]byte, error) {
 	return s.real.Get(ctx, s.wrapKey(key))

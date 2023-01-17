@@ -25,6 +25,11 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
+var (
+	_ blob.Store  = suffixed.Store{}
+	_ blob.Closer = suffixed.Store{}
+)
+
 func TestStore(t *testing.T) {
 	m := memstore.New()
 	p := suffixed.New(m).Derive(":POG")
