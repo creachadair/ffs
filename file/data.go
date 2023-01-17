@@ -526,8 +526,8 @@ func (e *extent) findBlock(offset int64) (int, int64) {
 	// After a change, do a linear scan to (re)initialize the offsets cache.
 	// Subsequent lookups will fall through to binary search below.
 	if len(e.starts) != len(e.blocks) {
-		var idx int
-		var base int64
+		var idx int = -1
+		var base int64 = -1
 
 		e.starts = make([]int64, len(e.blocks))
 		pos := e.base
