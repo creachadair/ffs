@@ -29,7 +29,8 @@ import (
 var (
 	errStoreClosed = errors.New("test store closed")
 
-	_ blob.CAS = blob.HashCAS{} // satisfaction check
+	_ blob.CAS    = blob.HashCAS{} // satisfaction check
+	_ blob.Closer = blob.HashCAS{}
 )
 
 type nonCloserStore struct{ blob.Store } // no Close method

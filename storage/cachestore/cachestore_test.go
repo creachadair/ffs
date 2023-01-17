@@ -25,6 +25,12 @@ import (
 	"github.com/creachadair/ffs/storage/cachestore"
 )
 
+var (
+	_ blob.Store  = (*cachestore.Store)(nil)
+	_ blob.Closer = (*cachestore.Store)(nil)
+	_ blob.Closer = cachestore.CAS{}
+)
+
 func TestStore(t *testing.T) {
 	m := memstore.New()
 	c := cachestore.New(m, 100)

@@ -175,6 +175,9 @@ func (c HashCAS) key(data []byte) string {
 	return string(h.Sum(nil))
 }
 
+// Close implements blob.Closer, it forwards to the underlying store.
+func (c HashCAS) Close(ctx context.Context) error { return CloseStore(ctx, c.Store) }
+
 // CASPut writes data to a content-addressed blob in the underlying store, and
 // returns the assigned key. The target key is returned even in case of error.
 func (c HashCAS) CASPut(ctx context.Context, data []byte) (string, error) {
