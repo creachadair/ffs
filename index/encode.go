@@ -53,15 +53,6 @@ func Decode(pb *indexpb.Index) (*Index, error) {
 		// TODO(creachadair): Check the hash_func value.
 	}
 
-	//lint:file-ignore SA1019 Support the old format until usage is updated.
-
-	// Explicit segments, no compression.
-	if len(pb.Segments) != 0 {
-		idx.bits = bitVector(pb.Segments)
-		idx.nbits = 64 * uint64(len(pb.Segments))
-		return idx, nil
-	}
-
 	// Compressed segments.
 	rc, err := zlib.NewReader(bytes.NewReader(pb.SegmentData))
 	if err != nil {

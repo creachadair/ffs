@@ -28,5 +28,5 @@ message Index {
 
   enum HashFunc { DEFAULT = 0; }
 
-  repeated uint64 segments = 3 [deprecated = true];  // index vector segments
+  reserved 3;  // was: segments vector
 }
