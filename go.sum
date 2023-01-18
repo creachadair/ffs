@@ -6,8 +6,8 @@ github.com/creachadair/mds v0.0.0-20230112232013-549c3f4fe455 h1:RZDQcXw5WKyu+R7
 github.com/creachadair/mds v0.0.0-20230112232013-549c3f4fe455/go.mod h1:caBACU+n1Q/rZ252FTzfnG0/H+ZUi+UnIQtEOraMv/g=
 github.com/creachadair/msync v0.0.4 h1:v4ZCidRtK7GnB8erBrG/VE5K5vNAYAuSsfe+jFU8v34=
 github.com/creachadair/msync v0.0.4/go.mod h1:5+WcF2IjxUVydSOxqTcUWCgK6pZJwX8uxbGF+FuQkZI=
-github.com/creachadair/taskgroup v0.4.2 h1:jsBLdAJE42asreGss2xZGZ8fJra7WtwnHWeJFxv2Li8=
-github.com/creachadair/taskgroup v0.4.2/go.mod h1:qiXUOSrbwAY3u0JPGTzObbE3yf9hcXHDKBZ2ZjpCbgM=
+github.com/creachadair/taskgroup v0.5.0 h1:44w3girt9OM0yPPoqGDO7u8+XEk6uG49PhnEn+8+nHY=
+github.com/creachadair/taskgroup v0.5.0/go.mod h1:qiXUOSrbwAY3u0JPGTzObbE3yf9hcXHDKBZ2ZjpCbgM=
 github.com/fortytw2/leaktest v1.3.0 h1:u8491cBMTQ8ft8aeV+adlcytMZylmA5nnwwkRZjI8vw=
 github.com/golang/protobuf v1.5.0/go.mod h1:FsONVRAS9T7sI+LIUmWTfcYkHO4aIWwzhcaSAoJOfIk=
 github.com/golang/snappy v0.0.4 h1:yAGX7huGHXlcLOEtBnF4w7FQwA26wojNCwOYAEhLjQM=
