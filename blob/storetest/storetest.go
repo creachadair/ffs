@@ -281,7 +281,7 @@ func Run(t *testing.T, s blob.Store) {
 		t.Errorf("Len at end: got %d, want 0", n)
 	}
 
-	if err := blob.CloseStore(ctx, s); err != nil {
-		t.Errorf("CloseStore failed: %v", err)
+	if err := s.Close(ctx); err != nil {
+		t.Errorf("Close failed: %v", err)
 	}
 }

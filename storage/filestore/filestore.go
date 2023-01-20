@@ -177,6 +177,9 @@ func (s *Store) Len(ctx context.Context) (int64, error) {
 	return nb, nil
 }
 
+// Close implements part of blob.Store. It is a no-op here.
+func (*Store) Close(context.Context) error { return nil }
+
 func listdir(path string) ([]string, error) {
 	f, err := os.Open(path)
 	if err != nil {

@@ -26,9 +26,8 @@ import (
 )
 
 var (
-	_ blob.Store  = prefixed.Store{}
-	_ blob.Closer = prefixed.Store{}
-	_ blob.Closer = prefixed.CAS{}
+	_ blob.Store = prefixed.Store{}
+	_ blob.CAS   = prefixed.CAS{}
 )
 
 func TestStore(t *testing.T) {
