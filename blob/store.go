@@ -20,7 +20,6 @@ import (
 	"context"
 	"errors"
 	"hash"
-	"io"
 )
 
 // A Store represents a mutable blob store in which each blob is identified by
@@ -64,27 +63,18 @@ type Store interface {
 
 	// Len reports the number of keys currently in the store.
 	Len(ctx context.Context) (int64, error)
-}
 
-// Closer is an optional interface that a store may implement if it needs an
-// opportunity to clean up or flush buffers before going out of service.
-type Closer interface {
+	// Close allows the store to release any resources held open while in use.
+	// If an implementation has nothing to release, it must return nil.
 	Close(context.Context) error
 }
 
 // CloseStore closes s and reports any error that results. If s implements
 // blob.Closer or io.Closer, its Close method is invoked; otherwise this is a
 // no-op without error.
-func CloseStore(ctx context.Context, s Store) error {
-	switch t := s.(type) {
-	case io.Closer:
-		return t.Close()
-	case Closer:
-		return t.Close(ctx)
-	default:
-		return nil
-	}
-}
+//
+// Deprecated: Use the Close method of the Store interface directly.
+func CloseStore(ctx context.Context, s Store) error { return s.Close(ctx) }
 
 // PutOptions regulate the behaviour of the Put method of a Store
 // implementation.
@@ -174,9 +164,6 @@ func (c HashCAS) key(data []byte) string {
 	h.Write(data)
 	return string(h.Sum(nil))
 }
-
-// Close implements blob.Closer, it forwards to the underlying store.
-func (c HashCAS) Close(ctx context.Context) error { return CloseStore(ctx, c.Store) }
 
 // CASPut writes data to a content-addressed blob in the underlying store, and
 // returns the assigned key. The target key is returned even in case of error.

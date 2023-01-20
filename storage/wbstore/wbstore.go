@@ -96,8 +96,8 @@ func (s *Store) Close(ctx context.Context) error {
 			wberr = s.err
 		}
 	}
-	caserr := blob.CloseStore(ctx, s.CAS)
-	buferr := blob.CloseStore(ctx, s.buf)
+	caserr := s.CAS.Close(ctx)
+	buferr := s.buf.Close(ctx)
 	if wberr != nil {
 		return wberr
 	} else if caserr != nil {

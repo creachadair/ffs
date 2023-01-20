@@ -26,9 +26,8 @@ import (
 )
 
 var (
-	_ blob.Store  = (*cachestore.Store)(nil)
-	_ blob.Closer = (*cachestore.Store)(nil)
-	_ blob.Closer = cachestore.CAS{}
+	_ blob.Store = (*cachestore.Store)(nil)
+	_ blob.CAS   = cachestore.CAS{}
 )
 
 func TestStore(t *testing.T) {

@@ -15,7 +15,6 @@
 package blob_test
 
 import (
-	"context"
 	"errors"
 	"fmt"
 	"path"
@@ -27,39 +26,9 @@ import (
 )
 
 var (
-	errStoreClosed = errors.New("test store closed")
-
-	_ blob.CAS    = blob.HashCAS{} // satisfaction check
-	_ blob.Closer = blob.HashCAS{}
+	_ blob.Store = blob.HashCAS{} // satisfaction check
+	_ blob.CAS   = blob.HashCAS{}
 )
-
-type nonCloserStore struct{ blob.Store } // no Close method
-
-type ioCloserStore struct{ blob.Store }
-
-func (ioCloserStore) Close() error { return errStoreClosed }
-
-type blobCloserStore struct{ blob.Store }
-
-func (blobCloserStore) Close(context.Context) error { return errStoreClosed }
-
-func TestCloseStore(t *testing.T) {
-	tests := []struct {
-		store blob.Store
-		want  error
-	}{
-		{nonCloserStore{}, nil},
-		{ioCloserStore{}, errStoreClosed},
-		{blobCloserStore{}, errStoreClosed},
-	}
-
-	for _, test := range tests {
-		got := blob.CloseStore(context.Background(), test.store)
-		if got != test.want {
-			t.Errorf("CloseStore %T: got %v, want %v", test.store, got, test.want)
-		}
-	}
-}
 
 func TestSentinelErrors(t *testing.T) {
 	plain := errors.New("it's not for you")

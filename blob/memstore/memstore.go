@@ -139,3 +139,6 @@ func (s *Store) Len(context.Context) (int64, error) {
 	defer s.μ.Unlock()
 	return int64(len(s.m)), nil
 }
+
+// Close implements part of blob.Store. It is a no-op here.
+func (*Store) Close(context.Context) error { return nil }

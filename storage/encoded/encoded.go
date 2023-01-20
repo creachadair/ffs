@@ -117,4 +117,4 @@ func (s *Store) List(ctx context.Context, start string, f func(string) error) er
 func (s *Store) Len(ctx context.Context) (int64, error) { return s.real.Len(ctx) }
 
 // Close implements the blob.Closer interface.
-func (s *Store) Close(ctx context.Context) error { return blob.CloseStore(ctx, s.real) }
+func (s *Store) Close(ctx context.Context) error { return s.real.Close(ctx) }
