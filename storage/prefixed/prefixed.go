@@ -136,6 +136,9 @@ func NewCAS(cas blob.CAS) CAS {
 	return CAS{Store: New(cas), cas: cas}
 }
 
+// Base returns the underlying store associated with c.
+func (c CAS) Base() blob.CAS { return c.cas }
+
 // Derive creates a clone of c that delegates to the same underlying store, but
 // using a different prefix. If prefix == "", Derive returns c unchanged.
 func (c CAS) Derive(prefix string) CAS {
