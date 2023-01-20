@@ -144,6 +144,9 @@ func (c CAS) Derive(suffix string) CAS {
 
 // CASPut implements part of the blob.CAS interface.
 func (c CAS) CASPut(ctx context.Context, data []byte) (string, error) {
+	if c.Store.suffix == "" {
+		return c.cas.CASPut(ctx, data)
+	}
 	key, err := c.cas.CASKey(ctx, data)
 	if err != nil {
 		return "", err
