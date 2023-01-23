@@ -81,14 +81,18 @@ func (x *Index) Normalize() {
 	x.Extents = x.Extents[:i+1]
 }
 
-// Store is the interface to storage used by the Load and Save functions.
-type Store interface {
+// Getter is the interface to storage used by the Load function.
+type Getter interface {
 	Get(context.Context, string) ([]byte, error)
+}
+
+// Putter is the interface to storage used by the Save function.
+type Putter interface {
 	CASPut(context.Context, []byte) (string, error)
 }
 
 // Load reads the specified blob from s and decodes it into msg.
-func Load(ctx context.Context, s Store, key string, msg proto.Message) error {
+func Load(ctx context.Context, s Getter, key string, msg proto.Message) error {
 	bits, err := s.Get(ctx, key)
 	if err != nil {
 		return fmt.Errorf("loading message: %w", err)
@@ -97,7 +101,7 @@ func Load(ctx context.Context, s Store, key string, msg proto.Message) error {
 }
 
 // Save encodes msg in wire format and writes it to s, returning the storage key.
-func Save(ctx context.Context, s Store, msg proto.Message) (string, error) {
+func Save(ctx context.Context, s Putter, msg proto.Message) (string, error) {
 	bits, err := proto.Marshal(msg)
 	if err != nil {
 		return "", fmt.Errorf("encoding message: %w", err)
