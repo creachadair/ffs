@@ -28,10 +28,6 @@ import (
 // implementation cannot store empty keys, it must report ErrKeyNotFound when
 // operating on an empty key.
 //
-// A Store implementation may optionally implement the blob.Closer interface.
-// Clients of a Store should call blob.CloseStore on the store value when it is
-// no longer in use.
-//
 // Implementations of this interface must be safe for concurrent use by
 // multiple goroutines.  Moreover, any sequence of operations on a Store that
 // does not overlap with any Delete executions must be linearizable.[1]
