@@ -65,13 +65,6 @@ type Store interface {
 	Close(context.Context) error
 }
 
-// CloseStore closes s and reports any error that results. If s implements
-// blob.Closer or io.Closer, its Close method is invoked; otherwise this is a
-// no-op without error.
-//
-// Deprecated: Use the Close method of the Store interface directly.
-func CloseStore(ctx context.Context, s Store) error { return s.Close(ctx) }
-
 // PutOptions regulate the behaviour of the Put method of a Store
 // implementation.
 type PutOptions struct {
