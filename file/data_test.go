@@ -17,6 +17,7 @@ package file
 import (
 	"bytes"
 	"context"
+	crand "crypto/rand"
 	"crypto/sha1"
 	"io"
 	"math/rand"
@@ -277,12 +278,12 @@ func TestWriteBlocking(t *testing.T) {
 
 func TestReblocking(t *testing.T) {
 	d := newDataTester(t, &block.SplitConfig{Min: 200, Size: 1024, Max: 8192})
-	rand.Seed(1) // change to update test data
+	rng := rand.New(rand.NewSource(1)) // change to update test data
 
 	const alphabet = "0123456789abcdef"
 	var buf bytes.Buffer
 	for buf.Len() < 4000 {
-		buf.WriteByte(alphabet[rand.Intn(len(alphabet))])
+		buf.WriteByte(alphabet[rng.Intn(len(alphabet))])
 	}
 	fileData := buf.String()
 
@@ -441,7 +442,7 @@ func TestSetZero(t *testing.T) {
 
 	for i := 1; i <= 2048; i += 7 {
 		buf := make([]byte, i)
-		rand.Read(buf)
+		crand.Read(buf)
 		n := zero(buf)
 		if !isZero(buf) {
 			t.Errorf("zero(#[%d]) failed: %+v", i, buf)

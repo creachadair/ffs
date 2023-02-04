@@ -154,13 +154,13 @@ func TestSplitterBlocks(t *testing.T) {
 }
 
 func TestLongValue(t *testing.T) {
-	rand.Seed(1) // change to update test data
+	rng := rand.New(rand.NewSource(1)) // change to update test data
 
 	const alphabet = "abcdefghijklmnopqrstuvwxyz 0123456789"
 	const inputLen = 32000
 	var buf bytes.Buffer
 	for buf.Len() < inputLen {
-		buf.WriteByte(alphabet[rand.Intn(len(alphabet))])
+		buf.WriteByte(alphabet[rng.Intn(len(alphabet))])
 	}
 	cfg := &block.SplitConfig{
 		Min:  200,
