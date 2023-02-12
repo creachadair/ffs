@@ -524,25 +524,15 @@ type extent struct {
 // contains offset. It returns -1, -1 if no block in e contains offset.
 func (e *extent) findBlock(offset int64) (int, int64) {
 	// After a change, do a linear scan to (re)initialize the offsets cache.
-	// Subsequent lookups will fall through to binary search below.
+	// Lookups will then fall through to binary search below.
 	if len(e.starts) != len(e.blocks) {
-		var idx int = -1
-		var base int64 = -1
-
 		e.starts = make([]int64, len(e.blocks))
 		pos := e.base
+
 		for i, blk := range e.blocks {
 			e.starts[i] = pos
 			pos += blk.bytes
-			if e.starts[i] <= offset && offset < pos {
-				idx = i
-				base = e.starts[i]
-
-				// we found the needle, but finish the loop to populate the
-				// remainder of the offsets cache.
-			}
 		}
-		return idx, base
 	}
 
 	// Subsequent searches binary search.
