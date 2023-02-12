@@ -542,7 +542,7 @@ func (e *extent) findBlock(offset int64) (int, int64) {
 		base := e.starts[mid]
 		if offset < base {
 			hi = mid
-		} else if offset > base+e.blocks[mid].bytes {
+		} else if offset >= base+e.blocks[mid].bytes {
 			lo = mid + 1
 		} else {
 			return mid, base
