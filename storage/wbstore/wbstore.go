@@ -223,23 +223,6 @@ func (s *Store) Get(ctx context.Context, key string) ([]byte, error) {
 	return r.bits, r.err
 }
 
-// Size implements part of blob.Store. If an unflushed write for the key exists
-// in the buffer, its size is reported; otherwise the size of the base key.
-func (s *Store) Size(ctx context.Context, key string) (int64, error) {
-	select {
-	case <-s.exited:
-		return 0, s.err
-	default:
-	}
-	z, err := s.buf.Size(ctx, key)
-	if err == nil {
-		return z, nil
-	} else if blob.IsKeyNotFound(err) {
-		return s.CAS.Size(ctx, key)
-	}
-	return 0, err
-}
-
 // Delete implements part of blob.Store. The key is deleted from both the
 // buffer and the base store, and succeeds as long as either of those
 // operations succeeds.

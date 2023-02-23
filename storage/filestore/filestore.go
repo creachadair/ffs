@@ -77,15 +77,6 @@ func decodeKey(enc string) (string, error) {
 	return string(dec), err
 }
 
-// blockSize reports the size of the blob stored in f.
-func blockSize(f *os.File) (int64, error) {
-	fi, err := f.Stat()
-	if err != nil {
-		return 0, err
-	}
-	return fi.Size(), nil
-}
-
 // Get implements part of blob.Store. It linearizes to the point at which
 // opening the key path for reading returns.
 func (s *Store) Get(_ context.Context, key string) ([]byte, error) {
@@ -110,20 +101,6 @@ func (s *Store) Put(_ context.Context, opts blob.PutOptions) error {
 		return err
 	}
 	return atomicfile.WriteData(path, opts.Data, 0600)
-}
-
-// Size implements part of blob.Store. It linearizes to the point at which
-// opening the key path succeeds.
-func (s *Store) Size(_ context.Context, key string) (int64, error) {
-	f, err := os.Open(s.keyPath(key))
-	if err != nil {
-		if os.IsNotExist(err) {
-			err = blob.KeyNotFound(key)
-		}
-		return 0, fmt.Errorf("key %q: %w", key, err)
-	}
-	defer f.Close()
-	return blockSize(f)
 }
 
 // Delete implements part of blob.Store.

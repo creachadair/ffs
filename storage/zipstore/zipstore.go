@@ -144,12 +144,6 @@ func (s Store) Put(context.Context, blob.PutOptions) error { return errReadOnly 
 // always reports an error, since the store is read-only.
 func (s Store) Delete(_ context.Context, key string) error { return errReadOnly }
 
-// Size implements a method of the blob.Store interface.
-func (s Store) Size(_ context.Context, key string) (int64, error) {
-	data, err := s.loadKey(key)
-	return int64(len(data)), err
-}
-
 // List implements a method of the blob.Store interface.
 func (s Store) List(_ context.Context, start string, f func(string) error) error {
 	if s.prefix != "" && s.prefix != "/" {

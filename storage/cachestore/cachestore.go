@@ -111,26 +111,6 @@ func (s *Store) Delete(ctx context.Context, key string) error {
 	return s.base.Delete(ctx, key)
 }
 
-// Size implements a method of blob.Store.
-func (s *Store) Size(ctx context.Context, key string) (int64, error) {
-	s.μ.Lock()
-	defer s.μ.Unlock()
-	if err := s.initKeyMap(ctx); err != nil {
-		return 0, err
-	} else if data, ok := s.cache.rawGet(key); ok {
-		return int64(len(data)), nil
-	} else if _, ok := s.keymap.Get(key); !ok {
-		return 0, blob.KeyNotFound(key)
-	}
-	size, err := s.base.Size(ctx, key)
-	if blob.IsKeyNotFound(err) {
-		s.keymap.Remove(key)
-	} else if err == nil {
-		s.keymap.Replace(key)
-	}
-	return size, err
-}
-
 // initKeyMap fills the key map from the base store.  The caller must hold s.μ.
 func (s *Store) initKeyMap(ctx context.Context) error {
 	if s.listed {

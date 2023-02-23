@@ -77,11 +77,6 @@ func (s Store) Put(ctx context.Context, opts blob.PutOptions) error {
 	return s.real.Put(ctx, opts)
 }
 
-// Size implements part of blob.Store by delegation.
-func (s Store) Size(ctx context.Context, key string) (int64, error) {
-	return s.real.Size(ctx, s.wrapKey(key))
-}
-
 // Delete implements part of blob.Store by delegation.
 func (s Store) Delete(ctx context.Context, key string) error {
 	return s.real.Delete(ctx, s.wrapKey(key))
