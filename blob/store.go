@@ -47,10 +47,6 @@ type Store interface {
 	// in the store, Delete must report an ErrKeyNotFound error.
 	Delete(ctx context.Context, key string) error
 
-	// Size reports the size in bytes of the value stored for key. If the key is
-	// not found in the store, Size must report an ErrKeyNotFound error.
-	Size(ctx context.Context, key string) (int64, error)
-
 	// List calls f with each key in the store in lexicographic order, beginning
 	// with the first key greater than or equal to start.  If f reports an error
 	// listing stops and List returns.  If f reported an ErrStopListing error,

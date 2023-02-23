@@ -92,12 +92,6 @@ func TestZipStore(t *testing.T) {
 	mustGet("68000", "sixty-eight thousand", true)
 	mustGet("--------", "", false)
 
-	if z, err := st.Size(ctx, "8675309"); err != nil {
-		t.Errorf("Size: unexpected error: %v", err)
-	} else if z != 5 {
-		t.Errorf("Size: got %d, want %d", z, 5)
-	}
-
 	wantKeys := []string{"1000", "2048", "68000", "8675309"} // N.B. excludes "0"
 	var gotKeys []string
 	if err := st.List(ctx, "1", func(key string) error {

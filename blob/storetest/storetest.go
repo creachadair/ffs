@@ -42,7 +42,6 @@ var script = []op{
 
 	// Put a value in and verify that it is recorded.
 	opPut("fruit", "apple", false, nil),
-	opSize("fruit", 5, nil),
 	opGet("fruit", "apple", nil),
 
 	// Put for an existing key fails when replace is false.
@@ -50,7 +49,6 @@ var script = []op{
 
 	// Put for an existing key works when replace is true.
 	opPut("fruit", "pear", true, nil),
-	opSize("fruit", 4, nil),
 	opGet("fruit", "pear", nil),
 
 	opList("", "fruit"),
@@ -65,12 +63,6 @@ var script = []op{
 	opList("", "animal", "beverage", "fruit", "nut"),
 	opLen(4),
 
-	// Verify that sizes are reported correctly.
-	opSize("beverage", 12, nil),
-	opSize("fruit", 4, nil),
-	opSize("nut", 8, nil),
-	opSize("animal", 6, nil),
-
 	opPut("0", "ahoy there", false, nil),
 	opLen(5),
 	opGet("0", "ahoy there", nil),
@@ -83,7 +75,7 @@ var script = []op{
 	opListRange("cut", "done"),
 
 	// A missing empty key must report the correct error.
-	opSize("", 0, blob.ErrKeyNotFound),
+	opGet("", "", blob.ErrKeyNotFound),
 
 	// Check list starting points.
 	opList("a", "animal", "beverage", "fruit", "nut"),
@@ -131,18 +123,6 @@ func opPut(key, data string, replace bool, werr error) op {
 		})
 		if !errorOK(err, werr) {
 			t.Errorf("s.Put(%q, %q, %v): got error: %v, want: %v", key, data, replace, err, werr)
-		}
-	}
-}
-
-func opSize(key string, want int64, werr error) op {
-	return func(ctx context.Context, t *testing.T, s blob.Store) {
-		t.Helper()
-		got, err := s.Size(ctx, key)
-		if !errorOK(err, werr) {
-			t.Errorf("s.Size(%q): got error: %v, want: %v", key, err, werr)
-		} else if got != want {
-			t.Errorf("s.Size(%q): got %d, want %d", key, got, want)
 		}
 	}
 }
