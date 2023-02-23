@@ -32,10 +32,6 @@ type Codec interface {
 
 	// Decode writes the decoding of src to w.  After decoding, src may be garbage.
 	Decode(w io.Writer, src []byte) error
-
-	// DecodedLen reports the decoded length of src. It reports an error if src
-	// is not a valid encoding.  After decoding, src may be garbage.
-	DecodedLen(src []byte) (int, error)
 }
 
 // A Store wraps an existing blob.Store implementation in which blobs are
@@ -89,21 +85,6 @@ func (s *Store) Put(ctx context.Context, opts blob.PutOptions) error {
 // It delegates directly to the underlying store.
 func (s *Store) Delete(ctx context.Context, key string) error {
 	return s.real.Delete(ctx, key)
-}
-
-// Size implements part of the blob.Store interface. This implementation
-// requires access to the blob content, since the stored size of an encoded
-// blob is not necessarily the same as the original.
-func (s *Store) Size(ctx context.Context, key string) (int64, error) {
-	enc, err := s.real.Get(ctx, key)
-	if err != nil {
-		return 0, err
-	}
-	size, err := s.codec.DecodedLen(enc)
-	if err != nil {
-		return 0, err
-	}
-	return int64(size), nil
 }
 
 // List implements part of the blob.Store interface.

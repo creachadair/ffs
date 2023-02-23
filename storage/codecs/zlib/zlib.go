@@ -67,17 +67,3 @@ func (c Codec) Decode(w io.Writer, src []byte) error {
 	_, err = io.Copy(w, z)
 	return err
 }
-
-// DecodedLen reports the decoded length of src.
-func (c Codec) DecodedLen(src []byte) (int, error) {
-	var n int
-	err := c.Decode(lengthWriter{&n}, src)
-	return n, err
-}
-
-type lengthWriter struct{ z *int }
-
-func (w lengthWriter) Write(data []byte) (int, error) {
-	*w.z += len(data)
-	return len(data), nil
-}
