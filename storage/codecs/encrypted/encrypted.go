@@ -84,29 +84,6 @@ func (c *Codec) Decode(w io.Writer, src []byte) error {
 	return c.decrypt(blk, w)
 }
 
-// lengthWriter is an io.Writer that discards all data written to it, but
-// counts the total number of bytes written.
-type lengthWriter struct{ length *int }
-
-func (w lengthWriter) Write(data []byte) (int, error) {
-	*w.length += len(data)
-	return len(data), nil
-}
-
-// DecodedLen implements part of the codec interface. It decodes src from a
-// wrapper block, decrypts the original size, and returns it.
-func (c *Codec) DecodedLen(src []byte) (int, error) {
-	blk, err := parseBlock(src)
-	if err != nil {
-		return 0, err
-	}
-	var nbytes int
-	if err := c.decrypt(blk, lengthWriter{&nbytes}); err != nil {
-		return 0, err
-	}
-	return nbytes, nil
-}
-
 // encrypt compresses and encrypts the given data and returns its encoded block.
 func (c *Codec) encrypt(data []byte) ([]byte, error) {
 	nlen := c.aead.NonceSize()

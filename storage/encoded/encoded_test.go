@@ -37,6 +37,3 @@ func (identity) Encode(w io.Writer, src []byte) error { _, err := w.Write(src); 
 
 // Decode decodes src to w with no transformation.
 func (identity) Decode(w io.Writer, src []byte) error { _, err := w.Write(src); return err }
-
-// DecodedLen reports the decoded length of src, which is len(src).
-func (identity) DecodedLen(src []byte) (int, error) { return len(src), nil }

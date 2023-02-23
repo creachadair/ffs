@@ -68,12 +68,4 @@ func TestRoundTrip(t *testing.T) {
 	} else if got := verify.String(); got != value {
 		t.Errorf("Decode: got %q, want %q", got, value)
 	}
-
-	// Verify that DecodedLen reflects the input size, not the encoded size.
-	size, err := e.DecodedLen([]byte(src))
-	if err != nil {
-		t.Errorf("DecodedLen failed: %v", err)
-	} else if size != len(value) {
-		t.Errorf("DecodedLen: got %d, want %d", size, len(value))
-	}
 }
