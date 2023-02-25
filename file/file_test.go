@@ -197,6 +197,15 @@ func TestChild(t *testing.T) {
 	if diff := cmp.Diff(names, root.Child().Names()); diff != "" {
 		t.Errorf("Wrong children (-want, +got):\n%s", diff)
 	}
+
+	// Release should yield all the up-to-date children.
+	if n := root.Child().Release(); n != 3 {
+		t.Errorf("Release 1: got %d, want 3", n)
+	}
+	// Now there should be nothing to release.
+	if n := root.Child().Release(); n != 0 {
+		t.Errorf("Release 2: got %d, want 0", n)
+	}
 }
 
 func TestCycleCheck(t *testing.T) {

@@ -67,6 +67,19 @@ func (c Child) Names() []string {
 	return out
 }
 
+// Release discards all up-to-date cached children of the file. It returns the
+// number of records that were released.
+func (c Child) Release() int {
+	var n int
+	for i, kid := range c.f.kids {
+		if kid.Key != "" && kid.File != nil {
+			c.f.kids[i].File = nil
+			n++
+		}
+	}
+	return n
+}
+
 // Data is a view of the data associated with a file.
 type Data struct{ f *File }
 
