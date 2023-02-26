@@ -336,6 +336,9 @@ walkSpan:
 		// The output is not full, and offset at or past the start of this extent.
 		// Find the first block containing offset and walk forward.
 		i, base := ext.findBlock(offset)
+		if i < 0 {
+			continue
+		}
 		for _, blk := range ext.blocks[i:] {
 			if base > end {
 				break walkSpan
