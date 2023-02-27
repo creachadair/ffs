@@ -72,7 +72,7 @@ func (c Child) Names() []string {
 func (c Child) Release() int {
 	var n int
 	for i, kid := range c.f.kids {
-		if kid.Key != "" && kid.File != nil {
+		if kid.File != nil && kid.Key != "" && kid.Key == kid.File.key {
 			c.f.kids[i].File = nil
 			n++
 		}
