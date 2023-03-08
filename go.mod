@@ -8,7 +8,7 @@ require (
 	github.com/creachadair/taskgroup v0.5.0
 	github.com/golang/snappy v0.0.4
 	github.com/google/go-cmp v0.5.9
-	google.golang.org/protobuf v1.28.1
+	google.golang.org/protobuf v1.29.0
 )
 
 require (
