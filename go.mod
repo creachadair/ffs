@@ -4,7 +4,7 @@ go 1.19
 
 require (
 	github.com/cespare/xxhash/v2 v2.2.0
-	github.com/creachadair/atomicfile v0.2.8
+	github.com/creachadair/atomicfile v0.3.0
 	github.com/creachadair/taskgroup v0.5.1
 	github.com/golang/snappy v0.0.4
 	github.com/google/go-cmp v0.5.9
