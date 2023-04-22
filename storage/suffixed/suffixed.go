@@ -140,26 +140,20 @@ func (c CAS) Derive(suffix string) CAS {
 	return CAS{Store: c.Store.Derive(suffix), cas: c.cas}
 }
 
+func (c CAS) setOptions(opts blob.CASPutOptions) blob.CASPutOptions {
+	return blob.CASPutOptions{
+		Data:   opts.Data,
+		Prefix: opts.Prefix,
+		Suffix: c.Store.suffix + opts.Suffix,
+	}
+}
+
 // CASPut implements part of the blob.CAS interface.
-func (c CAS) CASPut(ctx context.Context, data []byte) (string, error) {
-	if c.Store.suffix == "" {
-		return c.cas.CASPut(ctx, data)
-	}
-	key, err := c.cas.CASKey(ctx, data)
-	if err != nil {
-		return "", err
-	}
-	if err := c.Store.Put(ctx, blob.PutOptions{
-		Key:     key,
-		Data:    data,
-		Replace: false,
-	}); err != nil && !blob.IsKeyExists(err) {
-		return key, err
-	}
-	return key, nil
+func (c CAS) CASPut(ctx context.Context, opts blob.CASPutOptions) (string, error) {
+	return c.cas.CASPut(ctx, c.setOptions(opts))
 }
 
 // CASKey implements part of the blob.CAS interface.
-func (c CAS) CASKey(ctx context.Context, data []byte) (string, error) {
-	return c.cas.CASKey(ctx, data)
+func (c CAS) CASKey(ctx context.Context, opts blob.CASPutOptions) (string, error) {
+	return c.cas.CASKey(ctx, c.setOptions(opts))
 }

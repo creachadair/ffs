@@ -41,7 +41,7 @@ func TestStore(t *testing.T) {
 
 	mustWrite := func(val string) string {
 		t.Helper()
-		key, err := s.CASPut(ctx, []byte(val))
+		key, err := s.CASPut(ctx, blob.CASPutOptions{Data: []byte(val)})
 		if err != nil {
 			t.Fatalf("CASPut %q failed: %v", val, err)
 		}

@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"sort"
 
+	"github.com/creachadair/ffs/blob"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 )
@@ -88,7 +89,7 @@ type Getter interface {
 
 // Putter is the interface to storage used by the Save function.
 type Putter interface {
-	CASPut(context.Context, []byte) (string, error)
+	CASPut(context.Context, blob.CASPutOptions) (string, error)
 }
 
 // Load reads the specified blob from s and decodes it into msg.
@@ -106,5 +107,5 @@ func Save(ctx context.Context, s Putter, msg proto.Message) (string, error) {
 	if err != nil {
 		return "", fmt.Errorf("encoding message: %w", err)
 	}
-	return s.CASPut(ctx, bits)
+	return s.CASPut(ctx, blob.CASPutOptions{Data: bits})
 }

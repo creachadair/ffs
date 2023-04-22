@@ -187,23 +187,23 @@ func NewCAS(cas blob.CAS, maxBytes int) CAS {
 }
 
 // CASPut implements part of blob.CAS using the underlying store.
-func (c CAS) CASPut(ctx context.Context, data []byte) (string, error) {
+func (c CAS) CASPut(ctx context.Context, opts blob.CASPutOptions) (string, error) {
 	c.μ.Lock()
 	defer c.μ.Unlock()
 	if err := c.initKeyMap(ctx); err != nil {
 		return "", err
 	}
 
-	key, err := c.cas.CASPut(ctx, data)
+	key, err := c.cas.CASPut(ctx, opts)
 	if err != nil {
 		return "", err
 	}
-	c.cache.put(key, data)
+	c.cache.put(key, opts.Data)
 	c.keymap.Replace(key)
 	return key, nil
 }
 
 // CASKey implements part of blob.CAS using the underlying store.
-func (c CAS) CASKey(ctx context.Context, data []byte) (string, error) {
-	return c.cas.CASKey(ctx, data)
+func (c CAS) CASKey(ctx context.Context, opts blob.CASPutOptions) (string, error) {
+	return c.cas.CASKey(ctx, opts)
 }
