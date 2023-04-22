@@ -89,13 +89,13 @@ func TestPrefixes(t *testing.T) {
 		snap := m.Snapshot(make(map[string]string))
 
 		if diff := cmp.Diff(map[string]string{
-			"A:foo":   "bar",
-			"A:xyzzy": "plugh",
-			"B:foo":   "quux",
-			"B:bar":   "plover",
-			"C:foo":   "bizzle",
-			"C:zuul":  "dana",   // from p3.Put
-			ckey:      "hexxus", // from p3.CASPut
+			"A:foo":     "bar",
+			"A:xyzzy":   "plugh",
+			"B:foo":     "quux",
+			"B:bar":     "plover",
+			"C:foo":     "bizzle",
+			"C:zuul":    "dana",   // from p3.Put
+			"C:" + ckey: "hexxus", // from p3.CASPut
 		}, snap); diff != "" {
 			t.Errorf("Prefixed store: wrong content (-want, +got)\n%s", diff)
 		}

@@ -91,13 +91,13 @@ func TestSuffixes(t *testing.T) {
 		snap := m.Snapshot(make(map[string]string))
 
 		if diff := cmp.Diff(map[string]string{
-			"foo:A":   "bar",
-			"xyzzy:A": "plugh",
-			"foo:B":   "quux",
-			"bar:B":   "plover",
-			"foo:C":   "bizzle",
-			"zuul:C":  "dana",   // from p3.Put
-			ckey:      "hexxus", // from p3.CASPut
+			"foo:A":     "bar",
+			"xyzzy:A":   "plugh",
+			"foo:B":     "quux",
+			"bar:B":     "plover",
+			"foo:C":     "bizzle",
+			"zuul:C":    "dana",   // from p3.Put
+			ckey + ":C": "hexxus", // from p3.CASPut
 		}, snap); diff != "" {
 			t.Errorf("Suffixed store: wrong content (-want, +got)\n%s", diff)
 		}

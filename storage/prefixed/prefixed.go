@@ -150,10 +150,12 @@ func (c CAS) setOptions(opts blob.CASPutOptions) blob.CASPutOptions {
 
 // CASPut implements part of the blob.CAS interface.
 func (c CAS) CASPut(ctx context.Context, opts blob.CASPutOptions) (string, error) {
-	return c.cas.CASPut(ctx, c.setOptions(opts))
+	key, err := c.cas.CASPut(ctx, c.setOptions(opts))
+	return strings.TrimPrefix(key, c.Store.prefix), err
 }
 
 // CASKey implements part of the blob.CAS interface.
 func (c CAS) CASKey(ctx context.Context, opts blob.CASPutOptions) (string, error) {
-	return c.cas.CASKey(ctx, c.setOptions(opts))
+	key, err := c.cas.CASKey(ctx, c.setOptions(opts))
+	return strings.TrimPrefix(key, c.Store.prefix), err
 }
