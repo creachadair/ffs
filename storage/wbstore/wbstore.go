@@ -237,19 +237,19 @@ func (s *Store) Delete(ctx context.Context, key string) error {
 
 // CASPut implements part of blob.CAS. It queries the base store for the
 // content key, but stores the blob only in the buffer.
-func (s *Store) CASPut(ctx context.Context, data []byte) (string, error) {
+func (s *Store) CASPut(ctx context.Context, opts blob.CASPutOptions) (string, error) {
 	select {
 	case <-s.exited:
 		return "", s.err
 	default:
 	}
-	key, err := s.CAS.CASKey(ctx, data)
+	key, err := s.CAS.CASKey(ctx, opts)
 	if err != nil {
 		return "", err
 	}
 	err = s.buf.Put(ctx, blob.PutOptions{
 		Key:     key,
-		Data:    data,
+		Data:    opts.Data,
 		Replace: false, // no need to replace content-addressed data
 	})
 	if blob.IsKeyExists(err) {

@@ -316,7 +316,7 @@ func (f *File) Truncate(ctx context.Context, offset int64) error {
 func (f *File) SetData(ctx context.Context, r io.Reader) error {
 	s := block.NewSplitter(r, f.data.sc)
 	fd, err := newFileData(s, func(data []byte) (string, error) {
-		return f.s.CASPut(ctx, data)
+		return f.s.CASPut(ctx, blob.CASPutOptions{Data: data})
 	})
 	if err != nil {
 		return err

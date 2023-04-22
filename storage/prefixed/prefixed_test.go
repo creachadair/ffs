@@ -79,9 +79,8 @@ func TestPrefixes(t *testing.T) {
 	mustPut(t, p3, "foo", "bizzle")
 	mustPut(t, p3, "zuul", "dana")
 
-	// Verify that a CAS key is properly prefixed, but that the key returned
-	// does not have the prefix.
-	ckey, err := p3.CASPut(context.Background(), []byte("hexxus"))
+	// Verify that a CAS key is properly prefixed.
+	ckey, err := p3.CASPut(context.Background(), blob.CASPutOptions{Data: []byte("hexxus")})
 	if err != nil {
 		t.Errorf("p3 CAS put: %v", err)
 	}
@@ -90,13 +89,13 @@ func TestPrefixes(t *testing.T) {
 		snap := m.Snapshot(make(map[string]string))
 
 		if diff := cmp.Diff(map[string]string{
-			"A:foo":     "bar",
-			"A:xyzzy":   "plugh",
-			"B:foo":     "quux",
-			"B:bar":     "plover",
-			"C:foo":     "bizzle",
-			"C:zuul":    "dana",   // from p3.Put
-			"C:" + ckey: "hexxus", // from p3.CASPut
+			"A:foo":   "bar",
+			"A:xyzzy": "plugh",
+			"B:foo":   "quux",
+			"B:bar":   "plover",
+			"C:foo":   "bizzle",
+			"C:zuul":  "dana",   // from p3.Put
+			ckey:      "hexxus", // from p3.CASPut
 		}, snap); diff != "" {
 			t.Errorf("Prefixed store: wrong content (-want, +got)\n%s", diff)
 		}
@@ -187,13 +186,13 @@ type selfCAS struct {
 	blob.Store
 }
 
-func (selfCAS) CASKey(_ context.Context, data []byte) (string, error) {
-	return string(data), nil
+func (selfCAS) CASKey(_ context.Context, opts blob.CASPutOptions) (string, error) {
+	return opts.Prefix + string(opts.Data) + opts.Suffix, nil
 }
 
-func (s selfCAS) CASPut(ctx context.Context, data []byte) (string, error) {
-	key := string(data)
-	err := s.Put(ctx, blob.PutOptions{Key: key, Data: data})
+func (s selfCAS) CASPut(ctx context.Context, opts blob.CASPutOptions) (string, error) {
+	key := opts.Prefix + string(opts.Data) + opts.Suffix
+	err := s.Put(ctx, blob.PutOptions{Key: key, Data: opts.Data})
 	if err != nil && !blob.IsKeyExists(err) {
 		return key, err
 	}

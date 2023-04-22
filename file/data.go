@@ -410,7 +410,7 @@ func (d *fileData) splitBlobs(ctx context.Context, s blob.CAS, blobs ...[]byte) 
 			blk = blk[:len(blk)-ztail]
 		}
 
-		key, err := s.CASPut(ctx, blk)
+		key, err := s.CASPut(ctx, blob.CASPutOptions{Data: blk})
 		if err != nil {
 			return err
 		}

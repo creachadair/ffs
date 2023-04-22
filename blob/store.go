@@ -121,15 +121,22 @@ func KeyExists(key string) error { return &KeyError{Key: key, Err: ErrKeyExists}
 type CAS interface {
 	Store
 
-	// CASPut writes data to a content-addreessed blob in the underlying store,
+	// CASPut writes data to a content-addressed blob in the underlying store,
 	// and returns the assigned key. The target key is returned even in case of
 	// error.
-	CASPut(ctx context.Context, data []byte) (string, error)
+	CASPut(ctx context.Context, data CASPutOptions) (string, error)
 
 	// CASKey returns the content address of data without modifying the store.
 	// This must be the same value that would be returned by a successful call
 	// to CASPut on data.
-	CASKey(ctx context.Context, data []byte) (string, error)
+	CASKey(ctx context.Context, opts CASPutOptions) (string, error)
+}
+
+// CASPutOptions are the arguments to the CASPut and CASKey methods of a CAS
+// implementation.
+type CASPutOptions struct {
+	Data           []byte // the data to be stored
+	Prefix, Suffix string // a prefix and suffix to add to the computed key
 }
 
 // A HashCAS is a content-addressable wrapper that adds the CAS methods to a
@@ -144,25 +151,26 @@ type HashCAS struct {
 func NewCAS(s Store, h func() hash.Hash) HashCAS { return HashCAS{Store: s, newHash: h} }
 
 // key computes the content key for data using the provided hash.
-func (c HashCAS) key(data []byte) string {
+func (c HashCAS) key(opts CASPutOptions) string {
 	h := c.newHash()
-	h.Write(data)
-	return string(h.Sum(nil))
+	h.Write(opts.Data)
+	hash := string(h.Sum(nil))
+	return opts.Prefix + hash + opts.Suffix
 }
 
 // CASPut writes data to a content-addressed blob in the underlying store, and
 // returns the assigned key. The target key is returned even in case of error.
-func (c HashCAS) CASPut(ctx context.Context, data []byte) (string, error) {
-	key := c.key(data)
+func (c HashCAS) CASPut(ctx context.Context, opts CASPutOptions) (string, error) {
+	key := c.key(opts)
 
 	// Write the block to storage. Because we are using a content address we
 	// do not request replacement, but we also don't consider it an error if
 	// the address already exists.
 	err := c.Put(ctx, PutOptions{
 		Key:  key,
-		Data: data,
+		Data: opts.Data,
 	})
-	if errors.Is(err, ErrKeyExists) {
+	if IsKeyExists(err) {
 		err = nil
 	}
 	return key, err
@@ -170,6 +178,6 @@ func (c HashCAS) CASPut(ctx context.Context, data []byte) (string, error) {
 
 // CASKey constructs the content address for the specified data.
 // This implementation never reports an error.
-func (c HashCAS) CASKey(_ context.Context, data []byte) (string, error) {
-	return c.key(data), nil
+func (c HashCAS) CASKey(_ context.Context, opts CASPutOptions) (string, error) {
+	return c.key(opts), nil
 }
