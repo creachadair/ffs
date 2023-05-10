@@ -109,3 +109,8 @@ func Save(ctx context.Context, s Putter, msg proto.Message) (string, error) {
 	}
 	return s.CASPut(ctx, blob.CASPutOptions{Data: bits})
 }
+
+// ToBinary encodes msg in wire format and returns the bytes.
+// This is a wrapper around proto.Marshal so the caller does not need to
+// directly import the protobuf machinery.
+func ToBinary(msg proto.Message) ([]byte, error) { return proto.Marshal(msg) }
