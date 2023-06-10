@@ -54,7 +54,7 @@ func (o *Options) random() func([]byte) error {
 // If opts == nil, default options are used.  New will panic if aead == nil.
 //
 // For AES-GCM, you can use the cipher.NewGCM constructor.
-// For ChaCha20-Poly1305 (RFC 8439) see golang.org/x/crypto/chacha20poly1304.
+// For ChaCha20-Poly1305 (RFC 8439) see golang.org/x/crypto/chacha20poly1305.
 func New(aead cipher.AEAD, opts *Options) *Codec {
 	if aead == nil {
 		panic("aead == nil")
