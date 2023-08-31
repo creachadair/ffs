@@ -1,6 +1,8 @@
 module github.com/creachadair/ffs
 
-go 1.20
+go 1.21
+
+toolchain go1.21.0
 
 require (
 	github.com/cespare/xxhash/v2 v2.2.0
@@ -12,6 +14,6 @@ require (
 )
 
 require (
-	github.com/creachadair/mds v0.1.1
+	github.com/creachadair/mds v0.2.0
 	github.com/creachadair/msync v0.0.4
 )
