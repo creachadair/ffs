@@ -19,7 +19,7 @@ package indexpb
 
 import "google.golang.org/protobuf/encoding/protojson"
 
-//go:generate go install google.golang.org/protobuf/cmd/protoc-gen-go@latest
+//go:generate go install google.golang.org/protobuf/cmd/protoc-gen-go
 //go:generate protoc --go_out=. --go_opt=paths=source_relative index.proto
 
 // MarshalJSON implements the json.Marshaler interface for an *Index, by
