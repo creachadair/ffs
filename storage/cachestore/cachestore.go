@@ -19,10 +19,12 @@ package cachestore
 import (
 	"context"
 	"errors"
+	"strings"
 	"sync"
 
 	"github.com/creachadair/ffs/blob"
 	"github.com/creachadair/mds/stree"
+	"github.com/creachadair/taskgroup"
 )
 
 // Store implements a blob.Store that delegates to an underlying store through
@@ -36,7 +38,7 @@ type Store struct {
 	base blob.Store
 
 	μ      sync.Mutex
-	listed bool                // keymap has a complete list
+	listed bool                // keymap has been fully populated
 	keymap *stree.Tree[string] // known keys
 	cache  *cache              // blob cache
 
@@ -58,7 +60,7 @@ func New(s blob.Store, maxBytes int) *Store {
 func (s *Store) Get(ctx context.Context, key string) ([]byte, error) {
 	s.μ.Lock()
 	defer s.μ.Unlock()
-	if err := s.initKeyMap(ctx); err != nil {
+	if err := s.initKeyMapLocked(ctx); err != nil {
 		return nil, err
 	} else if data, ok := s.cache.getCopy(key); ok {
 		return data, nil
@@ -80,7 +82,7 @@ func (s *Store) Get(ctx context.Context, key string) ([]byte, error) {
 func (s *Store) Put(ctx context.Context, opts blob.PutOptions) error {
 	s.μ.Lock()
 	defer s.μ.Unlock()
-	if err := s.initKeyMap(ctx); err != nil {
+	if err := s.initKeyMapLocked(ctx); err != nil {
 		return err
 	}
 	if !opts.Replace {
@@ -100,7 +102,7 @@ func (s *Store) Put(ctx context.Context, opts blob.PutOptions) error {
 func (s *Store) Delete(ctx context.Context, key string) error {
 	s.μ.Lock()
 	defer s.μ.Unlock()
-	if err := s.initKeyMap(ctx); err != nil {
+	if err := s.initKeyMapLocked(ctx); err != nil {
 		return err
 	}
 
@@ -111,26 +113,48 @@ func (s *Store) Delete(ctx context.Context, key string) error {
 	return s.base.Delete(ctx, key)
 }
 
-// initKeyMap fills the key map from the base store.  The caller must hold s.μ.
-func (s *Store) initKeyMap(ctx context.Context) error {
+// initKeyMapLocked fills the key map from the base store.
+// The caller must hold s.μ.
+func (s *Store) initKeyMapLocked(ctx context.Context) error {
 	if s.listed {
 		return nil
 	}
-	if err := s.base.List(ctx, "", func(key string) error {
-		s.keymap.Replace(key)
-		return nil
-	}); err != nil {
-		return err
+	ictx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	g := taskgroup.New(taskgroup.Trigger(cancel))
+
+	// The keymap is not safe for concurrent use by multiple goroutines, so
+	// serialize insertions through a channel.
+	keys := make(chan string, 256)
+	coll := taskgroup.Go(taskgroup.NoError(func() {
+		for key := range keys {
+			s.keymap.Add(key)
+		}
+	}))
+	for i := 0; i < 256; i++ {
+		pfx := string([]byte{byte(i)})
+		g.Go(func() error {
+			return s.base.List(ictx, pfx, func(key string) error {
+				if !strings.HasPrefix(key, pfx) {
+					return blob.ErrStopListing
+				}
+				keys <- key
+				return nil
+			})
+		})
 	}
-	s.listed = true
-	return nil
+	err := g.Wait()
+	close(keys)
+	coll.Wait()
+	s.listed = err == nil
+	return err
 }
 
 // List implements a method of blob.Store.
 func (s *Store) List(ctx context.Context, start string, f func(string) error) error {
 	s.μ.Lock()
 	defer s.μ.Unlock()
-	if err := s.initKeyMap(ctx); err != nil {
+	if err := s.initKeyMapLocked(ctx); err != nil {
 		return err
 	}
 
@@ -149,15 +173,10 @@ func (s *Store) List(ctx context.Context, start string, f func(string) error) er
 func (s *Store) Len(ctx context.Context) (int64, error) {
 	s.μ.Lock()
 	defer s.μ.Unlock()
-	if err := s.initKeyMap(ctx); err != nil {
+	if err := s.initKeyMapLocked(ctx); err != nil {
 		return 0, err
 	}
-	var n int64
-	s.keymap.Inorder(func(key string) bool {
-		n++
-		return true
-	})
-	return n, nil
+	return int64(s.keymap.Len()), nil
 }
 
 // Close implements blob.Closer by closing the underlying store.
@@ -190,7 +209,7 @@ func NewCAS(cas blob.CAS, maxBytes int) CAS {
 func (c CAS) CASPut(ctx context.Context, opts blob.CASPutOptions) (string, error) {
 	c.μ.Lock()
 	defer c.μ.Unlock()
-	if err := c.initKeyMap(ctx); err != nil {
+	if err := c.initKeyMapLocked(ctx); err != nil {
 		return "", err
 	}
 
