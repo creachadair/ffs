@@ -51,7 +51,7 @@ type Store struct {
 func New(s blob.Store, maxBytes int) *Store {
 	return &Store{
 		base:   s,
-		keymap: stree.New[string](300, func(a, b string) bool { return a < b }),
+		keymap: stree.New[string](300, strings.Compare),
 		cache:  newCache(maxBytes),
 	}
 }
