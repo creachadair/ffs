@@ -128,7 +128,7 @@ func (s *Store) Sync(ctx context.Context) error {
 // run implements the backround writer. It runs until ctx terminates or until
 // it receives an unrecoverable error.
 func (s *Store) run(ctx context.Context) error {
-	g, run := taskgroup.New(nil).Limit(256)
+	g, run := taskgroup.New(nil).Limit(64)
 	for {
 		// Check for cancellation.
 		select {
