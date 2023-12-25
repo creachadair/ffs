@@ -20,9 +20,13 @@ import (
 	"fmt"
 	"io"
 	"io/fs"
+	"log"
+	"math/rand"
 	"sort"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/creachadair/ffs/blob"
 	"github.com/creachadair/ffs/blob/memstore"
@@ -295,6 +299,66 @@ and despair!`
 	}
 
 	t.Logf("Encoded node:\n%s", prototext.Format(pb.Node))
+}
+
+func TestConcurrentFile(t *testing.T) {
+	cas := blob.NewCAS(memstore.New(), sha1.New)
+	ctx := context.Background()
+	root := file.New(cas, nil)
+	root.Child().Set("foo", file.New(cas, nil))
+
+	// Create a bunch of concurrent goroutines reading and writing data and
+	// metadata on the file, to expose data races.
+	var wg sync.WaitGroup
+	for i := 0; i < 200; i++ {
+		var buf [64]byte
+		wg.Add(1)
+		switch i % 9 {
+		case 0:
+			// Write a block of data.
+			go func() {
+				defer wg.Done()
+				c := rand.Intn(len(buf))
+				nw, err := root.WriteAt(ctx, buf[:c], int64(rand.Intn(16384)))
+				if err != nil || nw != c {
+					t.Errorf("Write failed: got (%d, %v) want (%d, nil)", nw, err, c)
+				}
+			}()
+		case 1:
+			// Read a block of data.
+			go func() {
+				defer wg.Done()
+				c := rand.Intn(len(buf))
+				if _, err := root.ReadAt(ctx, buf[:c], int64(rand.Intn(16384))); err != nil && err != io.EOF {
+					t.Errorf("ReadAt failed: unexpected error %v", err)
+				}
+			}()
+		case 2:
+			// Read stat metadata.
+			go func() { defer wg.Done(); _ = root.Stat().FileInfo() }()
+		case 3:
+			// Modify stat metadata.
+			go func() { defer wg.Done(); s := root.Stat(); s.ModTime = time.Now(); s.Update() }()
+		case 4:
+			// Read data stats.
+			go func() { defer wg.Done(); _ = root.Data().Size() }()
+		case 5:
+			// Scan reachable blocks.
+			go func() { defer wg.Done(); _ = root.Scan(ctx, func(file.ScanItem) bool { return true }) }()
+		case 6:
+			// Look up a child.
+			go func() { defer wg.Done(); _ = root.Child().Has("foo") }()
+		case 7:
+			// Delete a child.
+			go func() { defer wg.Done(); root.Child().Remove("bar") }()
+		case 8:
+			// Flush the root.
+			go func() { defer wg.Done(); root.Flush(ctx) }()
+		default:
+			log.Fatalf("Incorrect test, no handler for i=%d", i)
+		}
+	}
+	wg.Wait()
 }
 
 type lineHash struct{}

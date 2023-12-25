@@ -45,19 +45,25 @@ type Stat struct {
 // Calling this method does not change whether stat is persisted, nor does it
 // modify the current contents of s, so calling Update on the same s will
 // restore the cleared values.
-func (s Stat) Clear() { s.f.setStat(Stat{}) }
+func (s Stat) Clear() { s.f.mu.Lock(); defer s.f.mu.Unlock(); s.f.setStatLocked(Stat{}) }
 
 // Update updates the stat metadata for the file associated with s to the
 // current contents of s. Calling this method does not change whether stat is
 // persisted.
-func (s Stat) Update() { s.f.setStat(s) }
+func (s Stat) Update() { s.f.mu.Lock(); defer s.f.mu.Unlock(); s.f.setStatLocked(s) }
 
 // Persist enables (ok == true) or disables (ok == false) stat persistence for
 // the file associated with s. The contents of s are not changed. It returns s.
-func (s Stat) Persist(ok bool) Stat { s.f.saveStat = ok; s.f.inval(); return s }
+func (s Stat) Persist(ok bool) Stat {
+	s.f.mu.Lock()
+	defer s.f.mu.Unlock()
+	s.f.saveStat = ok
+	s.f.invalLocked()
+	return s
+}
 
 // Persistent reports whether the file associated with s persists stat.
-func (s Stat) Persistent() bool { return s.f.saveStat }
+func (s Stat) Persistent() bool { s.f.mu.RLock(); defer s.f.mu.RUnlock(); return s.f.saveStat }
 
 // FileInfo returns a fs.FileInfo wrapper for s.
 func (s Stat) FileInfo() FileInfo { return FileInfo{file: s.f} }
