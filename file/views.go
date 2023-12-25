@@ -182,6 +182,6 @@ func (x XAttr) Clear() {
 	defer x.f.mu.Unlock()
 	if len(x.f.xattr) != 0 {
 		defer x.f.invalLocked()
-		x.f.xattr = make(map[string]string)
+		clear(x.f.xattr)
 	}
 }
