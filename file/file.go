@@ -59,6 +59,11 @@
 //	s.Update().Persist(true)
 //
 // The file.Stat type defines the stat attributes that can be persisted.
+//
+// # Synchronization
+//
+// The exported methods of *File and the views of its data (Child, Data, Stat,
+// XAttr) are safe for concurrent use by multiple goroutines.
 package file
 
 import (
@@ -67,6 +72,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/creachadair/ffs/blob"
@@ -90,9 +96,9 @@ func New(s blob.CAS, opts *NewOptions) *File {
 	}
 	// If we got metadata to persist, copy it.
 	if opts.Stat == nil {
-		f.setStat(Stat{})
+		f.setStatLocked(Stat{})
 	} else {
-		f.setStat(*opts.Stat)
+		f.setStatLocked(*opts.Stat)
 	}
 	return f
 }
@@ -130,7 +136,9 @@ func Open(ctx context.Context, s blob.CAS, key string) (*File, error) {
 
 // A File represents a writable file stored in a content-addressable blobstore.
 type File struct {
-	s    blob.CAS
+	s blob.CAS
+
+	mu   sync.RWMutex
 	name string // if this file is a child, its attributed name
 	key  string // the storage key for the file record (wiretype.Node)
 
@@ -155,9 +163,9 @@ type child struct {
 	// attached is also flushed and the Key is updated.
 }
 
-// findChild reports whether f has a child with the specified name and its
-// index in the slice if so, or otherwise -1.
-func (f *File) findChild(name string) (int, bool) {
+// findChildLocked reports whether f has a child with the specified name and
+// its index in the slice if so, or otherwise -1.
+func (f *File) findChildLocked(name string) (int, bool) {
 	if n := sort.Search(len(f.kids), func(i int) bool {
 		return f.kids[i].Name >= name
 	}); n < len(f.kids) && f.kids[n].Name == name {
@@ -166,16 +174,16 @@ func (f *File) findChild(name string) (int, bool) {
 	return -1, false
 }
 
-func (f *File) setStat(s Stat) {
+func (f *File) setStatLocked(s Stat) {
 	f.stat = s
 	if f.saveStat {
-		f.inval()
+		f.invalLocked()
 	}
 }
 
-func (f *File) inval() { f.key = "" }
+func (f *File) invalLocked() { f.key = "" }
 
-func (f *File) modify() { f.inval(); f.stat.ModTime = time.Now() }
+func (f *File) modifyLocked() { f.invalLocked(); f.stat.ModTime = time.Now() }
 
 // New constructs a new empty node backed by the same store as f.
 // If f persists stat metadata, then the new file does also.
@@ -197,6 +205,8 @@ func (f *File) New(opts *NewOptions) *File {
 // change stat persistence for f, use the Clear and Update methods of the Stat
 // value to do that.
 func (f *File) Stat() Stat {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
 	cp := f.stat
 	cp.f = f
 	return cp
@@ -213,7 +223,9 @@ var (
 // Open opens the specified child file of f, or returns ErrChildNotFound if no
 // such child exists.
 func (f *File) Open(ctx context.Context, name string) (*File, error) {
-	i, ok := f.findChild(name)
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	i, ok := f.findChildLocked(name)
 	if !ok {
 		return nil, fmt.Errorf("open %q: %w", name, ErrChildNotFound)
 	}
@@ -234,13 +246,17 @@ func (f *File) Child() Child { return Child{f: f} }
 // ReadAt reads up to len(data) bytes into data from the given offset, and
 // reports the number of bytes successfully read, as io.ReaderAt.
 func (f *File) ReadAt(ctx context.Context, data []byte, offset int64) (int, error) {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
 	return f.data.readAt(ctx, f.s, data, offset)
 }
 
 // WriteAt writes len(data) bytes from data at the given offset, and reports
 // the number of bytes successfully written, as io.WriterAt.
 func (f *File) WriteAt(ctx context.Context, data []byte, offset int64) (int, error) {
-	defer f.modify()
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	defer f.modifyLocked()
 	return f.data.writeAt(ctx, f.s, data, offset)
 }
 
@@ -248,17 +264,19 @@ func (f *File) WriteAt(ctx context.Context, data []byte, offset int64) (int, err
 // returns the resulting storage key. This is the canonical way to obtain the
 // storage key for a file.
 func (f *File) Flush(ctx context.Context) (string, error) {
-	return f.recFlush(ctx, nil)
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return f.recFlushLocked(ctx, nil)
 }
 
 // Key returns the storage key of f if it is known, or "" if the file has not
 // been flushed to storage in its current form.
-func (f *File) Key() string { return f.key }
+func (f *File) Key() string { f.mu.RLock(); defer f.mu.RUnlock(); return f.key }
 
-// recFlush recursively flushes f and all its child nodes. The path gives the
-// path of nodes from the root to the current flush target, and is used to
+// recFlushLocked recursively flushes f and all its child nodes. The path gives
+// the path of nodes from the root to the current flush target, and is used to
 // verify that there are no cycles in the graph.
-func (f *File) recFlush(ctx context.Context, path []*File) (string, error) {
+func (f *File) recFlushLocked(ctx context.Context, path []*File) (string, error) {
 	// Recursive flush is a long operation, check for timeout/cancellation.
 	select {
 	case <-ctx.Done():
@@ -282,7 +300,7 @@ func (f *File) recFlush(ctx context.Context, path []*File) (string, error) {
 	// Flush any cached children.
 	for i, kid := range f.kids {
 		if kid.File != nil {
-			fkey, err := kid.File.recFlush(ctx, append(path, f))
+			fkey, err := kid.File.recFlushLocked(ctx, append(path, f))
 			if err != nil {
 				return "", err
 			}
@@ -294,7 +312,7 @@ func (f *File) recFlush(ctx context.Context, path []*File) (string, error) {
 	}
 
 	if needsUpdate {
-		key, err := wiretype.Save(ctx, f.s, f.toWireType())
+		key, err := wiretype.Save(ctx, f.s, f.toWireTypeLocked())
 		if err != nil {
 			return "", fmt.Errorf("flushing file %x: %w", key, err)
 		}
@@ -306,7 +324,9 @@ func (f *File) recFlush(ctx context.Context, path []*File) (string, error) {
 // Truncate modifies the length of f to end at offset, extending or contracting
 // it as necessary.
 func (f *File) Truncate(ctx context.Context, offset int64) error {
-	defer f.modify()
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	defer f.modifyLocked()
 	return f.data.truncate(ctx, f.s, offset)
 }
 
@@ -321,14 +341,16 @@ func (f *File) SetData(ctx context.Context, r io.Reader) error {
 	if err != nil {
 		return err
 	}
-	f.inval()
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.invalLocked()
 	f.data = fd
 	return nil
 }
 
 // Name reports the attributed name of f, which may be "" if f is not a child
 // file and was not assigned a name at creation.
-func (f *File) Name() string { return f.name }
+func (f *File) Name() string { f.mu.RLock(); defer f.mu.RUnlock(); return f.name }
 
 // A ScanItem is the argument to the Scan callback.
 type ScanItem struct {
@@ -354,25 +376,32 @@ func (f *File) Scan(ctx context.Context, visit func(ScanItem) bool) error {
 		if !visit(next) {
 			continue
 		}
-		for i := len(next.kids) - 1; i >= 0; i-- {
-			kid := next.kids[i]
+		if err := func() error {
+			next.mu.RLock()
+			defer next.mu.RUnlock()
+			for i := len(next.kids) - 1; i >= 0; i-- {
+				kid := next.kids[i]
 
-			// We already flushed f, so all the kids have storage keys.  We have
-			// to open each child to recur on it, but don't cache the open files
-			// for children that weren't already open.
-			kf := kid.File
-			if kf == nil {
-				var err error
-				kf, err = Open(ctx, next.s, kid.Key)
-				if err != nil {
-					return err
+				// We already flushed f, so all the kids have storage keys.  We have
+				// to open each child to recur on it, but don't cache the open files
+				// for children that weren't already open.
+				kf := kid.File
+				if kf == nil {
+					var err error
+					kf, err = Open(ctx, next.s, kid.Key)
+					if err != nil {
+						return err
+					}
 				}
+				q = append(q, ScanItem{
+					File:   kf,
+					Parent: next.File,
+					Name:   kid.Name,
+				})
 			}
-			q = append(q, ScanItem{
-				File:   kf,
-				Parent: next.File,
-				Name:   kid.Name,
-			})
+			return nil
+		}(); err != nil {
+			return err
 		}
 	}
 	return nil
@@ -386,6 +415,7 @@ func (f *File) Cursor(ctx context.Context) *Cursor { return &Cursor{ctx: ctx, fi
 // XAttr returns a view of the extended attributes of f.
 func (f *File) XAttr() XAttr { return XAttr{f: f} }
 
+// Precondition: The caller holds f.mu exclusively, or has the only reference to f.
 func (f *File) fromWireType(obj *wiretype.Object) error {
 	pb, ok := obj.Value.(*wiretype.Object_Node)
 	if !ok {
@@ -415,7 +445,7 @@ func (f *File) fromWireType(obj *wiretype.Object) error {
 	return nil
 }
 
-func (f *File) toWireType() *wiretype.Object {
+func (f *File) toWireTypeLocked() *wiretype.Object {
 	n := &wiretype.Node{Index: f.data.toWireType()}
 	if f.saveStat {
 		n.Stat = f.stat.toWireType()
@@ -437,4 +467,8 @@ func (f *File) toWireType() *wiretype.Object {
 }
 
 // Encode translates f as a protobuf message for storage.
-func Encode(f *File) *wiretype.Object { return f.toWireType() }
+func Encode(f *File) *wiretype.Object {
+	f.mu.RLock()
+	defer f.mu.RUnlock()
+	return f.toWireTypeLocked()
+}
