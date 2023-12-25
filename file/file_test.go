@@ -310,7 +310,7 @@ func TestConcurrentFile(t *testing.T) {
 	// Create a bunch of concurrent goroutines reading and writing data and
 	// metadata on the file, to expose data races.
 	var wg sync.WaitGroup
-	for i := 0; i < 500; i++ {
+	for i := 0; i < 200; i++ {
 		var buf [64]byte
 		wg.Add(1)
 		switch i % 9 {

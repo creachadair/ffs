@@ -71,6 +71,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 	"sort"
 	"sync"
 	"time"
@@ -285,25 +286,25 @@ func (f *File) recFlushLocked(ctx context.Context, path []*File) (string, error)
 		// proceed
 	}
 
-	// Check for direct or indirect cycles. This check is quadratic in the
-	// height of the DAG over the whole scan in the worst case. In practice,
-	// this doesn't cause any real issues, since it's not common for file
-	// structures to be very deep. Compared to the cost of marshaling and
-	// writing back invalid entries to storage, the array scan is minor.
-	for _, elt := range path {
-		if elt == f {
-			return "", fmt.Errorf("flush: cycle in path at %p", elt)
-		}
-	}
 	needsUpdate := f.key == ""
 
 	// Flush any cached children.
 	for i, kid := range f.kids {
-		if kid.File != nil {
+		if kf := kid.File; kf != nil {
+			// Check for direct or indirect cycles. This check is quadratic in the
+			// height of the DAG over the whole scan in the worst case. In
+			// practice, this doesn't cause any real issues, since it's not common
+			// for file structures to be very deep. Compared to the cost of
+			// marshaling and writing back invalid entries to storage, the array
+			// scan is minor.
+			if slices.Contains(path, kf) {
+				return "", fmt.Errorf("flush: cycle in path at %p", kf)
+			}
+			cpath := append(path, f)
 			fkey, err := func() (string, error) {
-				kid.File.mu.Lock()
-				defer kid.File.mu.Unlock()
-				return kid.File.recFlushLocked(ctx, append(path, f))
+				kf.mu.Lock()
+				defer kf.mu.Unlock()
+				return kf.recFlushLocked(ctx, cpath)
 			}()
 			if err != nil {
 				return "", err
