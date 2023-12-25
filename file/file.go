@@ -300,7 +300,11 @@ func (f *File) recFlushLocked(ctx context.Context, path []*File) (string, error)
 	// Flush any cached children.
 	for i, kid := range f.kids {
 		if kid.File != nil {
-			fkey, err := kid.File.recFlushLocked(ctx, append(path, f))
+			fkey, err := func() (string, error) {
+				kid.File.mu.Lock()
+				defer kid.File.mu.Unlock()
+				return kid.File.recFlushLocked(ctx, append(path, f))
+			}()
 			if err != nil {
 				return "", err
 			}
@@ -360,7 +364,6 @@ type ScanItem struct {
 	Name   string // the name of File within its parent ("" at the root)
 }
 
-// Scan recursively visits f and all its descendants in depth-first
 // left-to-right order, calling visit for each file.  If visit returns false,
 // no descendants of f are visited.
 func (f *File) Scan(ctx context.Context, visit func(ScanItem) bool) error {
@@ -376,32 +379,32 @@ func (f *File) Scan(ctx context.Context, visit func(ScanItem) bool) error {
 		if !visit(next) {
 			continue
 		}
-		if err := func() error {
-			next.mu.RLock()
-			defer next.mu.RUnlock()
-			for i := len(next.kids) - 1; i >= 0; i-- {
-				kid := next.kids[i]
 
-				// We already flushed f, so all the kids have storage keys.  We have
-				// to open each child to recur on it, but don't cache the open files
-				// for children that weren't already open.
-				kf := kid.File
-				if kf == nil {
-					var err error
-					kf, err = Open(ctx, next.s, kid.Key)
-					if err != nil {
-						return err
-					}
+		// Grab a copy of the children, but don't hold the lock while walking
+		// through them.
+		next.mu.RLock()
+		kids := next.kids
+		next.mu.RUnlock()
+
+		for i := len(kids) - 1; i >= 0; i-- {
+			kid := kids[i]
+
+			// We already flushed f, so all the kids have storage keys.  We have
+			// to open each child to recur on it, but don't cache the open files
+			// for children that weren't already open.
+			kf := kid.File
+			if kf == nil {
+				var err error
+				kf, err = Open(ctx, next.s, kid.Key)
+				if err != nil {
+					return err
 				}
-				q = append(q, ScanItem{
-					File:   kf,
-					Parent: next.File,
-					Name:   kid.Name,
-				})
 			}
-			return nil
-		}(); err != nil {
-			return err
+			q = append(q, ScanItem{
+				File:   kf,
+				Parent: next.File,
+				Name:   kid.Name,
+			})
 		}
 	}
 	return nil
