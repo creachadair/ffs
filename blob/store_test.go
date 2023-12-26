@@ -88,7 +88,7 @@ func TestSentinelErrors(t *testing.T) {
 	})
 }
 
-func funcBaseName(v interface{}) string {
+func funcBaseName(v any) string {
 	_, name := path.Split(runtime.FuncForPC(reflect.ValueOf(v).Pointer()).Name())
 	return name
 }

@@ -97,4 +97,4 @@ func (n FileInfo) Size() int64        { return n.file.Data().Size() }
 func (n FileInfo) Mode() fs.FileMode  { return n.file.stat.Mode }
 func (n FileInfo) ModTime() time.Time { return n.file.stat.ModTime }
 func (n FileInfo) IsDir() bool        { return n.file.stat.Mode.IsDir() }
-func (n FileInfo) Sys() interface{}   { return n.file }
+func (n FileInfo) Sys() any           { return n.file }
