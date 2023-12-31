@@ -22,6 +22,8 @@ import (
 )
 
 // A Stat is a view into the stat metadata for a file.
+// Modifying fields of the Stat value does not affect the underlying file
+// unless the caller explicitly calls Update.
 type Stat struct {
 	f *File // set for stat views of an existing file; nil OK
 
@@ -44,13 +46,13 @@ type Stat struct {
 // Clear clears the current stat metadata for the file associated with s.
 // Calling this method does not change whether stat is persisted, nor does it
 // modify the current contents of s, so calling Update on the same s will
-// restore the cleared values.
-func (s Stat) Clear() { s.f.mu.Lock(); defer s.f.mu.Unlock(); s.f.setStatLocked(Stat{}) }
+// restore the cleared values. Clear returns s.
+func (s Stat) Clear() Stat { s.f.mu.Lock(); defer s.f.mu.Unlock(); s.f.setStatLocked(Stat{}); return s }
 
 // Update updates the stat metadata for the file associated with s to the
 // current contents of s. Calling this method does not change whether stat is
-// persisted.
-func (s Stat) Update() { s.f.mu.Lock(); defer s.f.mu.Unlock(); s.f.setStatLocked(s) }
+// persisted. Update returns s.
+func (s Stat) Update() Stat { s.f.mu.Lock(); defer s.f.mu.Unlock(); s.f.setStatLocked(s); return s }
 
 // Persist enables (ok == true) or disables (ok == false) stat persistence for
 // the file associated with s. The contents of s are not changed. It returns s.
