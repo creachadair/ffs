@@ -15,7 +15,7 @@
 package file
 
 import (
-	"os"
+	"io/fs"
 	"time"
 
 	"github.com/creachadair/ffs/file/wiretype"
@@ -27,7 +27,7 @@ import (
 type Stat struct {
 	f *File // set for stat views of an existing file; nil OK
 
-	Mode    os.FileMode `json:"mode,omitempty"`
+	Mode    fs.FileMode `json:"mode,omitempty"`
 	ModTime time.Time   `json:"mod_time,omitempty"`
 
 	// Numeric ID and name of file owner.
@@ -78,14 +78,14 @@ const (
 
 // toWireType encodes s as an equivalent wiretype.Stat.
 func (s Stat) toWireType() *wiretype.Stat {
-	perm := s.Mode & os.ModePerm
-	if s.Mode&os.ModeSetuid != 0 {
+	perm := s.Mode.Perm()
+	if s.Mode&fs.ModeSetuid != 0 {
 		perm |= bitSetuid
 	}
-	if s.Mode&os.ModeSetgid != 0 {
+	if s.Mode&fs.ModeSetgid != 0 {
 		perm |= bitSetgid
 	}
-	if s.Mode&os.ModeSticky != 0 {
+	if s.Mode&fs.ModeSticky != 0 {
 		perm |= bitSticky
 	}
 	pb := &wiretype.Stat{
@@ -113,20 +113,20 @@ func (s Stat) toWireType() *wiretype.Stat {
 	return pb
 }
 
-func modeToType(mode os.FileMode) wiretype.Stat_FileType {
+func modeToType(mode fs.FileMode) wiretype.Stat_FileType {
 	switch {
-	case mode&os.ModeType == 0:
+	case mode&fs.ModeType == 0:
 		return wiretype.Stat_REGULAR
-	case mode&os.ModeDir != 0:
+	case mode&fs.ModeDir != 0:
 		return wiretype.Stat_DIRECTORY
-	case mode&os.ModeSymlink != 0:
+	case mode&fs.ModeSymlink != 0:
 		return wiretype.Stat_SYMLINK
-	case mode&os.ModeSocket != 0:
+	case mode&fs.ModeSocket != 0:
 		return wiretype.Stat_SOCKET
-	case mode&os.ModeNamedPipe != 0:
+	case mode&fs.ModeNamedPipe != 0:
 		return wiretype.Stat_NAMED_PIPE
-	case mode&os.ModeDevice != 0:
-		if mode&os.ModeCharDevice != 0 {
+	case mode&fs.ModeDevice != 0:
+		if mode&fs.ModeCharDevice != 0 {
 			return wiretype.Stat_CHAR_DEVICE
 		}
 		return wiretype.Stat_DEVICE
@@ -135,21 +135,21 @@ func modeToType(mode os.FileMode) wiretype.Stat_FileType {
 	}
 }
 
-var ftypeMode = [...]os.FileMode{
+var ftypeMode = [...]fs.FileMode{
 	wiretype.Stat_REGULAR:     0,
-	wiretype.Stat_DIRECTORY:   os.ModeDir,
-	wiretype.Stat_SYMLINK:     os.ModeSymlink,
-	wiretype.Stat_SOCKET:      os.ModeSocket,
-	wiretype.Stat_NAMED_PIPE:  os.ModeNamedPipe,
-	wiretype.Stat_DEVICE:      os.ModeDevice,
-	wiretype.Stat_CHAR_DEVICE: os.ModeDevice | os.ModeCharDevice,
+	wiretype.Stat_DIRECTORY:   fs.ModeDir,
+	wiretype.Stat_SYMLINK:     fs.ModeSymlink,
+	wiretype.Stat_SOCKET:      fs.ModeSocket,
+	wiretype.Stat_NAMED_PIPE:  fs.ModeNamedPipe,
+	wiretype.Stat_DEVICE:      fs.ModeDevice,
+	wiretype.Stat_CHAR_DEVICE: fs.ModeDevice | fs.ModeCharDevice,
 }
 
-func typeToMode(ftype wiretype.Stat_FileType) os.FileMode {
+func typeToMode(ftype wiretype.Stat_FileType) fs.FileMode {
 	if n := int(ftype); n >= 0 && n < len(ftypeMode) {
 		return ftypeMode[n]
 	}
-	return os.ModeIrregular
+	return fs.ModeIrregular
 }
 
 // fromWireType decodes a wiretype.Stat into s. If pb == nil, s is unmodified.
@@ -157,15 +157,15 @@ func (s *Stat) fromWireType(pb *wiretype.Stat) {
 	if pb == nil {
 		return // no stat was persisted for this file
 	}
-	mode := os.FileMode(pb.Permissions & 0777)
+	mode := fs.FileMode(pb.Permissions & 0777)
 	if pb.Permissions&bitSetuid != 0 {
-		mode |= os.ModeSetuid
+		mode |= fs.ModeSetuid
 	}
 	if pb.Permissions&bitSetgid != 0 {
-		mode |= os.ModeSetgid
+		mode |= fs.ModeSetgid
 	}
 	if pb.Permissions&bitSticky != 0 {
-		mode |= os.ModeSticky
+		mode |= fs.ModeSticky
 	}
 	s.Mode = mode | typeToMode(pb.FileType)
 	if id := pb.Owner; id != nil {

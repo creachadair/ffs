@@ -21,7 +21,6 @@ import (
 	"errors"
 	"flag"
 	"io/fs"
-	"os"
 	"strconv"
 	"testing"
 
@@ -56,7 +55,7 @@ func TestPaths(t *testing.T) {
 
 	ctx := context.Background()
 	root := file.New(cas, nil)
-	setDir := func(s *file.Stat) { s.Mode = os.ModeDir | 0755 }
+	setDir := func(s *file.Stat) { s.Mode = fs.ModeDir | 0755 }
 	openPath := func(path string, werr error) *file.File {
 		got, err := fpath.Open(ctx, root, path)
 		if !errorOK(err, werr) {
@@ -125,7 +124,7 @@ func TestPaths(t *testing.T) {
 	// that we created.
 	for _, path := range []string{"/a", "/a/lasting", "/a/lasting/peace"} {
 		got := openPath(path, nil).Stat().Mode
-		if want := os.ModeDir | 0755; got != want {
+		if want := fs.ModeDir | 0755; got != want {
 			t.Errorf("Wrong path mode for %q: got %v, want %v", path, got, want)
 		}
 	}
@@ -140,7 +139,7 @@ func TestPaths(t *testing.T) {
 			File:    root.New(nil),
 		}); err != nil {
 			t.Errorf("Create %q: got unexpected error %v", "/a/lasting/itch", err)
-		} else if got, want := newf.Stat().Mode, os.FileMode(0); got != want {
+		} else if got, want := newf.Stat().Mode, fs.FileMode(0); got != want {
 			t.Errorf("Wrong mode for %q: got %v, want %v", path, got, want)
 		}
 	}
@@ -183,15 +182,15 @@ func TestPaths(t *testing.T) {
 	setPath("", subtree, fpath.ErrEmptyPath)
 
 	// Verify that opening a path produces the right files.
-	if fs, err := fpath.OpenPath(ctx, root, "a/boring/sludge/of/words"); err != nil {
+	if fp, err := fpath.OpenPath(ctx, root, "a/boring/sludge/of/words"); err != nil {
 		t.Errorf("OpenPath failed: %v", err)
 	} else {
 		want := []string{"a", "boring", "sludge", "of", "words"}
 		var got []string
-		for i, elt := range fs {
-			fs := elt.Stat()
-			fs.Mode = os.ModeDir | 0750
-			fs.Update()
+		for i, elt := range fp {
+			st := elt.Stat()
+			st.Mode = fs.ModeDir | 0750
+			st.Update()
 			elt.XAttr().Set("index", strconv.Itoa(i+1))
 			got = append(got, elt.Name())
 		}

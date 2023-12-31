@@ -17,7 +17,7 @@ package root_test
 import (
 	"context"
 	"crypto/sha1"
-	"os"
+	"io/fs"
 	"testing"
 
 	"github.com/creachadair/ffs/blob"
@@ -37,7 +37,7 @@ func TestRoot(t *testing.T) {
 
 	// Create a new empty file to use as the root file.
 	rfKey, err := file.New(cas, &file.NewOptions{
-		Stat: &file.Stat{Mode: os.ModeDir | 0755},
+		Stat: &file.Stat{Mode: fs.ModeDir | 0755},
 	}).Flush(ctx)
 	if err != nil {
 		t.Fatalf("Flushing root file: %v", err)
