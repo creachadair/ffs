@@ -31,3 +31,14 @@ func BenchmarkSplitter_Next(b *testing.B) {
 		}
 	}
 }
+
+func BenchmarkHasher_Update(b *testing.B) {
+	const windowSize = 48
+	b.Run("RabinKarp", func(b *testing.B) {
+		h := block.RabinKarpHasher(1031, 2147483659, windowSize).Hash()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			h.Update(196)
+		}
+	})
+}
