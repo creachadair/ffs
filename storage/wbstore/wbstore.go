@@ -109,6 +109,8 @@ func (s *Store) Close(ctx context.Context) error {
 // Sync blocks until the buffer is empty or ctx ends.
 func (s *Store) Sync(ctx context.Context) error {
 	for {
+		// Check whether the buffer is empty. If not, wait for the writeback
+		// thread to signal that it is done with another pass, then try again.
 		ready := s.bufClean.Ready()
 		n, err := s.buf.Len(ctx)
 		if err != nil {
@@ -170,6 +172,9 @@ func (s *Store) run(ctx context.Context) error {
 			log.Printf("DEBUG :: error in writeback, exiting: %v", err)
 			return err
 		}
+
+		// Signal any pending sync that the buffer may be clean.
+		// Sync must check whether it really is empty.
 		s.bufClean.Signal()
 	}
 }
