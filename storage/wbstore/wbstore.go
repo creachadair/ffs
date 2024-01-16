@@ -6,9 +6,11 @@ package wbstore
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 	"net"
 	"syscall"
+	"time"
 
 	"github.com/creachadair/ffs/blob"
 	"github.com/creachadair/msync"
@@ -153,12 +155,21 @@ func (s *Store) run(ctx context.Context) error {
 				} else if err != nil {
 					return err
 				}
-				if err := s.CAS.Put(ctx, blob.PutOptions{
-					Key:     key,
-					Data:    data,
-					Replace: false,
-				}); err != nil && !blob.IsKeyExists(err) {
-					return err
+				for try := 1; ; try++ {
+					err := s.CAS.Put(ctx, blob.PutOptions{
+						Key:     key,
+						Data:    data,
+						Replace: false,
+					})
+					if err == nil || blob.IsKeyExists(err) {
+						break // OK, keep going
+					} else if !isRetryableError(err) {
+						return err
+					} else if try >= 3 {
+						return fmt.Errorf("writeback %x failed after %d tries: %w", key, try, err)
+					}
+					log.Printf("DEBUG :: error in writeback %x (try %d): %v (retrying)", key, try, err)
+					time.Sleep(50 * time.Millisecond)
 				}
 				if err := s.buf.Delete(ctx, key); err != nil && !blob.IsKeyNotFound(err) {
 					return err
@@ -169,7 +180,7 @@ func (s *Store) run(ctx context.Context) error {
 		}); err != nil {
 			log.Printf("DEBUG :: error scanning buffer: %v", err)
 		}
-		if err := g.Wait(); err != nil && !isRetryableError(err) {
+		if err := g.Wait(); err != nil {
 			log.Printf("DEBUG :: error in writeback, exiting: %v", err)
 			return err
 		}
