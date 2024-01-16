@@ -8,6 +8,7 @@ import (
 	"errors"
 	"log"
 	"net"
+	"syscall"
 
 	"github.com/creachadair/ffs/blob"
 	"github.com/creachadair/msync"
@@ -184,7 +185,7 @@ func isRetryableError(err error) bool {
 	if errors.As(err, &derr) {
 		return derr.Temporary() || derr.IsNotFound
 	}
-	return false
+	return errors.Is(err, syscall.ECONNRESET) || errors.Is(err, syscall.ECONNABORTED)
 }
 
 type getResult struct {
