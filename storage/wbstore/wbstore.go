@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"math/rand"
 	"net"
 	"syscall"
 	"time"
@@ -133,7 +134,10 @@ func (s *Store) Sync(ctx context.Context) error {
 // run implements the backround writer. It runs until ctx terminates or until
 // it receives an unrecoverable error.
 func (s *Store) run(ctx context.Context) error {
+	errSlowWriteRetry := errors.New("slow write retry")
+
 	g, run := taskgroup.New(nil).Limit(64)
+	var work []string // reusable buffer
 	for {
 		// Check for cancellation.
 		select {
@@ -142,7 +146,20 @@ func (s *Store) run(ctx context.Context) error {
 		case <-s.nempty.Ready():
 		}
 
+		// List all the buffered keys and shuffle them so that we don't hammer
+		// the same shards of the underlying store in cases where that matters.
+		work = work[:0]
 		if err := s.buf.List(ctx, "", func(key string) error {
+			work = append(work, key)
+			return nil
+		}); err != nil {
+			log.Printf("DEBUG :: error scanning buffer: %v", err)
+			continue
+		}
+		rand.Shuffle(len(work), func(i, j int) { work[i], work[j] = work[j], work[i] })
+
+		for _, key := range work {
+			key := key
 			run(func() error {
 				// Read the blob and forward it to the base store, then delete it.
 				// Because the buffer contains only non-replacement blobs, it is
@@ -156,19 +173,21 @@ func (s *Store) run(ctx context.Context) error {
 					return err
 				}
 				for try := 1; ; try++ {
-					err := s.CAS.Put(ctx, blob.PutOptions{
+					// An individual write should not be allowed to stall for too long.
+					rtctx, cancel := context.WithTimeoutCause(ctx, 10*time.Second, errSlowWriteRetry)
+					err := s.CAS.Put(rtctx, blob.PutOptions{
 						Key:     key,
 						Data:    data,
 						Replace: false,
 					})
+					cancel()
 					if err == nil || blob.IsKeyExists(err) {
 						break // OK, keep going
-					} else if !isRetryableError(err) {
-						return err
-					} else if try >= 3 {
+					} else if (isRetryableError(err) || context.Cause(rtctx) == errSlowWriteRetry) && try <= 3 {
+						log.Printf("DEBUG :: error in writeback %x (try %d): %v (retrying)", key, try, err)
+					} else {
 						return fmt.Errorf("writeback %x failed after %d tries: %w", key, try, err)
 					}
-					log.Printf("DEBUG :: error in writeback %x (try %d): %v (retrying)", key, try, err)
 					time.Sleep(50 * time.Millisecond)
 				}
 				if err := s.buf.Delete(ctx, key); err != nil && !blob.IsKeyNotFound(err) {
@@ -176,13 +195,9 @@ func (s *Store) run(ctx context.Context) error {
 				}
 				return nil
 			})
-			return nil
-		}); err != nil {
-			log.Printf("DEBUG :: error scanning buffer: %v", err)
 		}
 		if err := g.Wait(); err != nil {
-			log.Printf("DEBUG :: error in writeback, exiting: %v", err)
-			return err
+			log.Printf("DEBUG :: error in writeback: %v", err)
 		}
 
 		// Signal any pending sync that the buffer may be clean.
