@@ -10,10 +10,12 @@ import (
 	"log"
 	"math/rand"
 	"net"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/creachadair/ffs/blob"
+	"github.com/creachadair/mds/stree"
 	"github.com/creachadair/msync"
 	"github.com/creachadair/taskgroup"
 )
@@ -311,4 +313,87 @@ func (s *Store) Put(ctx context.Context, opts blob.PutOptions) error {
 	}
 	s.nempty.Send(nil)
 	return nil
+}
+
+// bufferKeys returns a tree of the keys currently stored in the buffer that
+// are greater than or equal to start.
+func (s *Store) bufferKeys(ctx context.Context, start string) (*stree.Tree[string], error) {
+	buf := stree.New(300, strings.Compare)
+	if err := s.buf.List(ctx, "", func(key string) error {
+		buf.Add(key)
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return buf, nil
+}
+
+// Len implements part of blob.Store. It merges contents from the buffer that
+// are not listed in the underlying store, so that the reported length reflects
+// the total number of unique keys across both the buffer and the base store.
+func (s *Store) Len(ctx context.Context) (int64, error) {
+	buf, err := s.bufferKeys(ctx, "")
+	if err != nil {
+		return 0, err
+	}
+	var baseKeys int64
+	if err := s.CAS.List(ctx, "", func(key string) error {
+		baseKeys++
+		buf.Remove(key)
+		return nil
+	}); err != nil {
+		return 0, err
+	}
+
+	// Now any keys remaining in buf are ONLY in buf, so we can add their number
+	// to the total to get the effective length.
+	return baseKeys + int64(buf.Len()), nil
+}
+
+// List implements part of blob.Store. It merges contents from the buffer that
+// are not listed in the underlying store, so that the keys reported include
+// those that have not yet been written back.
+func (s *Store) List(ctx context.Context, start string, f func(string) error) error {
+	buf, err := s.bufferKeys(ctx, start)
+	if err != nil {
+		return err
+	}
+
+	prev := start
+	if err := s.CAS.List(ctx, start, func(key string) error {
+		// Pull out keys from the buffer that are between prev and key, and
+		// report them to the caller before sending key itself.
+		for _, p := range keysBetween(buf, prev, key) {
+			if err := f(p); err != nil {
+				return err
+			}
+		}
+		prev = key // save
+		return f(key)
+	}); err != nil {
+		return err
+	}
+
+	// Now ship any keys left in the buffer after the last key we sent.
+	for _, p := range keysBetween(buf, prev, buf.Max()+"x") {
+		if err := f(p); errors.Is(err, blob.ErrStopListing) {
+			break
+		} else if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// keysBetween returns the keys in t strictly between lo and hi.
+func keysBetween(t *stree.Tree[string], lo, hi string) (between []string) {
+	t.InorderAfter(lo, func(key string) bool {
+		if key >= hi {
+			return false
+		} else if key > lo {
+			between = append(between, key)
+		}
+		return true
+	})
+	return
 }

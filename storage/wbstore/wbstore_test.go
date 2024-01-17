@@ -3,11 +3,13 @@ package wbstore_test
 import (
 	"context"
 	"crypto/sha1"
+	"sort"
 	"testing"
 
 	"github.com/creachadair/ffs/blob"
 	"github.com/creachadair/ffs/blob/memstore"
 	"github.com/creachadair/ffs/storage/wbstore"
+	"github.com/google/go-cmp/cmp"
 )
 
 var _ blob.CAS = (*wbstore.Store)(nil)
@@ -68,11 +70,36 @@ func TestStore(t *testing.T) {
 			t.Errorf("Get %x: got %q, want %q", key, got, want)
 		}
 	}
+	checkLen := func(m blob.Store, want int) {
+		t.Helper()
+		got, err := m.Len(ctx)
+		if err != nil {
+			t.Errorf("Len: unexpected error: %v", err)
+		} else if got != int64(want) {
+			t.Errorf("Len: got %d, want %d", got, want)
+		}
+	}
+	checkList := func(m blob.Store, want ...string) {
+		t.Helper()
+		sort.Strings(want)
+		var got []string
+		if err := m.List(ctx, "", func(key string) error {
+			got = append(got, key)
+			return nil
+		}); err != nil {
+			t.Errorf("List: unexpected error: %v", err)
+		} else if diff := cmp.Diff(got, want); diff != "" {
+			t.Errorf("List (-got, +want):\n%s", diff)
+		}
+	}
 	push := func() <-chan struct{} {
 		p := make(chan struct{})
 		next <- p
 		return p
 	}
+
+	checkLen(buf, 0)
+	checkLen(base, 0)
 
 	// The base writer stalls until push is called, so we can simulate a slow
 	// write and check the contents of the buffer.
@@ -98,10 +125,18 @@ func TestStore(t *testing.T) {
 	<-p
 	checkVal(base, "baz", "quux")
 
-	// A non-replacemnt Put should hit the buffer, and not go to base.
+	// A non-replacement Put should hit the buffer, and not go to base.
 	mustPut("frob", "argh", false)
 	checkVal(buf, "frob", "argh")
 	checkVal(base, "frob", "")
+
+	// The top-level store should see all the keys, even though they are not all
+	// settled yet.
+	checkList(buf, "frob")
+	checkList(base, k1, k2, "baz")
+	checkList(s, k1, k2, "baz", "frob")
+	checkLen(s, 4)
+
 	<-push()
 
 	if err := s.Sync(ctx); err != nil {
@@ -109,6 +144,10 @@ func TestStore(t *testing.T) {
 	}
 
 	// After synchronization, everything should be in the base.
+	checkList(base, k1, k2, "baz", "frob")
+	checkList(s, k1, k2, "baz", "frob")
+	checkLen(s, 4)
+
 	checkVal(base, k1, "foo")
 	checkVal(s, k1, "foo")
 	checkVal(base, k2, "bar")
