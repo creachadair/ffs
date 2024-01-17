@@ -36,9 +36,9 @@ type Store struct {
 	blob.CAS
 	buf blob.Store
 
-	exited chan struct{} // closed when background writer is done
-	stop   func()        // signals the background writer to exit
-	err    error         // error that caused shutdown
+	exited chan struct{}      // closed when background writer is done
+	stop   context.CancelFunc // signals the background writer to exit
+	err    error              // error that caused shutdown
 
 	// The background writer waits on nempty when it finds no blobs to push.
 	nempty *msync.Handoff[any]
@@ -161,6 +161,9 @@ func (s *Store) run(ctx context.Context) error {
 		rand.Shuffle(len(work), func(i, j int) { work[i], work[j] = work[j], work[i] })
 
 		for _, key := range work {
+			if ctx.Err() != nil {
+				return errWriterStopped
+			}
 			key := key
 			run(func() error {
 				// Read the blob and forward it to the base store, then delete it.
@@ -187,8 +190,10 @@ func (s *Store) run(ctx context.Context) error {
 						break // OK, keep going
 					} else if (isRetryableError(err) || context.Cause(rtctx) == errSlowWriteRetry) && try <= 3 {
 						log.Printf("DEBUG :: error in writeback %x (try %d): %v (retrying)", key, try, err)
+					} else if ctx.Err() != nil {
+						return ctx.Err() // give up, the writeback thread is closing
 					} else {
-						return fmt.Errorf("writeback %x failed after %d tries: %w", key, try, err)
+						return fmt.Errorf("put %x failed after %d tries: %w", key, try, err)
 					}
 					time.Sleep(50 * time.Millisecond)
 				}
