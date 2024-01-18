@@ -365,6 +365,7 @@ type ScanItem struct {
 	Name   string // the name of File within its parent ("" at the root)
 }
 
+// Scan recursively visits f and all its descendants in depth-first
 // left-to-right order, calling visit for each file.  If visit returns false,
 // no descendants of f are visited.
 func (f *File) Scan(ctx context.Context, visit func(ScanItem) bool) error {
