@@ -1,0 +1,82 @@
+// Copyright 2024 Michael J. Fromberger. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package hexkey_test
+
+import (
+	"strings"
+	"testing"
+
+	"github.com/creachadair/ffs/storage/hexkey"
+)
+
+func TestConfig(t *testing.T) {
+	tests := []struct {
+		name        string
+		config      hexkey.Config
+		input, want string
+	}{
+		{"PlainEmpty", hexkey.Config{}, "", ""},
+		{"PlainKey", hexkey.Config{}, "\x01\x02\x03", "010203"},
+		{"Prefix", hexkey.Config{Prefix: "foo"}, "0123", "foo/30313233"},
+		{"Shard", hexkey.Config{Shard: 3}, "\x01\x02\x03\x04", "010/20304"},
+		{"EmptyShard", hexkey.Config{Shard: 3}, "", "---/-"},
+		{"ShortShard", hexkey.Config{Shard: 3}, "\x01", "01-/-"},
+		{"PrefixShard", hexkey.Config{Prefix: "foo", Shard: 4}, "ABCDE", "foo/4142/434445"},
+		{"LongShard", hexkey.Config{Shard: 8}, "ABC", "414243--/-"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			enc := tc.config.Encode(tc.input)
+			if enc != tc.want {
+				t.Errorf("Encode %q: got %q, want %q", tc.input, enc, tc.want)
+			}
+
+			dec, err := tc.config.Decode(enc)
+			if err != nil {
+				t.Errorf("Decode %q: unexpected error: %v", enc, err)
+			} else if dec != tc.input {
+				t.Errorf("Decode %q: got %q, want %q", enc, dec, tc.input)
+			}
+		})
+	}
+}
+
+func TestDecodeErrors(t *testing.T) {
+	estr := hexkey.ErrNotMyKey.Error()
+	tests := []struct {
+		name    string
+		config  hexkey.Config
+		input   string
+		errtext string
+	}{
+		{"NonHex", hexkey.Config{}, "garbage", "invalid byte"},
+		{"NoPrefix", hexkey.Config{Prefix: "foo"}, "010203", estr},
+		{"BadShard", hexkey.Config{Shard: 3}, "0a/0b0c0d", estr},
+		{"EmptyTail", hexkey.Config{Shard: 3}, "0a0/", estr},
+		{"BadHex", hexkey.Config{Shard: 3}, "0a0/-", "odd length hex"},
+		{"PrefixBadHex", hexkey.Config{Prefix: "foo", Shard: 3}, "foo/abc/defgh", "invalid byte"},
+		{"PrefixShort", hexkey.Config{Prefix: "bar", Shard: 3}, "foo/012", estr},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			dec, err := tc.config.Decode(tc.input)
+			if err == nil {
+				t.Errorf("Decode %q: got %q, want error", tc.input, dec)
+			} else if got := err.Error(); !strings.Contains(got, tc.errtext) {
+				t.Errorf("Decode %q: got %v, want %q", tc.input, err, tc.errtext)
+			}
+		})
+	}
+}

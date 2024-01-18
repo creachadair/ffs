@@ -19,16 +19,17 @@ package filestore
 
 import (
 	"context"
-	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
 
 	"github.com/creachadair/atomicfile"
 	"github.com/creachadair/ffs/blob"
+	"github.com/creachadair/ffs/storage/hexkey"
 )
 
 // Store implements the blob.Store interface using a directory structure with
@@ -37,6 +38,7 @@ import (
 // object store.
 type Store struct {
 	dir string
+	key hexkey.Config
 }
 
 // Opener constructs a filestore from an address comprising a path, for use
@@ -52,29 +54,11 @@ func New(dir string) (*Store, error) {
 	if err := os.MkdirAll(path, 0700); err != nil {
 		return nil, err
 	}
-	return &Store{dir: path}, nil
+	return &Store{dir: path, key: hexkey.Config{Shard: 3}}, nil
 }
 
 func (s *Store) keyPath(key string) string {
-	base := hex.EncodeToString([]byte(key))
-	// Pad short keys to be at least four bytes long, so the directory prefix
-	// and filename are never empty.
-	//
-	// The padding goes at the end so as to preserve lexicographic ordering on
-	// the hex-encoded portion of the key. The pad character is "-" (Unicode 45)
-	// so keys short enough to have padding in the directory name will sort
-	// before any hex digit in that position.
-	//
-	// The hex package ensures the length of the string is always even.
-	if n := len(base); n < 4 {
-		base += "----"[n:]
-	}
-	return filepath.Join(s.dir, base[:3], base[3:])
-}
-
-func decodeKey(enc string) (string, error) {
-	dec, err := hex.DecodeString(strings.TrimRight(enc, "-")) // trim length pad
-	return string(dec), err
+	return filepath.Join(s.dir, filepath.FromSlash(s.key.Encode(key)))
 }
 
 // Get implements part of blob.Store. It linearizes to the point at which
@@ -128,7 +112,7 @@ func (s *Store) List(_ context.Context, start string, f func(string) error) erro
 			return err
 		}
 		for _, tail := range keys {
-			key, err := decodeKey(root + tail)
+			key, err := s.key.Decode(path.Join(root, tail))
 			if err != nil || key < start {
 				continue // skip non-key files and keys prior to the start
 			} else if err := f(key); errors.Is(err, blob.ErrStopListing) {
