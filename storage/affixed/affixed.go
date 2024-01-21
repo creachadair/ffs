@@ -188,7 +188,7 @@ func (c CAS) setOptions(opts blob.CASPutOptions) blob.CASPutOptions {
 	return blob.CASPutOptions{
 		Data:   opts.Data,
 		Prefix: opts.Prefix + c.Store.prefix,
-		Suffix: opts.Suffix + c.Store.suffix,
+		Suffix: c.Store.suffix + opts.Suffix,
 	}
 }
 
