@@ -47,6 +47,15 @@ func mustPut(t *testing.T, s blob.Store, key, val string) {
 	}
 }
 
+func mustGet(t *testing.T, s blob.Store, key, val string) {
+	t.Helper()
+	if got, err := s.Get(context.Background(), key); err != nil {
+		t.Errorf("Get %q failed: %v", key, err)
+	} else if string(got) != val {
+		t.Errorf("Get %q: got %q, want %q", key, got, val)
+	}
+}
+
 func runList(p blob.Store, want ...string) func(t *testing.T) {
 	return func(t *testing.T) {
 		var got []string
@@ -79,23 +88,33 @@ func TestAffixes(t *testing.T) {
 	mustPut(t, p3, "foo", "bizzle")
 	mustPut(t, p3, "zuul", "dana")
 
+	// Make sure the values round-trip.
+	mustGet(t, p1, "foo", "bar")
+	mustGet(t, p1, "xyzzy", "plugh")
+	mustGet(t, p2, "foo", "quux")
+	mustGet(t, p2, "bar", "plover")
+	mustGet(t, p3, "foo", "bizzle")
+	mustGet(t, p3, "zuul", "dana")
+
 	// Verify that a CAS key is properly affixed.
 	ckey, err := p3.CASPut(context.Background(), blob.CASPutOptions{Data: []byte("hexxus")})
 	if err != nil {
 		t.Errorf("p3 CAS put: %v", err)
 	}
 
+	mustGet(t, p3, ckey, "hexxus")
+
 	t.Run("Snapshot", func(t *testing.T) {
 		snap := m.Snapshot(make(map[string]string))
 
 		if diff := cmp.Diff(map[string]string{
-			"A:foo:A":   "bar",
-			"A:xyzzy:A": "plugh",
-			"B:foo:B":   "quux",
-			"B:bar:B":   "plover",
-			"C:foo:C":   "bizzle",
-			"C:zuul:C":  "dana",   // from p3.Put
-			"C:" + ckey: "hexxus", // from p3.CASPut
+			"A:foo:A":          "bar",
+			"A:xyzzy:A":        "plugh",
+			"B:foo:B":          "quux",
+			"B:bar:B":          "plover",
+			"C:foo:C":          "bizzle",
+			"C:zuul:C":         "dana",   // from p3.Put
+			"C:" + ckey + ":C": "hexxus", // from p3.CASPut
 		}, snap); diff != "" {
 			t.Errorf("Affixed store: wrong content (-want, +got)\n%s", diff)
 		}
