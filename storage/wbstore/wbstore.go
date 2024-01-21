@@ -41,7 +41,7 @@ type Store struct {
 	err    error              // error that caused shutdown
 
 	// The background writer waits on nempty when it finds no blobs to push.
-	nempty *msync.Handoff[any]
+	nempty *msync.Flag[any]
 
 	// Callers of Sync wait on this condition.
 	bufClean *msync.Trigger
@@ -67,11 +67,11 @@ func New(ctx context.Context, base blob.CAS, buf blob.Store) *Store {
 		buf:      buf,
 		exited:   make(chan struct{}),
 		stop:     cancel,
-		nempty:   msync.NewHandoff[any](),
+		nempty:   msync.NewFlag[any](),
 		bufClean: msync.NewTrigger(),
 	}
 
-	s.nempty.Send(nil) // prime
+	s.nempty.Set(nil) // prime
 	g := taskgroup.Go(func() error {
 		return s.run(ctx)
 	})
@@ -295,7 +295,7 @@ func (s *Store) CASPut(ctx context.Context, opts blob.CASPutOptions) (string, er
 		err = nil // ignore, this is fine for a CAS write
 	}
 	if err == nil {
-		s.nempty.Send(nil)
+		s.nempty.Set(nil)
 	}
 	return key, err
 }
@@ -316,7 +316,7 @@ func (s *Store) Put(ctx context.Context, opts blob.PutOptions) error {
 	if err := s.buf.Put(ctx, opts); err != nil {
 		return err
 	}
-	s.nempty.Send(nil)
+	s.nempty.Set(nil)
 	return nil
 }
 
