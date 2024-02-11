@@ -37,7 +37,8 @@ func TestRoot(t *testing.T) {
 
 	// Create a new empty file to use as the root file.
 	rfKey, err := file.New(cas, &file.NewOptions{
-		Stat: &file.Stat{Mode: fs.ModeDir | 0755},
+		Stat:        &file.Stat{Mode: fs.ModeDir | 0755},
+		PersistStat: true,
 	}).Flush(ctx)
 	if err != nil {
 		t.Fatalf("Flushing root file: %v", err)
