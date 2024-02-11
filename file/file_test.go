@@ -51,7 +51,9 @@ func TestRoundTrip(t *testing.T) {
 	// Construct a new file and write it to storage, then read it back and
 	// verify that the original state was correctly restored.
 	f := file.New(cas, &file.NewOptions{
-		Stat:  &file.Stat{Mode: 0640},
+		Stat:        &file.Stat{Mode: 0640},
+		PersistStat: true,
+
 		Split: &block.SplitConfig{Min: 17, Size: 84, Max: 500},
 	})
 	if n := f.Data().Size(); n != 0 {
