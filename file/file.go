@@ -91,12 +91,14 @@ func New(s blob.CAS, opts *NewOptions) *File {
 	f := &File{
 		s:        s,
 		name:     opts.Name,
-		saveStat: opts.PersistStat,
+		saveStat: opts.Stat != nil,
 		data:     fileData{sc: opts.Split},
 		xattr:    make(map[string]string),
 	}
-	// If the options contain stat metadata, copy them in.
-	if opts.Stat != nil {
+	// If we got metadata to persist, copy it.
+	if opts.Stat == nil {
+		f.setStatLocked(Stat{})
+	} else {
 		f.setStatLocked(*opts.Stat)
 	}
 	return f
@@ -108,12 +110,10 @@ type NewOptions struct {
 	// persisted in storage.
 	Name string
 
-	// Stat, if non-nil, is the initial stat metadata for the file.
+	// Initial file metadata to associate with the file. If not nil, the new
+	// file will persist stat metadata to storage. However, the contents are not
+	// otherwise interpreted.
 	Stat *Stat
-
-	// PersistStat is whether stat metadata for the new file should be persisted
-	// to storage when the file is written out.
-	PersistStat bool
 
 	// The block splitter configuration to use. If omitted, the default values
 	// from the split package are used. Split configurations are not persisted
@@ -187,9 +187,7 @@ func (f *File) invalLocked() { f.key = "" }
 func (f *File) modifyLocked() { f.invalLocked(); f.stat.ModTime = time.Now() }
 
 // New constructs a new empty node backed by the same store as f.
-// If f persists stat metadata, then the new file does too, even if
-// opts.PersistStat is false. The caller can override this default via the Stat
-// view after the file is created.
+// If f persists stat metadata, then the new file does also.
 func (f *File) New(opts *NewOptions) *File {
 	out := New(f.s, opts)
 	if f.saveStat {

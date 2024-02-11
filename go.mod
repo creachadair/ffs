@@ -19,3 +19,4 @@ require (
 )
 
 retract [v0.2.2, v0.2.4]
+retract v0.3.0
