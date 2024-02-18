@@ -14,9 +14,10 @@ require (
 )
 
 require (
-	github.com/creachadair/mds v0.8.2
+	github.com/creachadair/mds v0.10.0
 	github.com/creachadair/msync v0.1.0
 )
 
 retract [v0.2.2, v0.2.4]
+
 retract v0.3.0
