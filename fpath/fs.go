@@ -27,9 +27,9 @@ func pathErr(op, path string, err error) error {
 	return &fs.PathError{Op: op, Path: path, Err: err}
 }
 
-// FS implements the standard library fs.FS, fs.SubFS, and fs.ReadDirFS
-// interfaces. Path traversal is rooted at a file assigned when the FS is
-// created.
+// FS implements the standard library fs.FS, fs.StatFS, fs.SubFS, and
+// fs.ReadDirFS interfaces. Path traversal is rooted at a file assigned when
+// the FS is created.
 type FS struct {
 	ctx  context.Context
 	root *file.File
@@ -49,6 +49,16 @@ func (fp FS) Open(path string) (fs.File, error) {
 		return nil, err
 	}
 	return target.Cursor(fp.ctx), nil
+}
+
+// Stat implements the fs.StatFS interface. The concrete type of the info
+// record returned by a successful Stat call is file.FileInfo.
+func (fp FS) Stat(path string) (fs.FileInfo, error) {
+	target, err := fp.openFile("stat", path)
+	if err != nil {
+		return nil, err
+	}
+	return target.Stat().FileInfo(), nil
 }
 
 // Sub implements the fs.SubFS interface.

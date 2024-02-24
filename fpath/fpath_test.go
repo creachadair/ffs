@@ -17,9 +17,9 @@ package fpath_test
 import (
 	"context"
 	"crypto/sha1"
-	"encoding/hex"
 	"errors"
 	"flag"
+	"hash"
 	"io/fs"
 	"strconv"
 	"testing"
@@ -37,21 +37,26 @@ var (
 
 	// Interface satisfaction checks.
 	_ fs.FS        = fpath.FS{}
+	_ fs.StatFS    = fpath.FS{}
 	_ fs.SubFS     = fpath.FS{}
 	_ fs.ReadDirFS = fpath.FS{}
 )
 
-func TestPaths(t *testing.T) {
-	var bs blob.Store = memstore.New()
-	if *saveStore != "" {
-		fs, err := filestore.New(*saveStore)
-		if err != nil {
-			t.Fatalf("Opening filestore %q: %v", *saveStore, err)
-		}
-		bs = fs
-		t.Logf("Saving test output to filestore %q", *saveStore)
+func mustNewCAS(t *testing.T, h func() hash.Hash) blob.CAS {
+	t.Helper()
+	if *saveStore == "" {
+		return blob.NewCAS(memstore.New(), h)
 	}
-	cas := blob.NewCAS(bs, sha1.New)
+	fs, err := filestore.New(*saveStore)
+	if err != nil {
+		t.Fatalf("Opening filestore %q: %v", *saveStore, err)
+	}
+	t.Logf("Saving test output to filestore %q", *saveStore)
+	return blob.NewCAS(fs, h)
+}
+
+func TestPaths(t *testing.T) {
+	cas := mustNewCAS(t, sha1.New)
 
 	ctx := context.Background()
 	root := file.New(cas, nil)
@@ -224,11 +229,74 @@ func TestPaths(t *testing.T) {
 		}
 	}
 
-	rkey, err := root.Flush(ctx)
+	rk, err := root.Flush(ctx)
 	if err != nil {
 		t.Fatalf("Flush root: %v", err)
 	}
-	t.Logf("Root key: %s", hex.EncodeToString([]byte(rkey)))
+	t.Logf("Root key: %x", rk)
+}
+
+func TestFS(t *testing.T) {
+	cas := mustNewCAS(t, sha1.New)
+	ctx := context.Background()
+
+	root := file.New(cas, &file.NewOptions{
+		Stat: &file.Stat{Mode: fs.ModeDir | 0755},
+	})
+	kid, err := fpath.Set(ctx, root, "kid", &fpath.SetOptions{
+		Create:  true,
+		SetStat: func(s *file.Stat) { s.Mode = 0644 },
+	})
+	if err != nil {
+		t.Fatalf("Create child: %v", err)
+	}
+
+	fp := fpath.NewFS(ctx, root)
+	t.Run("Open", func(t *testing.T) {
+		got, err := fp.Open("kid")
+		if err != nil {
+			t.Fatalf("Open kid: %v", err)
+		}
+		fi, err := got.Stat()
+		if err != nil {
+			t.Fatalf("Stat kid: %v", err)
+		}
+		if sys, ok := fi.Sys().(*file.File); !ok || sys != kid {
+			t.Fatalf("Stat sys: got %+v, want %+v", fi.Sys(), kid)
+		}
+	})
+
+	t.Run("Stat", func(t *testing.T) {
+		fi, err := fp.Stat("kid")
+		if err != nil {
+			t.Fatalf("Stat kid: %v", err)
+		}
+		if sys, ok := fi.Sys().(*file.File); !ok || sys != kid {
+			t.Fatalf("Stat sys: got %+v, want %+v", fi.Sys(), kid)
+		}
+	})
+
+	t.Run("ReadDir", func(t *testing.T) {
+		des, err := fp.ReadDir(".") // "." denotes the root, see fs.ValidPath
+		if err != nil {
+			t.Fatalf("ReadDir root: %v", err)
+		}
+		if len(des) != 1 {
+			t.Fatalf("Got %+v, wanted 1 entry", des)
+		}
+		if n := des[0].Name(); n != "kid" {
+			t.Errorf("Name: got %q, want %q", n, "kid")
+		}
+		if des[0].IsDir() {
+			t.Error("IsDir is true, want false")
+		}
+	})
+
+	rk, err := root.Flush(ctx)
+	if err != nil {
+		t.Fatalf("Flush root: %v", err)
+	}
+	t.Logf("Root key: %x", rk)
 }
 
 func errorOK(err, werr error) bool {
