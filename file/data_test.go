@@ -17,7 +17,6 @@ package file
 import (
 	"bytes"
 	"context"
-	crand "crypto/rand"
 	"crypto/sha1"
 	"io"
 	"math/rand"
@@ -427,29 +426,6 @@ func TestBlockReader(t *testing.T) {
 	got := string(data)
 	if got != message {
 		t.Errorf("Block reader:\n- got  %q\n- want %q", got, message)
-	}
-}
-
-func TestSetZero(t *testing.T) {
-	isZero := func(data []byte) bool {
-		for _, b := range data {
-			if b != 0 {
-				return false
-			}
-		}
-		return true
-	}
-
-	for i := 1; i <= 2048; i += 7 {
-		buf := make([]byte, i)
-		crand.Read(buf)
-		n := zero(buf)
-		if !isZero(buf) {
-			t.Errorf("zero(#[%d]) failed: %+v", i, buf)
-		}
-		if n != len(buf) {
-			t.Errorf("Wrong size returned: got %d, want %d", n, len(buf))
-		}
 	}
 }
 

@@ -116,22 +116,6 @@ func (r *blockReader) Read(data []byte) (int, error) {
 	return nr, nil
 }
 
-// zero sets all of data to zeroes and returns its length.
-func zero(data []byte) int {
-	n := len(data)
-	m := n &^ 7
-
-	i := 0
-	for ; i < m; i += 8 {
-		v := (*uint64)(unsafe.Pointer(&data[i]))
-		*v = 0
-	}
-	for ; i < n; i++ {
-		data[i] = 0
-	}
-	return n
-}
-
 // zeroCheck returns the length of the longest prefix and suffix of data that
 // comprise all zeroes, along with the length of data. If data consists of all
 // zero bytes, zeroCheck returns len(data), 0, len(data).

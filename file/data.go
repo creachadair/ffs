@@ -22,6 +22,7 @@ import (
 	"github.com/creachadair/ffs/blob"
 	"github.com/creachadair/ffs/block"
 	"github.com/creachadair/ffs/file/wiretype"
+	"github.com/creachadair/mds/mbits"
 )
 
 // A data value represents an ordered sequence of bytes stored in a blob.Store.
@@ -309,7 +310,7 @@ func (d *fileData) readAt(ctx context.Context, s blob.CAS, data []byte, offset i
 	// attribute given the total file size. Note that io.ReaderAt requires we
 	// report an error if the total is less than requested.
 	if len(span) == 0 {
-		nr := zero(data[:int(end-offset)])
+		nr := mbits.Zero(data[:int(end-offset)])
 		if nr < len(data) {
 			return nr, io.EOF
 		}
@@ -326,7 +327,7 @@ walkSpan:
 		// beginning of the extent, or we run out ouf space.
 		if offset < ext.base {
 			cp := min(int(ext.base-offset), len(data)-nr)
-			nr += zero(data[nr : nr+cp])
+			nr += mbits.Zero(data[nr : nr+cp])
 			if nr == len(data) {
 				break walkSpan
 			}
@@ -371,7 +372,7 @@ walkSpan:
 		if max := len(data) - nr; cp > max {
 			cp = max
 		}
-		nr += zero(data[nr : nr+cp])
+		nr += mbits.Zero(data[nr : nr+cp])
 	}
 
 	if nr < len(data) {

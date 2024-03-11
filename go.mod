@@ -14,7 +14,7 @@ require (
 )
 
 require (
-	github.com/creachadair/mds v0.10.0
+	github.com/creachadair/mds v0.12.1
 	github.com/creachadair/msync v0.1.0
 )
 
