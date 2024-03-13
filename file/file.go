@@ -382,25 +382,22 @@ func (f *File) Scan(ctx context.Context, visit func(ScanItem) bool) error {
 			continue
 		}
 
-		// Grab a copy of the children, but don't hold the lock while walking
-		// through them.
+		// Grab a clone of the children, but don't hold the lock while walking
+		// through them. Taking a clone ensures concurrent changes don't affect
+		// what we visit, and also prevent us caching files we only opened to
+		// satisfy the scan.
 		next.mu.RLock()
-		kids := next.kids
+		kids := slices.Clone(next.kids)
 		next.mu.RUnlock()
 
 		for i := len(kids) - 1; i >= 0; i-- {
 			kid := kids[i]
 
 			// We already flushed f, so all the kids have storage keys.  We have
-			// to open each child to recur on it, but don't cache the open files
-			// for children that weren't already open.
-			kf := kid.File
-			if kf == nil {
-				var err error
-				kf, err = Open(ctx, next.s, kid.Key)
-				if err != nil {
-					return err
-				}
+			// to open each child to recur on it.
+			kf, err := Open(ctx, next.s, kid.Key)
+			if err != nil {
+				return err
 			}
 			q = append(q, ScanItem{
 				File:   kf,
