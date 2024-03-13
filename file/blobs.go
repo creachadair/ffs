@@ -16,7 +16,8 @@ package file
 
 import (
 	"io"
-	"unsafe"
+
+	"github.com/creachadair/mds/mbits"
 )
 
 // splitExtent splits ext into possibly-multiple extents by removing
@@ -133,33 +134,9 @@ func zeroCheck(data []byte) (zhead, ztail, n int) {
 	//   100007   6320    25248  2.99x
 	//
 	n = len(data)
-	m := n &^ 7 // count of full 64-bit strides
-
-	i := 0
-	for ; i < m; i += 8 {
-		v := *(*uint64)(unsafe.Pointer(&data[i]))
-		if v != 0 {
-			// Not zero: Count prefix and suffix zeroes.
-			zhead = i
-			for data[zhead] == 0 {
-				zhead++
-			}
-			for j := n - 1; data[j] == 0; j-- {
-				ztail++
-			}
-			return zhead, ztail, n
-		}
-	}
-	for ; i < n; i++ {
-		if data[i] != 0 {
-			zhead = i
-			for j := n - 1; data[j] == 0; j-- {
-				ztail++
-			}
-			return zhead, ztail, n
-		}
-	}
-	return n, 0, n
+	zhead = mbits.LeadingZeroes(data)
+	ztail = mbits.TrailingZeroes(data[zhead:])
+	return
 }
 
 func min(z0 int, zs ...int) int {
