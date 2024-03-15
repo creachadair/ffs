@@ -15,6 +15,7 @@
 package blob_test
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"path"
@@ -23,6 +24,9 @@ import (
 	"testing"
 
 	"github.com/creachadair/ffs/blob"
+	"github.com/creachadair/ffs/blob/memstore"
+	gocmp "github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
 var (
@@ -116,4 +120,39 @@ func TestKeyError(t *testing.T) {
 			t.Errorf("Error %q: got base %v, want %v", test.input, v.Err, test.base)
 		}
 	}
+}
+
+func TestListSyncKeyer(t *testing.T) {
+	m := memstore.New().Init(map[string]string{
+		"1": "one",
+		"2": "two",
+		"3": "three",
+		"4": "four",
+		"5": "five",
+	})
+	sk := blob.ListSyncKeyer{Store: m}
+	ctx := context.Background()
+	check := func(t *testing.T, keys []string, want ...string) {
+		t.Helper()
+		got, err := sk.SyncKeys(ctx, keys)
+		if err != nil {
+			t.Fatalf("SyncKeys: unexpected error: %v", err)
+		} else if diff := gocmp.Diff(got, want, cmpopts.EquateEmpty()); diff != "" {
+			// N.B. We do care about order here, because the wrapper promises it.
+			t.Fatalf("SyncKeys (-got, +want):\n%s", diff)
+		}
+	}
+
+	t.Run("Empty", func(t *testing.T) {
+		check(t, nil)
+	})
+	t.Run("NoneMissing", func(t *testing.T) {
+		check(t, []string{"1", "3", "4"})
+	})
+	t.Run("SomeMissing", func(t *testing.T) {
+		check(t, []string{"1", "6", "4", "7"}, "6", "7")
+	})
+	t.Run("AllMissing", func(t *testing.T) {
+		check(t, []string{"10", "50", "90", "0", "8"}, "0", "10", "50", "8", "90")
+	})
 }

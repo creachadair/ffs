@@ -20,6 +20,8 @@ import (
 	"context"
 	"errors"
 	"hash"
+	"slices"
+	"sort"
 )
 
 // A Store represents a mutable blob store in which each blob is identified by
@@ -180,4 +182,55 @@ func (c HashCAS) CASPut(ctx context.Context, opts CASPutOptions) (string, error)
 // This implementation never reports an error.
 func (c HashCAS) CASKey(_ context.Context, opts CASPutOptions) (string, error) {
 	return c.key(opts), nil
+}
+
+// SyncKeyer is an optional interface that a store may implement to support
+// checking for the presence of keys in the store without fetching them.
+type SyncKeyer interface {
+	Store
+
+	// SyncKeys reports which of the given keys are not present in the store.
+	// If all the keys are present, SyncKeys returns an empty slice.
+	// The order of returned keys is unspecified.
+	SyncKeys(ctx context.Context, keys []string) ([]string, error)
+}
+
+// ListSyncKeyer is a wrapper that adds the SyncKeys method to a delegated
+// blob.Store, using its List method.
+type ListSyncKeyer struct {
+	Store
+}
+
+// SyncKeys implements the SyncKeyer interface using the List method of the
+// underlying store. Keys are returned in lexicographic order.
+func (s ListSyncKeyer) SyncKeys(ctx context.Context, keys []string) ([]string, error) {
+	if len(keys) == 0 {
+		return nil, nil
+	}
+	cp := slices.Clone(keys)
+	sort.Strings(cp)
+
+	var missing []string
+	i := 0
+	if err := s.List(ctx, cp[0], func(got string) error {
+		// The order of these checks matters. If got is bigger than the current
+		// key, it is possible it may be equal a later one.
+		for i < len(cp) && got > cp[i] {
+			missing = append(missing, cp[i])
+			i++
+		}
+
+		// Reaching here, either there are no more keys left or got <= cp[i].
+		if i < len(cp) && got == cp[i] {
+			i++
+		}
+
+		if i >= len(cp) {
+			return ErrStopListing
+		}
+		return nil
+	}); err != nil {
+		return nil, err
+	}
+	return append(missing, cp[i:]...), nil
 }
