@@ -71,6 +71,18 @@ func (s *Store) Snapshot(m map[string]string) map[string]string {
 	return m
 }
 
+// Init replaces the contents of s with the keys and values in m.
+// It returns s to permit chaining with construction.
+func (s *Store) Init(m map[string]string) *Store {
+	s.μ.Lock()
+	defer s.μ.Unlock()
+	s.m.Clear()
+	for key, val := range m {
+		s.m.Add(entry{key, val})
+	}
+	return s
+}
+
 // Get implements part of blob.Store.
 func (s *Store) Get(_ context.Context, key string) ([]byte, error) {
 	s.μ.Lock()
