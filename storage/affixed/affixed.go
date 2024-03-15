@@ -74,9 +74,13 @@ func (s Store) Prefix() string { return s.prefix }
 // Suffix returns the key suffix associated with s.
 func (s Store) Suffix() string { return s.suffix }
 
-func (s Store) wrapKey(key string) string { return s.prefix + key + s.suffix }
+// WrapKey returns the wrapped version of key as it would be stored into the
+// base store with the current prefix and suffix attached.
+func (s Store) WrapKey(key string) string { return s.prefix + key + s.suffix }
 
-func (s Store) unwrapKey(key string) string {
+// UnwrapKey returns the unwrapped version of key with the current prefix and
+// suffix removed (if present).
+func (s Store) UnwrapKey(key string) string {
 	p := strings.TrimPrefix(key, s.prefix)
 	return strings.TrimSuffix(p, s.suffix)
 }
@@ -87,19 +91,19 @@ func (s Store) Close(ctx context.Context) error { return s.real.Close(ctx) }
 
 // Get implements part of blob.Store by delegation.
 func (s Store) Get(ctx context.Context, key string) ([]byte, error) {
-	return s.real.Get(ctx, s.wrapKey(key))
+	return s.real.Get(ctx, s.WrapKey(key))
 }
 
 // Put implements part of blob.Store by delegation.
 func (s Store) Put(ctx context.Context, opts blob.PutOptions) error {
 	// Leave the options as-given, except the key must be wrapped.
-	opts.Key = s.wrapKey(opts.Key)
+	opts.Key = s.WrapKey(opts.Key)
 	return s.real.Put(ctx, opts)
 }
 
 // Delete implements part of blob.Store by delegation.
 func (s Store) Delete(ctx context.Context, key string) error {
-	return s.real.Delete(ctx, s.wrapKey(key))
+	return s.real.Delete(ctx, s.WrapKey(key))
 }
 
 // List implements part of blob.Store by delegation. It filters the underlying
@@ -121,7 +125,7 @@ func (s Store) List(ctx context.Context, start string, f func(string) error) err
 		} else if !strings.HasSuffix(wrappedKey, s.suffix) {
 			return nil // not my key
 		}
-		return f(s.unwrapKey(wrappedKey))
+		return f(s.UnwrapKey(wrappedKey))
 	})
 }
 
@@ -195,11 +199,11 @@ func (c CAS) setOptions(opts blob.CASPutOptions) blob.CASPutOptions {
 // CASPut implements part of the blob.CAS interface.
 func (c CAS) CASPut(ctx context.Context, opts blob.CASPutOptions) (string, error) {
 	key, err := c.cas.CASPut(ctx, c.setOptions(opts))
-	return c.unwrapKey(key), err
+	return c.UnwrapKey(key), err
 }
 
 // CASKey implements part of the blob.CAS interface.
 func (c CAS) CASKey(ctx context.Context, opts blob.CASPutOptions) (string, error) {
 	key, err := c.cas.CASKey(ctx, c.setOptions(opts))
-	return c.unwrapKey(key), err
+	return c.UnwrapKey(key), err
 }
