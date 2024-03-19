@@ -131,18 +131,17 @@ func (s *Store) initKeyMapLocked(ctx context.Context) error {
 
 	for i := 0; i < 256; i++ {
 		pfx := string([]byte{byte(i)})
-		g.Go(coll.Stream(func(keys chan<- string) error {
+		g.Go(coll.Report(func(report func(string)) error {
 			return s.base.List(ictx, pfx, func(key string) error {
 				if !strings.HasPrefix(key, pfx) {
 					return blob.ErrStopListing
 				}
-				keys <- key
+				report(key)
 				return nil
 			})
 		}))
 	}
 	err := g.Wait()
-	coll.Wait()
 	s.listed = err == nil
 	return err
 }
