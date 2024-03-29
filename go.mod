@@ -6,7 +6,7 @@ toolchain go1.21.0
 
 require (
 	github.com/cespare/xxhash/v2 v2.2.0
-	github.com/creachadair/atomicfile v0.3.3
+	github.com/creachadair/atomicfile v0.3.4
 	github.com/creachadair/taskgroup v0.8.1
 	github.com/golang/snappy v0.0.4
 	github.com/google/go-cmp v0.6.0
@@ -14,7 +14,7 @@ require (
 )
 
 require (
-	github.com/creachadair/mds v0.12.2
+	github.com/creachadair/mds v0.13.4
 	github.com/creachadair/msync v0.2.0
 )
 
