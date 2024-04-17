@@ -190,7 +190,7 @@ type SyncKeyer interface {
 	Store
 
 	// SyncKeys reports which of the given keys are not present in the store.
-	// If all the keys are present, SyncKeys returns an empty slice.
+	// If all the keys are present, SyncKeys returns an empty slice or nil.
 	// The order of returned keys is unspecified.
 	SyncKeys(ctx context.Context, keys []string) ([]string, error)
 }
