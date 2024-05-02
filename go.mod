@@ -10,12 +10,12 @@ require (
 	github.com/creachadair/taskgroup v0.8.1
 	github.com/golang/snappy v0.0.4
 	github.com/google/go-cmp v0.6.0
-	google.golang.org/protobuf v1.33.0
+	google.golang.org/protobuf v1.34.0
 )
 
 require (
-	github.com/creachadair/mds v0.14.3
-	github.com/creachadair/msync v0.2.0
+	github.com/creachadair/mds v0.14.6
+	github.com/creachadair/msync v0.2.1
 )
 
 retract [v0.2.2, v0.2.4]
