@@ -10,11 +10,11 @@ require (
 	github.com/creachadair/taskgroup v0.9.0
 	github.com/golang/snappy v0.0.4
 	github.com/google/go-cmp v0.6.0
-	google.golang.org/protobuf v1.34.0
+	google.golang.org/protobuf v1.34.1
 )
 
 require (
-	github.com/creachadair/mds v0.14.6
+	github.com/creachadair/mds v0.14.7
 	github.com/creachadair/msync v0.2.1
 )
 
