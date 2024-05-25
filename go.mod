@@ -1,8 +1,6 @@
 module github.com/creachadair/ffs
 
-go 1.21
-
-toolchain go1.21.0
+go 1.22
 
 require (
 	github.com/cespare/xxhash/v2 v2.3.0
