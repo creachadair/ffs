@@ -17,7 +17,7 @@ package index
 
 import (
 	"math"
-	"math/rand"
+	"math/rand/v2"
 
 	"github.com/cespare/xxhash/v2"
 )
