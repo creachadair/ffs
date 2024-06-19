@@ -27,7 +27,7 @@ import (
 // Encode encodes idx as a protocol buffer message for storage.
 func Encode(idx *Index) *indexpb.Index {
 	var buf bytes.Buffer
-	w, _ := zlib.NewWriterLevel(&buf, zlib.BestCompression)
+	w, _ := zlib.NewWriterLevel(&buf, zlib.BestSpeed)
 	// N.B. The only possible error is an invalid level.
 	for _, seg := range idx.bits {
 		var val [8]byte
