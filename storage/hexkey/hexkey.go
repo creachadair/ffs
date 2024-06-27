@@ -29,8 +29,10 @@ type Config struct {
 	// the key by "/".
 	Prefix string
 
-	// Shard, if positive, specifies a prefix of each hex-encoded key that will
-	// be separated from the key by an intervening "/".
+	// Shard, if positive, specifies a prefix length for each hex-encoded key,
+	// that will be separated from the key by an intervening "/".
+	// For example, if Shard is 2, a key "012345" becomes "01/2345".
+	// If Shard ≤ 0, keys are not partitioned.
 	Shard int
 }
 
