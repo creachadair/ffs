@@ -16,6 +16,7 @@
 package hexkey
 
 import (
+	"cmp"
 	"encoding/hex"
 	"errors"
 	"path"
@@ -31,7 +32,7 @@ type Config struct {
 
 	// Shard, if positive, specifies a prefix length for each hex-encoded key,
 	// that will be separated from the key by an intervening "/".
-	// For example, if Shard is 2, a key "012345" becomes "01/2345".
+	// For example, if Shard is 2, a key "012345" becomes "01/012345".
 	// If Shard ≤ 0, keys are not partitioned.
 	Shard int
 }
@@ -47,12 +48,16 @@ func (c Config) Encode(key string) string {
 	}
 	tail := hex.EncodeToString([]byte(key))
 
-	// Pad out the key so it is at least one byte longer than the shard prefix.
-	// This ensures _ is not empty in a key like "P/xxx/_".
-	for len(tail) <= c.Shard {
-		tail += "-"
+	// Pad out the shard label to the desired length.  Use "-" as the pad so it
+	// orders prior to any hexadecimal digit.
+	shard := tail[:min(c.Shard, len(tail))]
+	for len(shard) < c.Shard {
+		shard += "-"
 	}
-	return path.Join(c.Prefix, tail[:c.Shard], tail[c.Shard:])
+
+	// Special case: an empty key is encoded as "-", which sorts before all
+	// hexadecimal values, but is non-empty.
+	return path.Join(c.Prefix, shard, cmp.Or(tail, "-"))
 }
 
 // Decode decodes the specified hex-encoded key according to c.
@@ -78,6 +83,11 @@ func (c Config) Decode(ekey string) (string, error) {
 	if !ok || len(pre) != c.Shard || post == "" {
 		return "", ErrNotMyKey
 	}
-	key, err := hex.DecodeString(strings.TrimRight(pre+post, "-"))
+
+	// Special case: "-" is the encoding of an empty key.
+	if post == "-" {
+		return "", nil
+	}
+	key, err := hex.DecodeString(post)
 	return string(key), err
 }

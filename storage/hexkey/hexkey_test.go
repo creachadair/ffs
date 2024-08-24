@@ -30,11 +30,13 @@ func TestConfig(t *testing.T) {
 		{"PlainEmpty", hexkey.Config{}, "", ""},
 		{"PlainKey", hexkey.Config{}, "\x01\x02\x03", "010203"},
 		{"Prefix", hexkey.Config{Prefix: "foo"}, "0123", "foo/30313233"},
-		{"Shard", hexkey.Config{Shard: 3}, "\x01\x02\x03\x04", "010/20304"},
+		{"Shard1", hexkey.Config{Shard: 1}, "\xab\xcd", "a/abcd"},
+		{"Shard2", hexkey.Config{Shard: 2}, "\xab\xcd\xef", "ab/abcdef"},
+		{"Shard3", hexkey.Config{Shard: 3}, "\x01\x02\x03\x04", "010/01020304"},
 		{"EmptyShard", hexkey.Config{Shard: 3}, "", "---/-"},
-		{"ShortShard", hexkey.Config{Shard: 3}, "\x01", "01-/-"},
-		{"PrefixShard", hexkey.Config{Prefix: "foo", Shard: 4}, "ABCDE", "foo/4142/434445"},
-		{"LongShard", hexkey.Config{Shard: 8}, "ABC", "414243--/-"},
+		{"ShortShard", hexkey.Config{Shard: 3}, "\x01", "01-/01"},
+		{"PrefixShard", hexkey.Config{Prefix: "foo", Shard: 4}, "ABCDE", "foo/4142/4142434445"},
+		{"LongShard", hexkey.Config{Shard: 8}, "ABC", "414243--/414243"},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
@@ -65,8 +67,8 @@ func TestDecodeErrors(t *testing.T) {
 		{"NoPrefix", hexkey.Config{Prefix: "foo"}, "010203", estr},
 		{"BadShard", hexkey.Config{Shard: 3}, "0a/0b0c0d", estr},
 		{"EmptyTail", hexkey.Config{Shard: 3}, "0a0/", estr},
-		{"BadHex", hexkey.Config{Shard: 3}, "0a0/-", "odd length hex"},
-		{"PrefixBadHex", hexkey.Config{Prefix: "foo", Shard: 3}, "foo/abc/defgh", "invalid byte"},
+		{"BadHex", hexkey.Config{Shard: 3}, "0a0/0a0", "odd length hex"},
+		{"PrefixBadHex", hexkey.Config{Prefix: "foo", Shard: 3}, "foo/abc/abcdefgh", "invalid byte"},
 		{"PrefixShort", hexkey.Config{Prefix: "bar", Shard: 3}, "foo/012", estr},
 	}
 	for _, tc := range tests {
