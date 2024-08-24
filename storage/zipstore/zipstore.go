@@ -19,23 +19,22 @@ package zipstore
 import (
 	"archive/zip"
 	"context"
-	"encoding/hex"
 	"errors"
-	"fmt"
 	"io"
 	"path/filepath"
 	"sort"
 	"strings"
 
 	"github.com/creachadair/ffs/blob"
+	"github.com/creachadair/ffs/storage/hexkey"
 )
 
 // A Store wraps a zip.Reader and serves its contents as a blob.Store.  The
 // contents of the archive must follow the same layout as a filestore.Store,
 // with keys encoded as hexadecimal.
 type Store struct {
-	prefix string
-	zf     *zip.ReadCloser
+	zf  *zip.ReadCloser
+	key hexkey.Config
 }
 
 // New constructs a Store from the given open zip.Reader. If opts == nil,
@@ -50,7 +49,7 @@ func New(zf *zip.ReadCloser, opts *Options) Store {
 	if pfx == "" {
 		pfx = longestPrefix(zf)
 	}
-	return Store{prefix: pfx, zf: zf}
+	return Store{zf: zf, key: hexkey.Config{Prefix: pfx, Shard: 3}}
 }
 
 func longestPrefix(zf *zip.ReadCloser) string {
@@ -91,23 +90,8 @@ func (o *Options) prefix() string {
 	return strings.TrimSuffix(o.Prefix, "/")
 }
 
-// Construct the expected storage path for the given key. This is the same
-// logic that filestore uses.
-func (s Store) keyPath(key string) string {
-	base := hex.EncodeToString([]byte(key))
-	if n := len(base); n < 4 {
-		base += "----"[n:] // pad keys so the parts are not empty
-	}
-	return filepath.Join(s.prefix, base[:3], base[3:])
-}
-
-func decodeKey(enc string) (string, error) {
-	dec, err := hex.DecodeString(strings.TrimRight(enc, "-")) // trim length pad
-	return string(dec), err
-}
-
 func (s Store) findFile(key string) *zip.File {
-	path := s.keyPath(key)
+	path := filepath.FromSlash(s.key.Encode(key))
 	n := sort.Search(len(s.zf.File), func(i int) bool {
 		return s.zf.File[i].Name >= path
 	})
@@ -146,31 +130,14 @@ func (s Store) Delete(_ context.Context, key string) error { return errReadOnly 
 
 // List implements a method of the blob.Store interface.
 func (s Store) List(_ context.Context, start string, f func(string) error) error {
-	if s.prefix != "" && s.prefix != "/" {
-		s.prefix += "/"
-	}
 	for _, fp := range s.zf.File {
-		if !strings.HasPrefix(fp.Name, s.prefix) {
-			if fp.Name > s.prefix {
-				return nil // no more possible matches
-			}
-			continue
-		}
-
-		// prefix/xxx/yyyyy → [xxx, yyy]
-		trimmed := strings.TrimPrefix(fp.Name, s.prefix)
-		parts := strings.SplitN(trimmed, "/", 2)
-		if len(parts) != 2 || parts[1] == "" {
-			continue // directory only, no key
-		}
-		dec, err := decodeKey(parts[0] + parts[1])
+		dec, err := s.key.Decode(fp.Name)
 		if err != nil {
-			return fmt.Errorf("decode key %q: %w", parts[0]+parts[1], err)
+			continue
 		}
 		if dec < start {
 			continue // skip keys prior to start
 		}
-
 		if err := f(dec); errors.Is(err, blob.ErrStopListing) {
 			return nil
 		} else if err != nil {
