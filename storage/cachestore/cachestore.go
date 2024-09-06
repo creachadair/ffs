@@ -17,12 +17,14 @@
 package cachestore
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"strings"
 	"sync"
 
 	"github.com/creachadair/ffs/blob"
+	"github.com/creachadair/mds/cache"
 	"github.com/creachadair/mds/stree"
 	"github.com/creachadair/taskgroup"
 )
@@ -38,9 +40,9 @@ type Store struct {
 	base blob.Store
 
 	μ      sync.Mutex
-	listed bool                // keymap has been fully populated
-	keymap *stree.Tree[string] // known keys
-	cache  *cache              // blob cache
+	listed bool                         // keymap has been fully populated
+	keymap *stree.Tree[string]          // known keys
+	cache  *cache.Cache[string, []byte] // blob cache
 
 	// The keymap is initialized to the keyspace of the underlying store.
 	// Additional keys are added by store queries.
@@ -52,7 +54,9 @@ func New(s blob.Store, maxBytes int) *Store {
 	return &Store{
 		base:   s,
 		keymap: stree.New[string](300, strings.Compare),
-		cache:  newCache(maxBytes),
+		cache: cache.New(int64(maxBytes), cache.LRU[string, []byte](), &cache.Config[string, []byte]{
+			Size: cache.Length[[]byte],
+		}),
 	}
 }
 
@@ -62,8 +66,8 @@ func (s *Store) Get(ctx context.Context, key string) ([]byte, error) {
 	defer s.μ.Unlock()
 	if err := s.initKeyMapLocked(ctx); err != nil {
 		return nil, err
-	} else if data, ok := s.cache.getCopy(key); ok {
-		return data, nil
+	} else if data, ok := s.cache.Get(key); ok {
+		return bytes.Clone(data), nil
 	} else if _, ok := s.keymap.Get(key); !ok {
 		return nil, blob.KeyNotFound(key)
 	}
@@ -74,7 +78,7 @@ func (s *Store) Get(ctx context.Context, key string) ([]byte, error) {
 		}
 		return nil, err
 	}
-	s.cache.put(key, data)
+	s.cache.Put(key, data)
 	return data, nil
 }
 
@@ -86,14 +90,14 @@ func (s *Store) Put(ctx context.Context, opts blob.PutOptions) error {
 		return err
 	}
 	if !opts.Replace {
-		if _, ok := s.cache.rawGet(opts.Key); ok {
+		if s.cache.Has(opts.Key) {
 			return blob.KeyExists(opts.Key)
 		}
 	}
 	if err := s.base.Put(ctx, opts); err != nil {
 		return err
 	}
-	s.cache.put(opts.Key, opts.Data)
+	s.cache.Put(opts.Key, opts.Data)
 	s.keymap.Replace(opts.Key)
 	return nil
 }
@@ -108,7 +112,7 @@ func (s *Store) Delete(ctx context.Context, key string) error {
 
 	// Even if we fail to delete the key from the underlying store, take this as
 	// a signal that we should forget about its data.
-	s.cache.drop(key)
+	s.cache.Remove(key)
 	s.keymap.Remove(key)
 	return s.base.Delete(ctx, key)
 }
@@ -181,7 +185,7 @@ func (s *Store) Close(ctx context.Context) error {
 	defer s.μ.Unlock()
 
 	// Release the memory held by the caches.
-	s.cache.clear()
+	s.cache.Clear()
 	s.keymap = nil
 	return s.base.Close(ctx)
 }
@@ -213,7 +217,7 @@ func (c CAS) CASPut(ctx context.Context, opts blob.CASPutOptions) (string, error
 	if err != nil {
 		return "", err
 	}
-	c.cache.put(key, opts.Data)
+	c.cache.Put(key, opts.Data)
 	c.keymap.Replace(key)
 	return key, nil
 }
