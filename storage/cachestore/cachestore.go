@@ -131,7 +131,7 @@ func (s *Store) initKeyMapLocked(ctx context.Context) error {
 
 	// The keymap is not safe for concurrent use by multiple goroutines, so
 	// serialize insertions through a collector.
-	coll := taskgroup.NewCollector(func(key string) {
+	coll := taskgroup.Collect(func(key string) {
 		s.keymap.Add(key)
 	})
 
