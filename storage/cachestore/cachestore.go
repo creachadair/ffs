@@ -54,11 +54,9 @@ func New(s blob.Store, maxBytes int) *Store {
 	return &Store{
 		base:   s,
 		keymap: stree.New[string](300, strings.Compare),
-		cache: cache.New(cache.Config[string, []byte]{
-			Limit: int64(maxBytes),
-			Store: cache.LRU[string, []byte](),
-			Size:  cache.Length[[]byte],
-		}),
+		cache: cache.New(int64(maxBytes), cache.LRU[string, []byte]().
+			WithSize(cache.Length),
+		),
 	}
 }
 
