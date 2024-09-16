@@ -158,15 +158,14 @@ func (s *Store) List(ctx context.Context, start string, f func(string) error) er
 		return err
 	}
 
-	var ferr error
-	s.keymap.InorderAfter(start, func(key string) bool {
-		ferr = f(key)
-		return ferr == nil
-	})
-	if errors.Is(ferr, blob.ErrStopListing) {
-		return nil
+	for key := range s.keymap.InorderAfter(start) {
+		if err := f(key); errors.Is(err, blob.ErrStopListing) {
+			return nil
+		} else if err != nil {
+			return err
+		}
 	}
-	return ferr
+	return nil
 }
 
 // Len implements a method of blob.Store.

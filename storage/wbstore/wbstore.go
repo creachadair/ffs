@@ -392,13 +392,11 @@ func (s *Store) List(ctx context.Context, start string, f func(string) error) er
 
 // keysBetween returns the keys in t strictly between lo and hi.
 func keysBetween(t *stree.Tree[string], lo, hi string) (between []string) {
-	t.InorderAfter(lo, func(key string) bool {
+	for key := range t.InorderAfter(lo) {
 		if key >= hi {
-			return false
-		} else if key > lo {
-			between = append(between, key)
+			break
 		}
-		return true
-	})
+		between = append(between, key)
+	}
 	return
 }

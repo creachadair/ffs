@@ -64,10 +64,9 @@ func (s *Store) Snapshot(m map[string]string) map[string]string {
 	}
 	s.μ.Lock()
 	defer s.μ.Unlock()
-	s.m.Inorder(func(e entry) bool {
+	for e := range s.m.Inorder {
 		m[e.key] = e.val
-		return true
-	})
+	}
 	return m
 }
 
@@ -135,15 +134,14 @@ func (s *Store) List(_ context.Context, start string, f func(string) error) erro
 	s.μ.Lock()
 	defer s.μ.Unlock()
 
-	var rerr error
-	s.m.InorderAfter(entry{key: start}, func(e entry) bool {
-		rerr = f(e.key)
-		return rerr == nil
-	})
-	if errors.Is(rerr, blob.ErrStopListing) {
-		return nil
+	for e := range s.m.InorderAfter(entry{key: start}) {
+		if err := f(e.key); errors.Is(err, blob.ErrStopListing) {
+			return nil
+		} else if err != nil {
+			return err
+		}
 	}
-	return rerr
+	return nil
 }
 
 // Len implements part of blob.Store.
