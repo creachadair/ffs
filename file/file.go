@@ -245,6 +245,12 @@ func (f *File) Open(ctx context.Context, name string) (*File, error) {
 	return c, err
 }
 
+// Load loads an existing file given its storage key in the store used by f.
+// The specified file need not necessarily be a child of f.
+func (f *File) Load(ctx context.Context, key string) (*File, error) {
+	return Open(ctx, f.s, key)
+}
+
 // Child returns a view of the children of f.
 func (f *File) Child() Child { return Child{f: f} }
 
