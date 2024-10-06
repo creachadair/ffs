@@ -125,17 +125,17 @@ func (s *Store) initKeyMapLocked(ctx context.Context) error {
 	}
 	ictx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	g := taskgroup.New(taskgroup.Trigger(cancel))
+	g := taskgroup.New(cancel)
 
 	// The keymap is not safe for concurrent use by multiple goroutines, so
 	// serialize insertions through a collector.
-	coll := taskgroup.Collect(func(key string) {
+	coll := taskgroup.Gather(g.Go, func(key string) {
 		s.keymap.Add(key)
 	})
 
 	for i := 0; i < 256; i++ {
 		pfx := string([]byte{byte(i)})
-		g.Go(coll.Report(func(report func(string)) error {
+		coll.Report(func(report func(string)) error {
 			return s.base.List(ictx, pfx, func(key string) error {
 				if !strings.HasPrefix(key, pfx) {
 					return blob.ErrStopListing
@@ -143,7 +143,7 @@ func (s *Store) initKeyMapLocked(ctx context.Context) error {
 				report(key)
 				return nil
 			})
-		}))
+		})
 	}
 	err := g.Wait()
 	s.listed = err == nil
