@@ -7,7 +7,7 @@ toolchain go1.23.1
 require (
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/creachadair/atomicfile v0.3.5
-	github.com/creachadair/taskgroup v0.11.0
+	github.com/creachadair/taskgroup v0.12.0
 	github.com/golang/snappy v0.0.4
 	github.com/google/go-cmp v0.6.0
 	google.golang.org/protobuf v1.35.1
