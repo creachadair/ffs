@@ -1,6 +1,7 @@
 # Flexible Filesystem
 
 [![GoDoc](https://img.shields.io/static/v1?label=godoc&message=reference&color=yellowgreen)](https://pkg.go.dev/github.com/creachadair/ffs)
+[![CI](https://github.com/creachadair/ffs/actions/workflows/go-presubmit.yml/badge.svg?event=push&branch=main)](https://github.com/creachadair/ffs/actions/workflows/go-presubmit.yml)
 
 An work-in-progress experimental storage-agnostic filesystem representation.
 
