@@ -10,7 +10,7 @@ require (
 	github.com/creachadair/taskgroup v0.13.1
 	github.com/golang/snappy v0.0.4
 	github.com/google/go-cmp v0.6.0
-	google.golang.org/protobuf v1.35.1
+	google.golang.org/protobuf v1.35.2
 )
 
 require (
