@@ -17,6 +17,7 @@ import (
 	"github.com/creachadair/ffs/blob"
 	"github.com/creachadair/mds/stree"
 	"github.com/creachadair/msync"
+	"github.com/creachadair/msync/trigger"
 	"github.com/creachadair/taskgroup"
 )
 
@@ -44,7 +45,7 @@ type Store struct {
 	nempty *msync.Flag[any]
 
 	// Callers of Sync wait on this condition.
-	bufClean *msync.Trigger
+	bufClean *trigger.Cond
 }
 
 // New constructs a store wrapper that delegates to base and uses buf as the
@@ -68,7 +69,7 @@ func New(ctx context.Context, base blob.CAS, buf blob.Store) *Store {
 		exited:   make(chan struct{}),
 		stop:     cancel,
 		nempty:   msync.NewFlag[any](),
-		bufClean: msync.NewTrigger(),
+		bufClean: trigger.New(),
 	}
 
 	s.nempty.Set(nil) // prime

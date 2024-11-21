@@ -15,7 +15,7 @@ require (
 
 require (
 	github.com/creachadair/mds v0.21.4
-	github.com/creachadair/msync v0.3.1
+	github.com/creachadair/msync v0.4.0
 	honnef.co/go/tools v0.5.1
 )
 
