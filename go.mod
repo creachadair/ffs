@@ -7,15 +7,15 @@ toolchain go1.23.1
 require (
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/creachadair/atomicfile v0.3.6
-	github.com/creachadair/taskgroup v0.13.1
+	github.com/creachadair/taskgroup v0.13.2
 	github.com/golang/snappy v0.0.4
 	github.com/google/go-cmp v0.6.0
 	google.golang.org/protobuf v1.35.2
 )
 
 require (
-	github.com/creachadair/mds v0.21.4
-	github.com/creachadair/msync v0.4.0
+	github.com/creachadair/mds v0.22.0
+	github.com/creachadair/msync v0.4.1
 	honnef.co/go/tools v0.5.1
 )
 
