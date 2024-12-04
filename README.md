@@ -72,7 +72,7 @@ command-line tools for manipulating FFS data structures.
 In addition, the [`ffuse`](https://github.com/creachadair/ffuse) repository
 defines a FUSE filesystem that exposes the FFS data format.
 
+To install the CLI:
 ```sh
-# To install:
-go install github.com/creachadair/ffuse/cmd/ffuse@latest
+go install github.com/creachadair/ffstools/ffs@latest
 ```
