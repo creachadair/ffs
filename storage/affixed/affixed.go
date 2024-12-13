@@ -36,7 +36,7 @@ type Store struct {
 
 // New creates a Store associated with the specified s. The initial store is
 // exactly equivalent to the underlying store; use Derive to create clones that
-// use a different prefix.
+// use a different prefix/suffix.
 //
 // Affixes do not nest: If s is already an affixed.Store, it is returned as-is.
 func New(s blob.Store) Store {
@@ -107,7 +107,7 @@ func (s Store) Delete(ctx context.Context, key string) error {
 }
 
 // List implements part of blob.Store by delegation. It filters the underlying
-// list results to include only keys prefixed for this store.
+// list results to include only keys prefixed/suffixed for this store.
 func (s Store) List(ctx context.Context, start string, f func(string) error) error {
 	// If we have no affixes, we do not need to filter.
 	if s.prefix == "" && s.suffix == "" {
@@ -151,14 +151,16 @@ func (s Store) Len(ctx context.Context) (int64, error) {
 	return nk, err
 }
 
-// CAS implements a prefixed wrapper around a blob.CAS instance.
+// CAS implements an affixed wrapper around a blob.CAS instance.
+// The resulting store adds designated prefix/suffix strings to the keys
+// delegated to its care.
 type CAS struct {
 	Store
 	cas blob.CAS
 }
 
-// NewCAS creates a new prefixed Store associated with the specified cas.
-// Prefixes do not nest: If cas is already a prefixed.CAS, it is returned as.is.
+// NewCAS creates a new affixed Store associated with the specified cas.
+// Affixes do not nest: If cas is already an affixed.CAS, it is returned as.is.
 func NewCAS(cas blob.CAS) CAS {
 	if p, ok := cas.(CAS); ok {
 		return p
