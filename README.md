@@ -58,8 +58,8 @@ it is fine for multiple children to share the same storage key.
 ### Metadata
 
 Files have no required metadata, but for convenience the node representation
-includes optional [`Stat`](./file/wiretype/wiretype.proto#L74) and
-[`XAttr`](./file/wiretype/wiretype.proto#L157) messages that encode typical
+includes optional [`Stat`](./file/wiretype/wiretype.proto#L71) and
+[`XAttr`](./file/wiretype/wiretype.proto#L154) messages that encode typical
 filesystem metadata like POSIX permissions, file type, modification timestamp,
 and ownership. These fields are persisted in the encoding of a node, and thus
 affect its storage key, but are not otherwise interpreted.
