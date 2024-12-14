@@ -30,7 +30,7 @@ var (
 	_ blob.CAS = affixed.CAS{}
 )
 
-func TestStore(t *testing.T) {
+func TestKV(t *testing.T) {
 	m := memstore.New()
 	p := affixed.New(m).Derive("POG:", ":CHAMP")
 	storetest.Run(t, p)
