@@ -30,8 +30,8 @@ import (
 )
 
 var (
-	_ blob.Store = blob.HashCAS{} // satisfaction check
-	_ blob.CAS   = blob.HashCAS{}
+	_ blob.KV  = blob.HashCAS{} // satisfaction check
+	_ blob.CAS = blob.HashCAS{}
 )
 
 func TestSentinelErrors(t *testing.T) {
@@ -130,7 +130,7 @@ func TestListSyncKeyer(t *testing.T) {
 		"4": "four",
 		"5": "five",
 	})
-	sk := blob.ListSyncKeyer{Store: m}
+	sk := blob.ListSyncKeyer{KV: m}
 	ctx := context.Background()
 	check := func(t *testing.T, keys []string, want ...string) {
 		t.Helper()
