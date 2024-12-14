@@ -26,8 +26,8 @@ import (
 )
 
 var (
-	_ blob.Store = affixed.Store{}
-	_ blob.CAS   = affixed.CAS{}
+	_ blob.KV  = affixed.KV{}
+	_ blob.CAS = affixed.CAS{}
 )
 
 func TestStore(t *testing.T) {
@@ -36,7 +36,7 @@ func TestStore(t *testing.T) {
 	storetest.Run(t, p)
 }
 
-func mustPut(t *testing.T, s blob.Store, key, val string) {
+func mustPut(t *testing.T, s blob.KV, key, val string) {
 	t.Helper()
 	if err := s.Put(context.Background(), blob.PutOptions{
 		Key:     key,
@@ -47,7 +47,7 @@ func mustPut(t *testing.T, s blob.Store, key, val string) {
 	}
 }
 
-func mustGet(t *testing.T, s blob.Store, key, val string) {
+func mustGet(t *testing.T, s blob.KV, key, val string) {
 	t.Helper()
 	if got, err := s.Get(context.Background(), key); err != nil {
 		t.Errorf("Get %q failed: %v", key, err)
@@ -56,7 +56,7 @@ func mustGet(t *testing.T, s blob.Store, key, val string) {
 	}
 }
 
-func runList(p blob.Store, want ...string) func(t *testing.T) {
+func runList(p blob.KV, want ...string) func(t *testing.T) {
 	return func(t *testing.T) {
 		var got []string
 		if err := p.List(context.Background(), "", func(key string) error {
@@ -139,7 +139,7 @@ func TestLen(t *testing.T) {
 	mustPut(t, p2, "mango", "2")
 
 	tests := []struct {
-		store blob.Store
+		store blob.KV
 		want  int64
 	}{
 		{m, 6},  // base store: all the keys
@@ -208,7 +208,7 @@ func TestNesting(t *testing.T) {
 }
 
 type selfCAS struct {
-	blob.Store
+	blob.KV
 }
 
 func (selfCAS) CASKey(_ context.Context, opts blob.CASPutOptions) (string, error) {
