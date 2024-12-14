@@ -23,19 +23,20 @@ import (
 
 var errWriterStopped = errors.New("background writer stopped")
 
-// A Store implements the blob.CAS interface delegated to an underlying (base)
-// store. Non-replacement writes are cached locally in a buffer store, and
-// written behind to the base store in the background. Get and Size queries
-// respect the buffer cache, so that the local application sees a consistent
-// view. Other store operations delegate directly to the base store.
+// A CAS implements the [blob.KV] and [blob.CAS] interfaces delegated to an
+// underlying (base) store. Non-replacement writes are cached locally in a
+// buffer store, and written behind to the base store in the background. Get
+// and Size queries respect the buffer cache, so that the local application
+// sees a consistent view. Other store operations delegate directly to the base
+// store.
 //
 // This wrapper is intended for use with base store implementations that are
 // remote and expensive to write to, such as cloud storage. This approach is
 // suitable for applications that do not require immediate consistency of the
 // base store.
-type Store struct {
+type CAS struct {
 	blob.CAS
-	buf blob.Store
+	buf blob.KV
 
 	exited chan struct{}      // closed when background writer is done
 	stop   context.CancelFunc // signals the background writer to exit
@@ -55,7 +56,7 @@ type Store struct {
 //
 // If the buffer store is not empty, any existing blobs will be mirrored to the
 // base store. This allows the caller to gracefully resume after failures.
-func New(ctx context.Context, base blob.CAS, buf blob.Store) *Store {
+func New(ctx context.Context, base blob.CAS, buf blob.KV) *CAS {
 	if base == nil {
 		panic("base is nil")
 	} else if buf == nil {
@@ -63,7 +64,7 @@ func New(ctx context.Context, base blob.CAS, buf blob.Store) *Store {
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
-	s := &Store{
+	s := &CAS{
 		CAS:      base,
 		buf:      buf,
 		exited:   make(chan struct{}),
@@ -87,12 +88,12 @@ func New(ctx context.Context, base blob.CAS, buf blob.Store) *Store {
 }
 
 // Buffer returns the buffer store used by s.
-func (s *Store) Buffer() blob.Store { return s.buf }
+func (s *CAS) Buffer() blob.KV { return s.buf }
 
-// Close implements the optional blob.Closer interface. It signals the
+// Close implements the optional [blob.Closer] interface. It signals the
 // background writer to terminate, and blocks until it has done so or until ctx
 // ends.
-func (s *Store) Close(ctx context.Context) error {
+func (s *CAS) Close(ctx context.Context) error {
 	s.stop()
 	var wberr error
 	select {
@@ -114,7 +115,7 @@ func (s *Store) Close(ctx context.Context) error {
 }
 
 // Sync blocks until the buffer is empty or ctx ends.
-func (s *Store) Sync(ctx context.Context) error {
+func (s *CAS) Sync(ctx context.Context) error {
 	for {
 		// Check whether the buffer is empty. If not, wait for the writeback
 		// thread to signal that it is done with another pass, then try again.
@@ -136,7 +137,7 @@ func (s *Store) Sync(ctx context.Context) error {
 
 // run implements the backround writer. It runs until ctx terminates or until
 // it receives an unrecoverable error.
-func (s *Store) run(ctx context.Context) error {
+func (s *CAS) run(ctx context.Context) error {
 	errSlowWriteRetry := errors.New("slow write retry")
 
 	g, run := taskgroup.New(nil).Limit(64)
@@ -227,7 +228,7 @@ type getResult struct {
 	err  error
 }
 
-func fetch(ctx context.Context, s blob.Store, key string) <-chan getResult {
+func fetch(ctx context.Context, s blob.KV, key string) <-chan getResult {
 	ch := make(chan getResult, 1)
 	go func() {
 		defer close(ch)
@@ -237,9 +238,9 @@ func fetch(ctx context.Context, s blob.Store, key string) <-chan getResult {
 	return ch
 }
 
-// Get implements part of blob.Store. If key is in the write-behind store, its
+// Get implements part of [blob.KV]. If key is in the write-behind store, its
 // value there is returned; otherwise it is fetched from the base store.
-func (s *Store) Get(ctx context.Context, key string) ([]byte, error) {
+func (s *CAS) Get(ctx context.Context, key string) ([]byte, error) {
 	select {
 	case <-s.exited:
 		return nil, s.err
@@ -263,10 +264,10 @@ func (s *Store) Get(ctx context.Context, key string) ([]byte, error) {
 	return r.bits, r.err
 }
 
-// Delete implements part of blob.Store. The key is deleted from both the
-// buffer and the base store, and succeeds as long as either of those
-// operations succeeds.
-func (s *Store) Delete(ctx context.Context, key string) error {
+// Delete implements part of [blob.KV]. The key is deleted from both the buffer
+// and the base store, and succeeds as long as either of those operations
+// succeeds.
+func (s *CAS) Delete(ctx context.Context, key string) error {
 	cerr := s.buf.Delete(ctx, key)
 	berr := s.CAS.Delete(ctx, key)
 	if cerr != nil && berr != nil {
@@ -277,7 +278,7 @@ func (s *Store) Delete(ctx context.Context, key string) error {
 
 // CASPut implements part of blob.CAS. It queries the base store for the
 // content key, but stores the blob only in the buffer.
-func (s *Store) CASPut(ctx context.Context, opts blob.CASPutOptions) (string, error) {
+func (s *CAS) CASPut(ctx context.Context, opts blob.CASPutOptions) (string, error) {
 	select {
 	case <-s.exited:
 		return "", s.err
@@ -301,10 +302,10 @@ func (s *Store) CASPut(ctx context.Context, opts blob.CASPutOptions) (string, er
 	return key, err
 }
 
-// Put implements part of blob.Store. It delegates to the base store directly
+// Put implements part of [blob.KV]. It delegates to the base store directly
 // for writes that request replacement; otherwise it stores the blob into the
 // buffer for writeback.
-func (s *Store) Put(ctx context.Context, opts blob.PutOptions) error {
+func (s *CAS) Put(ctx context.Context, opts blob.PutOptions) error {
 	select {
 	case <-s.exited:
 		return s.err
@@ -323,7 +324,7 @@ func (s *Store) Put(ctx context.Context, opts blob.PutOptions) error {
 
 // bufferKeys returns a tree of the keys currently stored in the buffer that
 // are greater than or equal to start.
-func (s *Store) bufferKeys(ctx context.Context, start string) (*stree.Tree[string], error) {
+func (s *CAS) bufferKeys(ctx context.Context, start string) (*stree.Tree[string], error) {
 	buf := stree.New(300, strings.Compare)
 	if err := s.buf.List(ctx, "", func(key string) error {
 		buf.Add(key)
@@ -334,10 +335,10 @@ func (s *Store) bufferKeys(ctx context.Context, start string) (*stree.Tree[strin
 	return buf, nil
 }
 
-// Len implements part of blob.Store. It merges contents from the buffer that
+// Len implements part of [blob.KV]. It merges contents from the buffer that
 // are not listed in the underlying store, so that the reported length reflects
 // the total number of unique keys across both the buffer and the base store.
-func (s *Store) Len(ctx context.Context) (int64, error) {
+func (s *CAS) Len(ctx context.Context) (int64, error) {
 	buf, err := s.bufferKeys(ctx, "")
 	if err != nil {
 		return 0, err
@@ -356,10 +357,10 @@ func (s *Store) Len(ctx context.Context) (int64, error) {
 	return baseKeys + int64(buf.Len()), nil
 }
 
-// List implements part of blob.Store. It merges contents from the buffer that
+// List implements part of [blob.KV]. It merges contents from the buffer that
 // are not listed in the underlying store, so that the keys reported include
 // those that have not yet been written back.
-func (s *Store) List(ctx context.Context, start string, f func(string) error) error {
+func (s *CAS) List(ctx context.Context, start string, f func(string) error) error {
 	buf, err := s.bufferKeys(ctx, start)
 	if err != nil {
 		return err
