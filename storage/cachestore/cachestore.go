@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package cachestore implements the blob.Store that delegates to an underlying
+// Package cachestore implements the [blob.KV] that delegates to an underlying
 // store through an in-memory cache.
 package cachestore
 
@@ -29,15 +29,15 @@ import (
 	"github.com/creachadair/taskgroup"
 )
 
-// Store implements a blob.Store that delegates to an underlying store through
-// an in-memory cache. This is appropriate for a high-latency or quota-limited
+// KV implements a [blob.KV] that delegates to an underlying store through an
+// in-memory cache. This is appropriate for a high-latency or quota-limited
 // remote store (such as a GCS or S3 bucket) that will not be concurrently
 // written by other processes; concurrent readers are fine.
 //
 // Both reads and writes are cached, and the store writes through to the
 // underlying store.  Negative hits from Get and Size are also cached.
-type Store struct {
-	base blob.Store
+type KV struct {
+	base blob.KV
 
 	μ      sync.Mutex
 	listed bool                         // keymap has been fully populated
@@ -50,8 +50,8 @@ type Store struct {
 
 // New constructs a new cached store with the specified capacity in bytes,
 // delegating storage operations to s.  It will panic if maxBytes < 0.
-func New(s blob.Store, maxBytes int) *Store {
-	return &Store{
+func New(s blob.KV, maxBytes int) *KV {
+	return &KV{
 		base:   s,
 		keymap: stree.New[string](300, strings.Compare),
 		cache: cache.New(int64(maxBytes), cache.LRU[string, []byte]().
@@ -60,8 +60,8 @@ func New(s blob.Store, maxBytes int) *Store {
 	}
 }
 
-// Get implements a method of blob.Store.
-func (s *Store) Get(ctx context.Context, key string) ([]byte, error) {
+// Get implements a method of [blob.KV].
+func (s *KV) Get(ctx context.Context, key string) ([]byte, error) {
 	s.μ.Lock()
 	defer s.μ.Unlock()
 	if err := s.initKeyMapLocked(ctx); err != nil {
@@ -82,8 +82,8 @@ func (s *Store) Get(ctx context.Context, key string) ([]byte, error) {
 	return data, nil
 }
 
-// Put implements a method of blob.Store.
-func (s *Store) Put(ctx context.Context, opts blob.PutOptions) error {
+// Put implements a method of [blob.KV].
+func (s *KV) Put(ctx context.Context, opts blob.PutOptions) error {
 	s.μ.Lock()
 	defer s.μ.Unlock()
 	if err := s.initKeyMapLocked(ctx); err != nil {
@@ -102,8 +102,8 @@ func (s *Store) Put(ctx context.Context, opts blob.PutOptions) error {
 	return nil
 }
 
-// Delete implements a method of blob.Store.
-func (s *Store) Delete(ctx context.Context, key string) error {
+// Delete implements a method of [blob.KV].
+func (s *KV) Delete(ctx context.Context, key string) error {
 	s.μ.Lock()
 	defer s.μ.Unlock()
 	if err := s.initKeyMapLocked(ctx); err != nil {
@@ -119,7 +119,7 @@ func (s *Store) Delete(ctx context.Context, key string) error {
 
 // initKeyMapLocked fills the key map from the base store.
 // The caller must hold s.μ.
-func (s *Store) initKeyMapLocked(ctx context.Context) error {
+func (s *KV) initKeyMapLocked(ctx context.Context) error {
 	if s.listed {
 		return nil
 	}
@@ -150,8 +150,8 @@ func (s *Store) initKeyMapLocked(ctx context.Context) error {
 	return err
 }
 
-// List implements a method of blob.Store.
-func (s *Store) List(ctx context.Context, start string, f func(string) error) error {
+// List implements a method of [blob.KV].
+func (s *KV) List(ctx context.Context, start string, f func(string) error) error {
 	s.μ.Lock()
 	defer s.μ.Unlock()
 	if err := s.initKeyMapLocked(ctx); err != nil {
@@ -168,8 +168,8 @@ func (s *Store) List(ctx context.Context, start string, f func(string) error) er
 	return nil
 }
 
-// Len implements a method of blob.Store.
-func (s *Store) Len(ctx context.Context) (int64, error) {
+// Len implements a method of [blob.KV].
+func (s *KV) Len(ctx context.Context) (int64, error) {
 	s.μ.Lock()
 	defer s.μ.Unlock()
 	if err := s.initKeyMapLocked(ctx); err != nil {
@@ -178,8 +178,8 @@ func (s *Store) Len(ctx context.Context) (int64, error) {
 	return int64(s.keymap.Len()), nil
 }
 
-// Close implements blob.Closer by closing the underlying store.
-func (s *Store) Close(ctx context.Context) error {
+// Close implements [blob.Closer] by closing the underlying store.
+func (s *KV) Close(ctx context.Context) error {
 	s.μ.Lock()
 	defer s.μ.Unlock()
 
@@ -191,7 +191,7 @@ func (s *Store) Close(ctx context.Context) error {
 
 // CAS implements a cached wrapper around a blob.CAS instance.
 type CAS struct {
-	*Store
+	*KV
 	cas blob.CAS
 }
 
@@ -199,8 +199,8 @@ type CAS struct {
 // delegating storage operations to cas.  It will panic if maxBytes < 0.
 func NewCAS(cas blob.CAS, maxBytes int) CAS {
 	return CAS{
-		Store: New(cas, maxBytes),
-		cas:   cas,
+		KV:  New(cas, maxBytes),
+		cas: cas,
 	}
 }
 
