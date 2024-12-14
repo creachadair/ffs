@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package storetest provides correctness tests for implementations of the
-// blob.Store interface.
+// [blob.KV] interface.
 package storetest
 
 import (
@@ -30,7 +30,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-type op = func(context.Context, *testing.T, blob.Store)
+type op = func(context.Context, *testing.T, blob.KV)
 
 var script = []op{
 	// Verify that the store is initially empty.
@@ -102,7 +102,7 @@ var delScript = []op{
 }
 
 func opGet(key, want string, werr error) op {
-	return func(ctx context.Context, t *testing.T, s blob.Store) {
+	return func(ctx context.Context, t *testing.T, s blob.KV) {
 		t.Helper()
 		got, err := s.Get(ctx, key)
 		if !errorOK(err, werr) {
@@ -114,7 +114,7 @@ func opGet(key, want string, werr error) op {
 }
 
 func opPut(key, data string, replace bool, werr error) op {
-	return func(ctx context.Context, t *testing.T, s blob.Store) {
+	return func(ctx context.Context, t *testing.T, s blob.KV) {
 		t.Helper()
 		err := s.Put(ctx, blob.PutOptions{
 			Key:     key,
@@ -128,7 +128,7 @@ func opPut(key, data string, replace bool, werr error) op {
 }
 
 func opDelete(key string, werr error) op {
-	return func(ctx context.Context, t *testing.T, s blob.Store) {
+	return func(ctx context.Context, t *testing.T, s blob.KV) {
 		t.Helper()
 		err := s.Delete(ctx, key)
 		if !errorOK(err, werr) {
@@ -142,7 +142,7 @@ func opList(from string, want ...string) op {
 }
 
 func opListRange(from, to string, want ...string) op {
-	return func(ctx context.Context, t *testing.T, s blob.Store) {
+	return func(ctx context.Context, t *testing.T, s blob.KV) {
 		t.Helper()
 		var got []string
 		err := s.List(ctx, from, func(key string) error {
@@ -162,7 +162,7 @@ func opListRange(from, to string, want ...string) op {
 }
 
 func opLen(want int64) op {
-	return func(ctx context.Context, t *testing.T, s blob.Store) {
+	return func(ctx context.Context, t *testing.T, s blob.KV) {
 		t.Helper()
 		got, err := s.Len(ctx)
 		if err != nil {
@@ -183,7 +183,7 @@ func errorOK(err, werr error) bool {
 
 // Run applies the test script to empty store s, then closes s.  Any errors are
 // reported to t.  After Run returns, the contents of s are garbage.
-func Run(t *testing.T, s blob.Store) {
+func Run(t *testing.T, s blob.KV) {
 	ctx := context.Background()
 	for _, op := range script {
 		op(ctx, t, s)
