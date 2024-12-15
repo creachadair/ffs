@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package affixed implements a blob.Store interface that delegates to another
-// Store, with keys namespaced by a fixed prefix and/or suffix concatenated
-// with each key.
+// Package affixed implements a [blob.KV] that delegates to another
+// implementation, with keys namespaced by a fixed prefix and/or suffix
+// concatenated with each key.
 package affixed
 
 import (
@@ -24,91 +24,91 @@ import (
 	"github.com/creachadair/ffs/blob"
 )
 
-// Store implements the blob.Store interface by delegating to an underlying
-// store, but with each key prefixed and/or suffixed by fixed non-empty
-// strings.  This allows multiple consumers to share non-overlapping namespaces
-// within a single storage backend.
-type Store struct {
-	real   blob.Store
+// KV implements the [blob.KV] interface by delegating to an underlying store,
+// but with each key prefixed and/or suffixed by fixed non-empty strings.  This
+// allows multiple consumers to share non-overlapping namespaces within a
+// single storage backend.
+type KV struct {
+	real   blob.KV
 	prefix string
 	suffix string
 }
 
-// New creates a Store associated with the specified s. The initial store is
+// New creates a KV associated with the specified kv. The initial value is
 // exactly equivalent to the underlying store; use Derive to create clones that
 // use a different prefix/suffix.
 //
-// Affixes do not nest: If s is already an affixed.Store, it is returned as-is.
-func New(s blob.Store) Store {
-	if p, ok := s.(Store); ok {
+// Affixes do not nest: If s is already a [KV], it is returned as-is.
+func New(kv blob.KV) KV {
+	if p, ok := kv.(KV); ok {
 		return p
 	}
-	return Store{real: s}
+	return KV{real: kv}
 }
 
 // Base returns the underlying store associated with s.
-func (s Store) Base() blob.Store { return s.real }
+func (s KV) Base() blob.KV { return s.real }
 
 // WithPrefix creates a clone of s that delegates to the same underlying store,
 // but using a different prefix. The suffix, if any, is unchanged.
-func (s Store) WithPrefix(prefix string) Store {
-	return Store{real: s.real, prefix: prefix, suffix: s.suffix}
+func (s KV) WithPrefix(prefix string) KV {
+	return KV{real: s.real, prefix: prefix, suffix: s.suffix}
 }
 
 // WithSuffix creates a clone of s that delegates to the same underlying store,
 // but using a different suffix. The prefix, if any, is unchanged.
-func (s Store) WithSuffix(suffix string) Store {
-	return Store{real: s.real, prefix: s.prefix, suffix: suffix}
+func (s KV) WithSuffix(suffix string) KV {
+	return KV{real: s.real, prefix: s.prefix, suffix: suffix}
 }
 
 // Derive creates a clone of s that delegates to the same underlying store, but
 // using a different prefix and suffix. If prefix == suffix == "", Derive
 // returns a store that is equivalent to the original base store.
-func (s Store) Derive(prefix, suffix string) Store {
-	return Store{real: s.real, prefix: prefix, suffix: suffix}
+func (s KV) Derive(prefix, suffix string) KV {
+	return KV{real: s.real, prefix: prefix, suffix: suffix}
 }
 
 // Prefix returns the key prefix associated with s.
-func (s Store) Prefix() string { return s.prefix }
+func (s KV) Prefix() string { return s.prefix }
 
 // Suffix returns the key suffix associated with s.
-func (s Store) Suffix() string { return s.suffix }
+func (s KV) Suffix() string { return s.suffix }
 
 // WrapKey returns the wrapped version of key as it would be stored into the
 // base store with the current prefix and suffix attached.
-func (s Store) WrapKey(key string) string { return s.prefix + key + s.suffix }
+func (s KV) WrapKey(key string) string { return s.prefix + key + s.suffix }
 
 // UnwrapKey returns the unwrapped version of key with the current prefix and
 // suffix removed (if present).
-func (s Store) UnwrapKey(key string) string {
+func (s KV) UnwrapKey(key string) string {
 	p := strings.TrimPrefix(key, s.prefix)
 	return strings.TrimSuffix(p, s.suffix)
 }
 
-// Close implements the optional blob.Closer interface. It delegates to the
+// Close implements the optional [blob.Closer] interface. It delegates to the
 // underlying store if possible.
-func (s Store) Close(ctx context.Context) error { return s.real.Close(ctx) }
+func (s KV) Close(ctx context.Context) error { return s.real.Close(ctx) }
 
 // Get implements part of blob.Store by delegation.
-func (s Store) Get(ctx context.Context, key string) ([]byte, error) {
+func (s KV) Get(ctx context.Context, key string) ([]byte, error) {
 	return s.real.Get(ctx, s.WrapKey(key))
 }
 
-// Put implements part of blob.Store by delegation.
-func (s Store) Put(ctx context.Context, opts blob.PutOptions) error {
+// Put implements part of [blob.KV] by delegation.
+func (s KV) Put(ctx context.Context, opts blob.PutOptions) error {
 	// Leave the options as-given, except the key must be wrapped.
 	opts.Key = s.WrapKey(opts.Key)
 	return s.real.Put(ctx, opts)
 }
 
-// Delete implements part of blob.Store by delegation.
-func (s Store) Delete(ctx context.Context, key string) error {
+// Delete implements part of [blob.KV] by delegation.
+func (s KV) Delete(ctx context.Context, key string) error {
 	return s.real.Delete(ctx, s.WrapKey(key))
 }
 
-// List implements part of blob.Store by delegation. It filters the underlying
+// List implements part of [blob.KV] by delegation. It filters the underlying
 // list results to include only keys prefixed/suffixed for this store.
-func (s Store) List(ctx context.Context, start string, f func(string) error) error {
+func (s KV) List(ctx context.Context, start string, f func(string) error) error {
 	// If we have no affixes, we do not need to filter.
 	if s.prefix == "" && s.suffix == "" {
 		return s.real.List(ctx, start, f)
@@ -129,9 +129,9 @@ func (s Store) List(ctx context.Context, start string, f func(string) error) err
 	})
 }
 
-// Len implements part of blob.Store by delegation. It reports only the number
+// Len implements part of [blob.KV] by delegation. It reports only the number
 // of keys matching the current prefix.
-func (s Store) Len(ctx context.Context) (int64, error) {
+func (s KV) Len(ctx context.Context) (int64, error) {
 	// If the prefix and suffix are empty, we can delegate directly to the base.
 	if s.prefix == "" && s.suffix == "" {
 		return s.real.Len(ctx)
@@ -151,21 +151,21 @@ func (s Store) Len(ctx context.Context) (int64, error) {
 	return nk, err
 }
 
-// CAS implements an affixed wrapper around a blob.CAS instance.
+// CAS implements an affixed wrapper around a [blob.CAS] instance.
 // The resulting store adds designated prefix/suffix strings to the keys
 // delegated to its care.
 type CAS struct {
-	Store
+	KV
 	cas blob.CAS
 }
 
-// NewCAS creates a new affixed Store associated with the specified cas.
+// NewCAS creates a new affixed [KV] associated with the specified cas.
 // Affixes do not nest: If cas is already an affixed.CAS, it is returned as.is.
 func NewCAS(cas blob.CAS) CAS {
 	if p, ok := cas.(CAS); ok {
 		return p
 	}
-	return CAS{Store: New(cas), cas: cas}
+	return CAS{KV: New(cas), cas: cas}
 }
 
 // Base returns the underlying store associated with c.
@@ -174,31 +174,31 @@ func (c CAS) Base() blob.CAS { return c.cas }
 // WithPrefix creates a clone of c that delegates to the same underlying store,
 // but using a different prefix. The suffix, if any, is unchanged.
 func (c CAS) WithPrefix(prefix string) CAS {
-	return CAS{Store: c.Store.WithPrefix(prefix), cas: c.cas}
+	return CAS{KV: c.KV.WithPrefix(prefix), cas: c.cas}
 }
 
 // WithSuffix creates a clone of c that delegates to the same underlying store,
 // but using a different suffix. The prefix, if any, is unchanged.
 func (c CAS) WithSuffix(suffix string) CAS {
-	return CAS{Store: c.Store.WithSuffix(suffix), cas: c.cas}
+	return CAS{KV: c.KV.WithSuffix(suffix), cas: c.cas}
 }
 
 // Derive creates a clone of c that delegates to the same underlying store, but
 // using a different prefix and suffix. If prefix == suffix == "", Derive
 // returns a store that is equivalent to the original base store.
 func (c CAS) Derive(prefix, suffix string) CAS {
-	return CAS{Store: c.Store.Derive(prefix, suffix), cas: c.cas}
+	return CAS{KV: c.KV.Derive(prefix, suffix), cas: c.cas}
 }
 
 func (c CAS) setOptions(opts blob.CASPutOptions) blob.CASPutOptions {
 	return blob.CASPutOptions{
 		Data:   opts.Data,
-		Prefix: opts.Prefix + c.Store.prefix,
-		Suffix: c.Store.suffix + opts.Suffix,
+		Prefix: opts.Prefix + c.KV.prefix,
+		Suffix: c.KV.suffix + opts.Suffix,
 	}
 }
 
-// CASPut implements part of the blob.CAS interface.
+// CASPut implements part of the [blob.CAS] interface.
 func (c CAS) CASPut(ctx context.Context, opts blob.CASPutOptions) (string, error) {
 	key, err := c.cas.CASPut(ctx, c.setOptions(opts))
 	return c.UnwrapKey(key), err

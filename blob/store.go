@@ -24,18 +24,18 @@ import (
 	"sort"
 )
 
-// A Store represents a mutable blob store in which each blob is identified by
-// a unique, opaque string key.  An implementation of Store is permitted (but
+// A KV represents a mutable key-value store in which each value is identified
+// by a unique, opaque string key.  An implementation of KV is permitted (but
 // not required) to report an error from Put when given an empty key.  If the
 // implementation cannot store empty keys, it must report ErrKeyNotFound when
 // operating on an empty key.
 //
 // Implementations of this interface must be safe for concurrent use by
-// multiple goroutines.  Moreover, any sequence of operations on a Store that
-// does not overlap with any Delete executions must be linearizable.[1]
+// multiple goroutines.  Moreover, any sequence of operations on a KV that does
+// not overlap with any Delete executions must be linearizable.[1]
 //
 // [1]: https://en.wikipedia.org/wiki/Linearizability
-type Store interface {
+type KV interface {
 	// Get fetches the contents of a blob from the store. If the key is not
 	// found in the store, Get must report an ErrKeyNotFound error.
 	Get(ctx context.Context, key string) ([]byte, error)
@@ -63,7 +63,7 @@ type Store interface {
 	Close(context.Context) error
 }
 
-// PutOptions regulate the behaviour of the Put method of a Store
+// PutOptions regulate the behaviour of the Put method of a [KV]
 // implementation.
 type PutOptions struct {
 	Key     string // the key to associate with the data
@@ -121,7 +121,7 @@ func KeyExists(key string) error { return &KeyError{Key: key, Err: ErrKeyExists}
 // CAS is an optional interface that a store may implement to support content
 // addressing using a one-way hash.
 type CAS interface {
-	Store
+	KV
 
 	// CASPut writes data to a content-addressed blob in the underlying store,
 	// and returns the assigned key. The target key is returned even in case of
@@ -142,15 +142,15 @@ type CASPutOptions struct {
 }
 
 // A HashCAS is a content-addressable wrapper that adds the CAS methods to a
-// delegated blob.Store.
+// delegated [KV].
 type HashCAS struct {
-	Store
+	KV
 
 	newHash func() hash.Hash
 }
 
 // NewCAS constructs a HashCAS that delegates to s and uses h to assign keys.
-func NewCAS(s Store, h func() hash.Hash) HashCAS { return HashCAS{Store: s, newHash: h} }
+func NewCAS(kv KV, h func() hash.Hash) HashCAS { return HashCAS{KV: kv, newHash: h} }
 
 // key computes the content key for data using the provided hash.
 func (c HashCAS) key(opts CASPutOptions) string {
@@ -187,7 +187,7 @@ func (c HashCAS) CASKey(_ context.Context, opts CASPutOptions) (string, error) {
 // SyncKeyer is an optional interface that a store may implement to support
 // checking for the presence of keys in the store without fetching them.
 type SyncKeyer interface {
-	Store
+	KV
 
 	// SyncKeys reports which of the given keys are not present in the store.
 	// If all the keys are present, SyncKeys returns an empty slice or nil.
@@ -196,9 +196,9 @@ type SyncKeyer interface {
 }
 
 // ListSyncKeyer is a wrapper that adds the SyncKeys method to a delegated
-// blob.Store, using its List method.
+// [KV], using its List method.
 type ListSyncKeyer struct {
-	Store
+	KV
 }
 
 // SyncKeys implements the SyncKeyer interface using the List method of the

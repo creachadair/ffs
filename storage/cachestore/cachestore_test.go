@@ -26,11 +26,11 @@ import (
 )
 
 var (
-	_ blob.Store = (*cachestore.Store)(nil)
-	_ blob.CAS   = cachestore.CAS{}
+	_ blob.KV  = (*cachestore.KV)(nil)
+	_ blob.CAS = cachestore.CAS{}
 )
 
-func TestStore(t *testing.T) {
+func TestKV(t *testing.T) {
 	m := memstore.New()
 	c := cachestore.New(m, 100)
 	storetest.Run(t, c)

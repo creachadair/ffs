@@ -12,7 +12,7 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-var _ blob.CAS = (*wbstore.Store)(nil)
+var _ blob.CAS = (*wbstore.CAS)(nil)
 
 type slowCAS struct {
 	blob.CAS
@@ -59,7 +59,7 @@ func TestStore(t *testing.T) {
 			t.Fatalf("Put %q failed: %v", val, err)
 		}
 	}
-	checkVal := func(m blob.Store, key, want string) {
+	checkVal := func(m blob.KV, key, want string) {
 		t.Helper()
 		bits, err := m.Get(ctx, key)
 		if blob.IsKeyNotFound(err) && want == "" {
@@ -70,7 +70,7 @@ func TestStore(t *testing.T) {
 			t.Errorf("Get %x: got %q, want %q", key, got, want)
 		}
 	}
-	checkLen := func(m blob.Store, want int) {
+	checkLen := func(m blob.KV, want int) {
 		t.Helper()
 		got, err := m.Len(ctx)
 		if err != nil {
@@ -79,7 +79,7 @@ func TestStore(t *testing.T) {
 			t.Errorf("Len: got %d, want %d", got, want)
 		}
 	}
-	checkList := func(m blob.Store, want ...string) {
+	checkList := func(m blob.KV, want ...string) {
 		t.Helper()
 		sort.Strings(want)
 		var got []string
