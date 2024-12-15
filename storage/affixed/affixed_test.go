@@ -31,9 +31,10 @@ var (
 )
 
 func TestKV(t *testing.T) {
-	m := memstore.New()
-	p := affixed.New(m).Derive("POG:", ":CHAMP")
-	storetest.Run(t, p)
+	storetest.Run(t, memstore.New(func() blob.KV {
+		m := memstore.NewKV()
+		return affixed.New(m).Derive("POG:", ":CHAMP")
+	}))
 }
 
 func mustPut(t *testing.T, s blob.KV, key, val string) {
@@ -72,7 +73,7 @@ func runList(p blob.KV, want ...string) func(t *testing.T) {
 }
 
 func TestAffixes(t *testing.T) {
-	m := memstore.New()
+	m := memstore.NewKV()
 	p1 := affixed.New(m).Derive("A:", ":A")
 	p2 := p1.Derive("B:", ":B")
 	p3 := affixed.NewCAS(selfCAS{m}).Derive("C:", ":C")
@@ -126,7 +127,7 @@ func TestAffixes(t *testing.T) {
 }
 
 func TestLen(t *testing.T) {
-	m := memstore.New()
+	m := memstore.NewKV()
 	p0 := affixed.New(m)
 	p1 := p0.Derive("X:", ":X")
 	p2 := p1.WithPrefix("Y:")
@@ -160,7 +161,7 @@ func TestLen(t *testing.T) {
 }
 
 func TestNesting(t *testing.T) {
-	m := memstore.New()
+	m := memstore.NewKV()
 	p1 := affixed.New(m)
 	c1 := affixed.NewCAS(selfCAS{m})
 
