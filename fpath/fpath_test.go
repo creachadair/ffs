@@ -45,7 +45,7 @@ var (
 func mustNewCAS(t *testing.T, h func() hash.Hash) blob.CAS {
 	t.Helper()
 	if *saveStore == "" {
-		return blob.NewCAS(memstore.New(), h)
+		return blob.NewCAS(memstore.NewKV(), h)
 	}
 	fs, err := filestore.New(*saveStore)
 	if err != nil {
