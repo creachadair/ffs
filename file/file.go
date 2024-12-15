@@ -289,13 +289,9 @@ func (f *File) Key() string { f.mu.RLock(); defer f.mu.RUnlock(); return f.key }
 // verify that there are no cycles in the graph.
 func (f *File) recFlushLocked(ctx context.Context, path []*File) (string, error) {
 	// Recursive flush is a long operation, check for timeout/cancellation.
-	select {
-	case <-ctx.Done():
+	if ctx.Err() != nil {
 		return "", ctx.Err()
-	default:
-		// proceed
 	}
-
 	needsUpdate := f.key == ""
 
 	// Flush any cached children.
@@ -400,9 +396,7 @@ func (f *File) Scan(ctx context.Context, visit func(ScanItem) bool) error {
 		kids := slices.Clone(next.kids)
 		next.mu.RUnlock()
 
-		for i := len(kids) - 1; i >= 0; i-- {
-			kid := kids[i]
-
+		for _, kid := range slices.Backward(kids) {
 			// We already flushed f, so all the kids have storage keys.  We have
 			// to open each child to recur on it.
 			kf, err := Open(ctx, next.s, kid.Key)

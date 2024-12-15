@@ -2,8 +2,6 @@ module github.com/creachadair/ffs
 
 go 1.23
 
-toolchain go1.23.1
-
 require (
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/creachadair/atomicfile v0.3.6
