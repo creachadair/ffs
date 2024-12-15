@@ -174,10 +174,16 @@ func TestScan(t *testing.T) {
 		t.Errorf("Scan result: %q, should be sorted", got)
 	}
 
-	if _, err := root.Flush(ctx); err != nil {
+	key, err := root.Flush(ctx)
+	if err != nil {
 		t.Fatalf("Flush failed: %v", err)
 	}
-	if err := root.Scan(ctx, func(e file.ScanItem) bool {
+
+	alt, err := file.Open(ctx, cas, key)
+	if err != nil {
+		t.Fatalf("Open %x failed: %v", key, err)
+	}
+	if err := alt.Scan(ctx, func(e file.ScanItem) bool {
 		if got := e.File.XAttr().Get("name"); got != e.Name {
 			t.Errorf("File %p name: got %q, want %q", e.File, got, e.Name)
 		}
