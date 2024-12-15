@@ -24,7 +24,7 @@ import (
 )
 
 func TestStore(t *testing.T) {
-	base := memstore.New()
+	base := memstore.New(nil)
 	enc := encoded.New(base, identity{})
 	storetest.Run(t, enc)
 }
