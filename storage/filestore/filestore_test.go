@@ -15,6 +15,7 @@
 package filestore_test
 
 import (
+	"context"
 	"flag"
 	"os"
 	"testing"
@@ -39,5 +40,23 @@ func TestStore(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Creating store in %q: %v", dir, err)
 	}
-	storetest.Run(t, s)
+	storetest.Run(t, storetest.NopCloser(s))
+}
+
+func TestNesting(t *testing.T) {
+	dir := t.TempDir()
+	t.Logf("Test store: %s", dir)
+
+	s, err := filestore.New(dir)
+	if err != nil {
+		t.Fatalf("Creating store in %q: %v", dir, err)
+	}
+
+	ctx := context.Background()
+	k1 := storetest.SubKeyspace(t, ctx, s, "foo", "bar")
+	k2 := storetest.SubKeyspace(t, ctx, s, "foo/_bar")
+
+	if k1d, k2d := k1.(filestore.KV).Dir(), k2.(filestore.KV).Dir(); k1d == k2d {
+		t.Fatalf("Equal directories: %q", k1d)
+	}
 }

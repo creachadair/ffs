@@ -27,7 +27,7 @@ import (
 )
 
 func TestRoot(t *testing.T) {
-	cas := blob.NewCAS(memstore.New(), sha1.New)
+	cas := blob.NewCAS(memstore.NewKV(), sha1.New)
 	ctx := context.Background()
 
 	r := root.New(cas, &root.Options{

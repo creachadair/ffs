@@ -34,6 +34,44 @@ type Codec interface {
 	Decode(w io.Writer, src []byte) error
 }
 
+// A Store wraps an existing [blob.Store] implementation so that its key spaces
+// are encoded using a [Codec].
+type Store struct {
+	codec Codec
+	real  blob.Store
+}
+
+// Keyspace implements a method of [blob.Store]. The concrete type of keyspaces
+// returned is [KV].
+func (s Store) Keyspace(ctx context.Context, name string) (blob.KV, error) {
+	kv, err := s.real.Keyspace(ctx, name)
+	if err != nil {
+		return nil, err
+	}
+	return KV{codec: s.codec, real: NewKV(kv, s.codec)}, nil
+}
+
+// Sub implements a method of [blob.Store]. The concrete type of stores
+// returned is [Store].
+func (s Store) Sub(ctx context.Context, name string) (blob.Store, error) {
+	sub, err := s.real.Sub(ctx, name)
+	if err != nil {
+		return nil, err
+	}
+	return Store{codec: s.codec, real: sub}, nil
+}
+
+// New constructs a new store that delegates to s and uses c to encode and
+// decode blob data. New will panic if either s or c is nil.
+func New(s blob.Store, c Codec) Store {
+	if s == nil {
+		panic("store is nil")
+	} else if c == nil {
+		panic("codec is nil")
+	}
+	return Store{codec: c, real: s}
+}
+
 // A KV wraps an existing [blob.KV] implementation in which blobs are encoded
 // using a [Codec].
 type KV struct {
@@ -41,19 +79,19 @@ type KV struct {
 	real  blob.KV // the underlying storage implementation
 }
 
-// New constructs a new store that delegates to s and uses c to encode and
-// decode blob data. New will panic if either s or c is nil.
-func New(kv blob.KV, c Codec) *KV {
+// NewKV constructs a new KV that delegates to kv and uses c to encode and
+// decode blob data. NewKV will panic if either kv or c is nil.
+func NewKV(kv blob.KV, c Codec) KV {
 	if kv == nil {
-		panic("store is nil")
+		panic("keyspace is nil")
 	} else if c == nil {
 		panic("codec is nil")
 	}
-	return &KV{codec: c, real: kv}
+	return KV{codec: c, real: kv}
 }
 
 // Get implements part of the [blob.KV] interface.
-func (s *KV) Get(ctx context.Context, key string) ([]byte, error) {
+func (s KV) Get(ctx context.Context, key string) ([]byte, error) {
 	enc, err := s.real.Get(ctx, key)
 	if err != nil {
 		return nil, err
@@ -71,7 +109,7 @@ func (s *KV) Get(ctx context.Context, key string) ([]byte, error) {
 }
 
 // Put implements part of the [blob.KV] interface.
-func (s *KV) Put(ctx context.Context, opts blob.PutOptions) error {
+func (s KV) Put(ctx context.Context, opts blob.PutOptions) error {
 	buf := bytes.NewBuffer(make([]byte, 0, len(opts.Data)))
 	if err := s.codec.Encode(buf, opts.Data); err != nil {
 		return err
@@ -83,19 +121,16 @@ func (s *KV) Put(ctx context.Context, opts blob.PutOptions) error {
 
 // Delete implements part of the [blob.KV] interface.
 // It delegates directly to the underlying store.
-func (s *KV) Delete(ctx context.Context, key string) error {
+func (s KV) Delete(ctx context.Context, key string) error {
 	return s.real.Delete(ctx, key)
 }
 
 // List implements part of the [blob.KV] interface.
 // It delegates directly to the underlying store.
-func (s *KV) List(ctx context.Context, start string, f func(string) error) error {
+func (s KV) List(ctx context.Context, start string, f func(string) error) error {
 	return s.real.List(ctx, start, f)
 }
 
 // Len implements part of the [blob.KV] interface.
 // It delegates directly to the underlying store.
-func (s *KV) Len(ctx context.Context) (int64, error) { return s.real.Len(ctx) }
-
-// Close implements the [blob.Closer] interface.
-func (s *KV) Close(ctx context.Context) error { return s.real.Close(ctx) }
+func (s KV) Len(ctx context.Context) (int64, error) { return s.real.Len(ctx) }

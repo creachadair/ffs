@@ -24,10 +24,10 @@ import (
 	"github.com/creachadair/ffs/blob"
 )
 
-// KV implements the [blob.KV] interface by delegating to an underlying store,
-// but with each key prefixed and/or suffixed by fixed non-empty strings.  This
-// allows multiple consumers to share non-overlapping namespaces within a
-// single storage backend.
+// KV implements the [blob.KV] interface by delegating to an underlying
+// keyspace, but with each key prefixed and/or suffixed by fixed non-empty
+// strings.  This allows multiple consumers to share non-overlapping namespaces
+// within a single KV.
 type KV struct {
 	real   blob.KV
 	prefix string
@@ -84,10 +84,6 @@ func (s KV) UnwrapKey(key string) string {
 	p := strings.TrimPrefix(key, s.prefix)
 	return strings.TrimSuffix(p, s.suffix)
 }
-
-// Close implements the optional [blob.Closer] interface. It delegates to the
-// underlying store if possible.
-func (s KV) Close(ctx context.Context) error { return s.real.Close(ctx) }
 
 // Get implements part of blob.Store by delegation.
 func (s KV) Get(ctx context.Context, key string) ([]byte, error) {

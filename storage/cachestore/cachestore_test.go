@@ -31,20 +31,22 @@ var (
 )
 
 func TestKV(t *testing.T) {
-	m := memstore.New()
-	c := cachestore.New(m, 100)
-	storetest.Run(t, c)
+	storetest.Run(t, memstore.New(func() blob.KV {
+		m := memstore.NewKV()
+		return cachestore.New(m, 100)
+	}))
 }
 
 func TestCAS(t *testing.T) {
-	bs := blob.NewCAS(memstore.New(), sha1.New)
-	c := cachestore.NewCAS(bs, 100)
-	storetest.Run(t, c)
+	storetest.Run(t, memstore.New(func() blob.KV {
+		bs := blob.NewCAS(memstore.NewKV(), sha1.New)
+		return cachestore.NewCAS(bs, 100)
+	}))
 }
 
 func TestRegression_keyMap(t *testing.T) {
 	const data = "stuff"
-	m := memstore.New()
+	m := memstore.NewKV()
 	m.Put(context.Background(), blob.PutOptions{
 		Key:  "init",
 		Data: []byte(data),

@@ -446,7 +446,7 @@ func newDataTester(t *testing.T, sc *block.SplitConfig) *dataTester {
 	return &dataTester{
 		t:   t,
 		ctx: context.Background(),
-		cas: blob.NewCAS(memstore.New(), sha1.New),
+		cas: blob.NewCAS(memstore.NewKV(), sha1.New),
 		fd:  &fileData{sc: sc},
 	}
 }
