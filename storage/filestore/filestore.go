@@ -32,6 +32,55 @@ import (
 	"github.com/creachadair/ffs/storage/hexkey"
 )
 
+// Store implements the [blob.Store] interface using a directory structure with
+// one file per stored blob. Keys are encoded in hex and used to construct the
+// file and directory names relative to a root directory, similar to a Git
+// local object store.
+type Store struct {
+	dir string
+	key hexkey.Config
+}
+
+// New creates a Store associated with the specified root directory, which is
+// created if it does not already exist.
+func New(dir string) (Store, error) {
+	path := filepath.Clean(dir)
+	if err := os.MkdirAll(path, 0700); err != nil {
+		return Store{}, err
+	}
+	return Store{dir: path, key: hexkey.Config{Shard: 3}}, nil
+}
+
+func (s Store) mkPath(name string) (string, error) {
+	if name == "" {
+		return s.dir, nil // already known to exist
+	}
+	path := filepath.Join(s.dir, "_"+name) // avert conflict with hex keys
+	return path, os.MkdirAll(path, 0700)
+}
+
+// Keyspace implements part of the [blob.Store] interface.
+func (s Store) Keyspace(name string) (blob.KV, error) {
+	path, err := s.mkPath(name)
+	if err != nil {
+		return nil, err
+	}
+	return KV{dir: path, key: s.key}, nil
+}
+
+// Sub implements part of the [blob.Store] interface.
+func (s Store) Sub(name string) (blob.Store, error) {
+	path, err := s.mkPath(name)
+	if err != nil {
+		return nil, err
+	}
+	return Store{dir: path, key: s.key}, nil
+}
+
+// Close implements part of the [blob.StoreCloser] interface.
+// This implementation never reports an error.
+func (Store) Close(context.Context) error { return nil }
+
 // KV implements the [blob.kV] interface using a directory structure with one
 // file per stored blob. Keys are encoded in hex and used to construct file and
 // directory names relative to a root directory, similar to a Git local object
@@ -44,17 +93,11 @@ type KV struct {
 // Opener constructs a filestore from an address comprising a path, for use
 // with the store package.
 func Opener(_ context.Context, addr string) (blob.KV, error) {
-	return New(strings.TrimPrefix(addr, "//")) // tolerate URL-like paths
-}
-
-// New creates a Store associated with the specified root directory, which is
-// created if it does not already exist.
-func New(dir string) (*KV, error) {
-	path := filepath.Clean(dir)
-	if err := os.MkdirAll(path, 0700); err != nil {
+	s, err := New(strings.TrimPrefix(addr, "//")) // tolerate URL-like paths
+	if err != nil {
 		return nil, err
 	}
-	return &KV{dir: path, key: hexkey.Config{Shard: 3}}, nil
+	return s.Keyspace("")
 }
 
 func (s *KV) keyPath(key string) string {
@@ -63,7 +106,7 @@ func (s *KV) keyPath(key string) string {
 
 // Get implements part of [blob.KV]. It linearizes to the point at which
 // opening the key path for reading returns.
-func (s *KV) Get(_ context.Context, key string) ([]byte, error) {
+func (s KV) Get(_ context.Context, key string) ([]byte, error) {
 	bits, err := os.ReadFile(s.keyPath(key))
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -77,7 +120,7 @@ func (s *KV) Get(_ context.Context, key string) ([]byte, error) {
 // Put implements part of [blob.KV]. A successful Put linearizes to the point
 // at which the rename of the write temporary succeeds; a Put that fails due to
 // an existing key linearizes to the point when the key path stat succeeds.
-func (s *KV) Put(_ context.Context, opts blob.PutOptions) error {
+func (s KV) Put(_ context.Context, opts blob.PutOptions) error {
 	path := s.keyPath(opts.Key)
 	if _, err := os.Stat(path); err == nil && !opts.Replace {
 		return blob.KeyExists(opts.Key)
@@ -88,7 +131,7 @@ func (s *KV) Put(_ context.Context, opts blob.PutOptions) error {
 }
 
 // Delete implements part of [blob.KV].
-func (s *KV) Delete(_ context.Context, key string) error {
+func (s KV) Delete(_ context.Context, key string) error {
 	path := s.keyPath(key)
 	err := os.Remove(path)
 	if os.IsNotExist(err) {
@@ -101,7 +144,7 @@ func (s *KV) Delete(_ context.Context, key string) error {
 // later than the current scan position succeeds, List linearizes immediately
 // prior to the earliest such Put operation. Otherwise, List may be linearized
 // to any point during its execution.
-func (s *KV) List(_ context.Context, start string, f func(string) error) error {
+func (s KV) List(_ context.Context, start string, f func(string) error) error {
 	roots, err := listdir(s.dir)
 	if err != nil {
 		return err
@@ -127,7 +170,7 @@ func (s *KV) List(_ context.Context, start string, f func(string) error) error {
 
 // Len implements part of [blob.KV]. It is implemented using List, so it
 // linearizes in the same manner.
-func (s *KV) Len(ctx context.Context) (int64, error) {
+func (s KV) Len(ctx context.Context) (int64, error) {
 	var nb int64
 	if err := s.List(ctx, "", func(string) error {
 		nb++
