@@ -53,8 +53,6 @@ func TestZipStore(t *testing.T) {
 	mustPut("8675309", "jenny")
 	mustPut("68000", "sixty-eight thousand")
 
-	fs.Close(ctx)
-
 	// Create a ZIP archive containin the contents of the filestore.
 	zpath := filepath.Join(t.TempDir(), "test.zip")
 	cmd := exec.Command("zip", "-r", zpath, filepath.Base(fpath))

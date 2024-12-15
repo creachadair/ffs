@@ -138,9 +138,6 @@ func (s *KV) Len(ctx context.Context) (int64, error) {
 	return nb, nil
 }
 
-// Close implements part of [blob.KV]. It is a no-op here.
-func (*KV) Close(context.Context) error { return nil }
-
 func listdir(path string) ([]string, error) {
 	f, err := os.Open(path)
 	if err != nil {

@@ -150,6 +150,3 @@ func (s *KV) Len(context.Context) (int64, error) {
 	defer s.μ.Unlock()
 	return int64(s.m.Len()), nil
 }
-
-// Close implements part of [blob.KV]. It is a no-op here.
-func (*KV) Close(context.Context) error { return nil }
