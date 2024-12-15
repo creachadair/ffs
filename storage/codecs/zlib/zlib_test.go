@@ -24,6 +24,6 @@ import (
 )
 
 func TestStore(t *testing.T) {
-	m := encoded.New(memstore.New(), zlib.NewCodec(zlib.LevelDefault))
+	m := encoded.New(memstore.New(nil), zlib.NewCodec(zlib.LevelDefault))
 	storetest.Run(t, m)
 }
