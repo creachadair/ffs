@@ -164,14 +164,32 @@ func TestScan(t *testing.T) {
 
 	var got []string
 	if err := root.Scan(ctx, func(e file.ScanItem) bool {
+		e.File.XAttr().Set("name", e.Name)
 		got = append(got, e.Name)
 		return true
 	}); err != nil {
 		t.Fatalf("Scan failed: %v", err)
 	}
-
 	if !sort.StringsAreSorted(got) {
 		t.Errorf("Scan result: %q, should be sorted", got)
+	}
+
+	key, err := root.Flush(ctx)
+	if err != nil {
+		t.Fatalf("Flush failed: %v", err)
+	}
+
+	alt, err := file.Open(ctx, cas, key)
+	if err != nil {
+		t.Fatalf("Open %x failed: %v", key, err)
+	}
+	if err := alt.Scan(ctx, func(e file.ScanItem) bool {
+		if got := e.File.XAttr().Get("name"); got != e.Name {
+			t.Errorf("File %p name: got %q, want %q", e.File, got, e.Name)
+		}
+		return true
+	}); err != nil {
+		t.Errorf("Scan failed: %v", err)
 	}
 }
 
