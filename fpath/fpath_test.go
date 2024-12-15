@@ -51,8 +51,12 @@ func mustNewCAS(t *testing.T, h func() hash.Hash) blob.CAS {
 	if err != nil {
 		t.Fatalf("Opening filestore %q: %v", *saveStore, err)
 	}
+	ks, err := fs.Keyspace("")
+	if err != nil {
+		t.Fatalf("Opening keyspace: %v", err)
+	}
 	t.Logf("Saving test output to filestore %q", *saveStore)
-	return blob.NewCAS(fs, h)
+	return blob.NewCAS(ks, h)
 }
 
 func TestPaths(t *testing.T) {
