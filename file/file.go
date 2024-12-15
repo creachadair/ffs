@@ -367,47 +367,65 @@ func (f *File) Name() string { f.mu.RLock(); defer f.mu.RUnlock(); return f.name
 type ScanItem struct {
 	*File // the current file being visited
 
-	Parent *File  // the parent file (nil at the root)
-	Name   string // the name of File within its parent ("" at the root)
+	Name string // the name of File within its parent ("" at the root)
 }
 
 // Scan recursively visits f and all its descendants in depth-first
 // left-to-right order, calling visit for each file.  If visit returns false,
 // no descendants of f are visited.
+//
+// The visit function may modify the attributes or contents of the files it
+// visits, but the caller is responsible for flushing the root of the scan
+// afterward to persist changes to storage.
 func (f *File) Scan(ctx context.Context, visit func(ScanItem) bool) error {
-	if _, err := f.Flush(ctx); err != nil {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if _, err := f.recFlushLocked(ctx, nil); err != nil {
 		return err
 	}
+	return f.recScanLocked(ctx, "", func(s ScanItem) bool {
+		// Yield the lock while the caller visitor runs, then reacquire it.  We
+		// do this so that the visitor can use methods that may themselves update
+		// the file, without deadlocking on the scan.
+		s.File.mu.Unlock() // N.B. unlock → lock
+		defer s.File.mu.Lock()
+		return visit(s)
+	})
+}
 
-	q := []ScanItem{{File: f}}
-	for len(q) != 0 {
-		next := q[len(q)-1]
-		q = q[:len(q)-1]
-
-		if !visit(next) {
-			continue
-		}
-
-		// Grab a clone of the children, but don't hold the lock while walking
-		// through them. Taking a clone ensures concurrent changes don't affect
-		// what we visit, and also prevent us caching files we only opened to
-		// satisfy the scan.
-		next.mu.RLock()
-		kids := slices.Clone(next.kids)
-		next.mu.RUnlock()
-
-		for _, kid := range slices.Backward(kids) {
-			// We already flushed f, so all the kids have storage keys.  We have
-			// to open each child to recur on it.
-			kf, err := Open(ctx, next.s, kid.Key)
+// recScanLocked recursively scans f and all its child nodes in depth-first
+// left-to-right order, calling visit for each file.
+func (f *File) recScanLocked(ctx context.Context, name string, visit func(ScanItem) bool) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	if !visit(ScanItem{File: f, Name: name}) {
+		return nil // skip the descendants of f
+	}
+	for i, kid := range f.kids {
+		fp := kid.File
+		if fp == nil {
+			// If the child was not already open, we need to do so to scan it, but
+			// we won't persist it in the parent unless the visitor invalidated it.
+			var err error
+			fp, err = Open(ctx, f.s, kid.Key)
 			if err != nil {
 				return err
 			}
-			q = append(q, ScanItem{
-				File:   kf,
-				Parent: next.File,
-				Name:   kid.Name,
-			})
+		}
+		err := func() error {
+			fp.mu.Lock()
+			defer fp.mu.Unlock()
+			return fp.recScanLocked(ctx, kid.Name, visit)
+		}()
+		if err != nil {
+			return err
+		}
+
+		// If scanning invalidated fp, make sure the parent copy is updated.
+		// This ensures the parent will include these changes in a flush.
+		if fp.key == "" {
+			f.kids[i].File = fp
 		}
 	}
 	return nil
