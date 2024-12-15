@@ -25,25 +25,25 @@ import (
 )
 
 func TestStore(t *testing.T) {
-	m := memstore.New()
-	storetest.Run(t, m)
+	var s memstore.Store
+	storetest.Run(t, &s)
 }
 
 func TestSnapshot(t *testing.T) {
-	m := memstore.New()
-	m.Put(context.Background(), blob.PutOptions{
+	kv := memstore.NewKV()
+	kv.Put(context.Background(), blob.PutOptions{
 		Key:  "foo",
 		Data: []byte("bar"),
 	})
-	m.Put(context.Background(), blob.PutOptions{
+	kv.Put(context.Background(), blob.PutOptions{
 		Key:  "baz",
 		Data: []byte("quux"),
 	})
-	m.Delete(context.Background(), "baz")
+	kv.Delete(context.Background(), "baz")
 
-	got := m.Snapshot(nil)
-	want := map[string]string{"foo": "bar"}
-	if diff := cmp.Diff(want, got); diff != "" {
+	if diff := cmp.Diff(kv.Snapshot(nil), map[string]string{
+		"foo": "bar",
+	}); diff != "" {
 		t.Errorf("Wrong snapshot: (-want, +got):\n%s", diff)
 	}
 }
