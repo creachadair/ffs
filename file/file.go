@@ -380,9 +380,6 @@ type ScanItem struct {
 func (f *File) Scan(ctx context.Context, visit func(ScanItem) bool) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	if _, err := f.recFlushLocked(ctx, nil); err != nil {
-		return err
-	}
 	return f.recScanLocked(ctx, "", func(s ScanItem) bool {
 		// Yield the lock while the caller visitor runs, then reacquire it.  We
 		// do this so that the visitor can use methods that may themselves update
