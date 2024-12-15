@@ -98,4 +98,4 @@ func (s *KV) List(ctx context.Context, start string, f func(string) error) error
 func (s *KV) Len(ctx context.Context) (int64, error) { return s.real.Len(ctx) }
 
 // Close implements the [blob.Closer] interface.
-func (s *KV) Close(ctx context.Context) error { return s.real.Close(ctx) }
+func (s *KV) Close(ctx context.Context) error { return blob.Close(ctx, s.real) }

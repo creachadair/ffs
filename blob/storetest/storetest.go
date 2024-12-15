@@ -261,7 +261,7 @@ func Run(t *testing.T, s blob.KV) {
 		t.Errorf("Len at end: got %d, want 0", n)
 	}
 
-	if err := s.Close(ctx); err != nil {
+	if err := blob.Close(ctx, s); err != nil {
 		t.Errorf("Close failed: %v", err)
 	}
 }

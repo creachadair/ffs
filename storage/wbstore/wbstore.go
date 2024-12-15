@@ -104,8 +104,8 @@ func (s *CAS) Close(ctx context.Context) error {
 			wberr = s.err
 		}
 	}
-	caserr := s.CAS.Close(ctx)
-	buferr := s.buf.Close(ctx)
+	caserr := blob.Close(ctx, s.CAS)
+	buferr := blob.Close(ctx, s.buf)
 	if wberr != nil {
 		return wberr
 	} else if caserr != nil {

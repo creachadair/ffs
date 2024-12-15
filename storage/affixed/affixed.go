@@ -87,7 +87,7 @@ func (s KV) UnwrapKey(key string) string {
 
 // Close implements the optional [blob.Closer] interface. It delegates to the
 // underlying store if possible.
-func (s KV) Close(ctx context.Context) error { return s.real.Close(ctx) }
+func (s KV) Close(ctx context.Context) error { return blob.Close(ctx, s.real) }
 
 // Get implements part of blob.Store by delegation.
 func (s KV) Get(ctx context.Context, key string) ([]byte, error) {

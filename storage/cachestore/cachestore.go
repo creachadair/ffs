@@ -186,7 +186,7 @@ func (s *KV) Close(ctx context.Context) error {
 	// Release the memory held by the caches.
 	s.cache.Clear()
 	s.keymap = nil
-	return s.base.Close(ctx)
+	return blob.Close(ctx, s.base)
 }
 
 // CAS implements a cached wrapper around a blob.CAS instance.
