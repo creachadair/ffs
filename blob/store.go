@@ -29,16 +29,18 @@ import (
 // the keys from one space are independent of the keys in another.
 //
 // Implementations of this interface must be safe for concurrent use by
-// multiple goroutines.
+// multiple goroutines. When constructing a new store, the caller should
+// arrange to call [blob.Close] on it when it is no longer in use, to give the
+// implementation an opportunity to clean up any internal state.
 type Store interface {
 	// Keyspace returns a key space on the store.
 	Keyspace(name string) (KV, error)
 
-	// Close allows the store to release any resources held open while in use.
-	// If an implementation has nothing to release, it must report nil.
-	// After closing a Store, any keyspaces derived from the store should report
-	// errors when used.
-	Close(context.Context) error
+	// Sub returns a new Store subordinate to the receiver.  A substore shares
+	// logical storage with its parent store, but keyspaces derived from the
+	// substore are distinct from keyspaces of the parent store or any other
+	// substores derived from it.
+	Sub(name string) Store
 }
 
 // A KV represents a mutable set of key-value pairs in which each value is
@@ -50,6 +52,10 @@ type Store interface {
 // Implementations of this interface must be safe for concurrent use by
 // multiple goroutines.  Moreover, any sequence of operations on a KV that does
 // not overlap with any Delete executions must be linearizable.[1]
+//
+// When constructing a new KV, the caller should arrange to call [blob.Close]
+// on it when it is no longer in use, to give the implementation an opportunity
+// to clean up any internal state.
 //
 // [1]: https://en.wikipedia.org/wiki/Linearizability
 type KV interface {
@@ -74,10 +80,24 @@ type KV interface {
 
 	// Len reports the number of keys currently in the store.
 	Len(ctx context.Context) (int64, error)
+}
 
-	// Close allows the store to release any resources held open while in use.
-	// If an implementation has nothing to release, it must return nil.
-	Close(context.Context) error
+// Close closes the specified value. If the concrete type of the implementation
+// includes [io.Closer] or exports a Close method with the signature
+//
+//	Close(context.Context) error
+//
+// then Close invokes it and returns the error it reports. Otherwise, Close
+// returns nil.
+func Close(ctx context.Context, s any) error {
+	switch t := s.(type) {
+	case interface{ Close(context.Context) error }:
+		return t.Close(ctx)
+	case interface{ Close() error }:
+		return t.Close()
+	default:
+		return nil
+	}
 }
 
 // PutOptions regulate the behaviour of the Put method of a [KV]
