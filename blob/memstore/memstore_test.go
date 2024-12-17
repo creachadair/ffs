@@ -47,3 +47,48 @@ func TestSnapshot(t *testing.T) {
 		t.Errorf("Wrong snapshot: (-want, +got):\n%s", diff)
 	}
 }
+
+func TestConsistency(t *testing.T) {
+	ctx := context.Background()
+	data := map[string]string{
+		"natha":  "striped",
+		"zuulie": "roumnd",
+		"thena":  "scurred",
+		"asha":   "wild",
+	}
+	s := memstore.New(func() blob.KV {
+		return memstore.NewKV().Init(data)
+	})
+
+	sub1, err := s.Sub("foo")
+	if err != nil {
+		t.Fatalf("Create sub: %v", err)
+	}
+	k1, err := sub1.Keyspace("bar")
+	if err != nil {
+		t.Fatalf("Create keyspace 1: %v", err)
+	}
+
+	sub2, err := s.Sub("foo")
+	if err != nil {
+		t.Fatalf("Open sub: %v", err)
+	}
+	k2, err := sub2.Keyspace("bar")
+	if err != nil {
+		t.Fatalf("Open keyspace: %v", err)
+	}
+
+	for key, want := range data {
+		got1, err := k1.Get(ctx, key)
+		if err != nil {
+			t.Fatalf("Get 1 key %q: %v", key, err)
+		}
+		got2, err := k2.Get(ctx, key)
+		if err != nil {
+			t.Fatalf("Get 2 key %q: %v", key, err)
+		}
+		if string(got1) != want || string(got2) != want {
+			t.Errorf("Check key %q: got (%q, %q), want %q", key, got1, got2, want)
+		}
+	}
+}

@@ -31,8 +31,9 @@ import (
 type Store struct {
 	newKV func() blob.KV // Set on construction, read-only thereafter
 
-	μ   sync.Mutex
-	kvs map[string]blob.KV
+	μ    sync.Mutex
+	kvs  map[string]blob.KV
+	subs map[string]*Store
 }
 
 func (s *Store) kv() blob.KV {
@@ -61,7 +62,17 @@ func (s *Store) Keyspace(name string) (blob.KV, error) {
 // Sub implements part of [blob.Store].
 // This implementation never reports an error.
 func (s *Store) Sub(name string) (blob.Store, error) {
-	return &Store{kvs: make(map[string]blob.KV), newKV: s.newKV}, nil
+	s.μ.Lock()
+	defer s.μ.Unlock()
+	sub, ok := s.subs[name]
+	if !ok {
+		sub = &Store{newKV: s.newKV}
+		if s.subs == nil {
+			s.subs = make(map[string]*Store)
+		}
+		s.subs[name] = sub
+	}
+	return sub, nil
 }
 
 // Close implements part of [blob.StoreCloser]. This implementation is a no-op.
