@@ -100,8 +100,10 @@ type entry struct {
 
 func compareEntries(a, b entry) int { return strings.Compare(a.key, b.key) }
 
-// Opener constructs a memstore, for use with the store package.  The address
-// is ignored, and an error will never be returned.
+// Opener constructs a [memstore.KV], for use with the [store] package.  The
+// address is ignored, and an error will never be returned.
+//
+// [store]: https://godoc.org/github.com/creachadair/ffstools/lib/store
 func Opener(_ context.Context, _ string) (blob.KV, error) { return NewKV(), nil }
 
 // NewKV constructs a new, empty key-value namespace.
