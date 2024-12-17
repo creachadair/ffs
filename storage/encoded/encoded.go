@@ -61,9 +61,6 @@ func (s Store) Sub(name string) (blob.Store, error) {
 	return Store{codec: s.codec, real: sub}, nil
 }
 
-// Close implements a method of [blob.StoreCloser]. It always returns nil.
-func (Store) Close(context.Context) error { return nil }
-
 // New constructs a new store that delegates to s and uses c to encode and
 // decode blob data. New will panic if either s or c is nil.
 func New(s blob.Store, c Codec) Store {

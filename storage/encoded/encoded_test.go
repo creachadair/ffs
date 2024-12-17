@@ -26,7 +26,7 @@ import (
 func TestStore(t *testing.T) {
 	base := memstore.New(nil)
 	enc := encoded.New(base, identity{})
-	storetest.Run(t, enc)
+	storetest.Run(t, storetest.NopCloser(enc))
 }
 
 // identity implements an identity Codec, that encodes blobs as themselves.
