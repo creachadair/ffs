@@ -316,3 +316,12 @@ func Run(t *testing.T, s blob.StoreCloser) {
 		t.Errorf("Close failed: %v", err)
 	}
 }
+
+type nopStoreCloser struct {
+	blob.Store
+}
+
+func (nopStoreCloser) Close(context.Context) error { return nil }
+
+// NopCloser wraps a [blob.Store] with a no-op Close method to implement [blob.StoreCloser].
+func NopCloser(s blob.Store) blob.StoreCloser { return nopStoreCloser{Store: s} }
