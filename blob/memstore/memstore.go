@@ -46,6 +46,10 @@ func (s *Store) kv() blob.KV {
 // Keyspace implements part of [blob.Store].
 // This implementation never reports an error.
 func (s *Store) Keyspace(name string) (blob.KV, error) {
+	return blob.UnrollKeyspace(s, name, s.keyspace)
+}
+
+func (s *Store) keyspace(name string) (blob.KV, error) {
 	s.μ.Lock()
 	defer s.μ.Unlock()
 	kv, ok := s.kvs[name]
@@ -62,6 +66,10 @@ func (s *Store) Keyspace(name string) (blob.KV, error) {
 // Sub implements part of [blob.Store].
 // This implementation never reports an error.
 func (s *Store) Sub(name string) (blob.Store, error) {
+	return blob.UnrollStore(s, name, s.sub)
+}
+
+func (s *Store) sub(name string) (blob.Store, error) {
 	s.μ.Lock()
 	defer s.μ.Unlock()
 	sub, ok := s.subs[name]

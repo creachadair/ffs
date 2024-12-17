@@ -20,8 +20,10 @@ import (
 	"context"
 	"errors"
 	"hash"
+	"path"
 	"slices"
 	"sort"
+	"strings"
 )
 
 // A Store represents a collection of key-value namespaces ("keyspaces")
@@ -137,6 +139,33 @@ func KeyNotFound(key string) error { return &KeyError{Key: key, Err: ErrKeyNotFo
 // KeyExists returns an ErrKeyExists error reporting that key exists in the store.
 // The concrete type is *blob.KeyError.
 func KeyExists(key string) error { return &KeyError{Key: key, Err: ErrKeyExists} }
+
+func UnrollStore(st Store, key string, leaf func(name string) (Store, error)) (Store, error) {
+	if !strings.ContainsRune(key, '/') {
+		return leaf(key)
+	}
+	var err error
+	for _, elt := range strings.Split(key, "/") {
+		st, err = st.Sub(elt)
+		if err != nil {
+			return nil, err
+		}
+	}
+	return st, nil
+}
+
+func UnrollKeyspace(st Store, key string, leaf func(name string) (KV, error)) (KV, error) {
+	if !strings.ContainsRune(key, '/') {
+		return leaf(key)
+	}
+
+	storePath, key := path.Split(key)
+	st, err := st.Sub(storePath)
+	if err != nil {
+		return nil, err
+	}
+	return st.Keyspace(key)
+}
 
 // CAS is an optional interface that a store may implement to support content
 // addressing using a one-way hash.
