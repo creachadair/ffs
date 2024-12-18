@@ -38,7 +38,6 @@ import (
 // file and directory names relative to a root directory, similar to a Git
 // local object store.
 type Store struct {
-	dir string
 	key hexkey.Config
 }
 
@@ -49,14 +48,15 @@ func New(dir string) (Store, error) {
 	if err := os.MkdirAll(path, 0700); err != nil {
 		return Store{}, err
 	}
-	return Store{dir: path, key: hexkey.Config{Shard: 3}}, nil
+	return Store{key: hexkey.Config{Prefix: path, Shard: 3}}, nil
 }
 
 func (s Store) mkPath(name string) (string, error) {
 	if name == "" {
-		return s.dir, nil // already known to exist
+		return s.key.Prefix, nil // already known to exist
 	}
-	path := filepath.Join(s.dir, "_"+hex.EncodeToString([]byte(name))) // avert conflict with hex keys
+	// Prefix non-empty name with "_" to avert conflict with hex keys.
+	path := filepath.Join(s.key.Prefix, "_"+hex.EncodeToString([]byte(name)))
 	return path, os.MkdirAll(path, 0700)
 }
 
@@ -66,7 +66,7 @@ func (s Store) Keyspace(_ context.Context, name string) (blob.KV, error) {
 	if err != nil {
 		return nil, err
 	}
-	return KV{dir: path, key: s.key}, nil
+	return KV{key: s.key.WithPrefix(path)}, nil
 }
 
 // Sub implements part of the [blob.Store] interface.
@@ -75,15 +75,18 @@ func (s Store) Sub(_ context.Context, name string) (blob.Store, error) {
 	if err != nil {
 		return nil, err
 	}
-	return Store{dir: path, key: s.key}, nil
+	return Store{key: s.key.WithPrefix(path)}, nil
 }
+
+// Close implements part of the [blob.StoreCloser] interface.
+// This implementation always reports nil.
+func (Store) Close(context.Context) error { return nil }
 
 // KV implements the [blob.kV] interface using a directory structure with one
 // file per stored blob. Keys are encoded in hex and used to construct file and
 // directory names relative to a root directory, similar to a Git local object
 // store.
 type KV struct {
-	dir string
 	key hexkey.Config
 }
 
@@ -97,9 +100,7 @@ func Opener(ctx context.Context, addr string) (blob.KV, error) {
 	return s.Keyspace(ctx, "")
 }
 
-func (s *KV) keyPath(key string) string {
-	return filepath.Join(s.dir, filepath.FromSlash(s.key.Encode(key)))
-}
+func (s *KV) keyPath(key string) string { return s.key.Encode(key) }
 
 // Get implements part of [blob.KV]. It linearizes to the point at which
 // opening the key path for reading returns.
@@ -142,17 +143,18 @@ func (s KV) Delete(_ context.Context, key string) error {
 // prior to the earliest such Put operation. Otherwise, List may be linearized
 // to any point during its execution.
 func (s KV) List(_ context.Context, start string, f func(string) error) error {
-	roots, err := listdir(s.dir)
+	roots, err := listdir(s.Dir())
 	if err != nil {
 		return err
 	}
 	for _, root := range roots {
-		keys, err := listdir(filepath.Join(s.dir, root))
+		cur := filepath.Join(s.Dir(), root)
+		keys, err := listdir(cur)
 		if err != nil {
 			return err
 		}
 		for _, tail := range keys {
-			key, err := s.key.Decode(path.Join(root, tail))
+			key, err := s.key.Decode(path.Join(cur, tail))
 			if err != nil || key < start {
 				continue // skip non-key files and keys prior to the start
 			} else if err := f(key); errors.Is(err, blob.ErrStopListing) {
@@ -179,7 +181,7 @@ func (s KV) Len(ctx context.Context) (int64, error) {
 }
 
 // Dir reports the directory path associated with s.
-func (s KV) Dir() string { return s.dir }
+func (s KV) Dir() string { return s.key.Prefix }
 
 func listdir(path string) ([]string, error) {
 	f, err := os.Open(path)

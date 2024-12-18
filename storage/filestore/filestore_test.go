@@ -40,7 +40,7 @@ func TestStore(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Creating store in %q: %v", dir, err)
 	}
-	storetest.Run(t, storetest.NopCloser(s))
+	storetest.Run(t, s)
 }
 
 func TestNesting(t *testing.T) {
