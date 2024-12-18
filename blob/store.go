@@ -38,10 +38,10 @@ type Store interface {
 	// (eventually) to the same view of the storage.
 	Keyspace(ctx context.Context, name string) (KV, error)
 
-	// Sub returns a new Store subordinate to the receiver.  A substore shares
-	// logical storage with its parent store, but keyspaces derived from the
-	// substore are distinct from keyspaces of the parent store or any other
-	// substores derived from it.
+	// Sub returns a new Store subordinate to the receiver (a "substore").
+	// A substore shares logical storage with its parent store, but keyspaces
+	// derived from the substore are distinct from keyspaces of the parent store
+	// or any other substores derived from it.
 	//
 	// Multiple calls to Sub with the same name are not required to return
 	// exactly the same [Store] value, but should return values that will
