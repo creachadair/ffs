@@ -25,25 +25,55 @@ import (
 )
 
 func TestStore(t *testing.T) {
-	m := memstore.New()
-	storetest.Run(t, m)
+	var s memstore.Store
+	storetest.Run(t, &s)
 }
 
 func TestSnapshot(t *testing.T) {
-	m := memstore.New()
-	m.Put(context.Background(), blob.PutOptions{
+	kv := memstore.NewKV()
+	kv.Put(context.Background(), blob.PutOptions{
 		Key:  "foo",
 		Data: []byte("bar"),
 	})
-	m.Put(context.Background(), blob.PutOptions{
+	kv.Put(context.Background(), blob.PutOptions{
 		Key:  "baz",
 		Data: []byte("quux"),
 	})
-	m.Delete(context.Background(), "baz")
+	kv.Delete(context.Background(), "baz")
 
-	got := m.Snapshot(nil)
-	want := map[string]string{"foo": "bar"}
-	if diff := cmp.Diff(want, got); diff != "" {
+	if diff := cmp.Diff(kv.Snapshot(nil), map[string]string{
+		"foo": "bar",
+	}); diff != "" {
 		t.Errorf("Wrong snapshot: (-want, +got):\n%s", diff)
+	}
+}
+
+func TestConsistency(t *testing.T) {
+	ctx := context.Background()
+	data := map[string]string{
+		"natha":  "striped",
+		"zuulie": "roumnd",
+		"thena":  "scurred",
+		"asha":   "wild",
+	}
+	s := memstore.New(func() blob.KV {
+		return memstore.NewKV().Init(data)
+	})
+
+	k1 := storetest.SubKeyspace(t, ctx, s, "foo", "bar")
+	k2 := storetest.SubKeyspace(t, ctx, s, "foo", "bar")
+
+	for key, want := range data {
+		got1, err := k1.Get(ctx, key)
+		if err != nil {
+			t.Fatalf("Get 1 key %q: %v", key, err)
+		}
+		got2, err := k2.Get(ctx, key)
+		if err != nil {
+			t.Fatalf("Get 2 key %q: %v", key, err)
+		}
+		if string(got1) != want || string(got2) != want {
+			t.Errorf("Check key %q: got (%q, %q), want %q", key, got1, got2, want)
+		}
 	}
 }

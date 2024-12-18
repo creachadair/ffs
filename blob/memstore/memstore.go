@@ -25,6 +25,65 @@ import (
 	"github.com/creachadair/mds/stree"
 )
 
+// A Store implements the [blob.Store] interface using an in-memory dictionary
+// for each keyspace. A zero value is ready for use, but must not be copied
+// after its first use.
+type Store struct {
+	newKV func() blob.KV // Set on construction, read-only thereafter
+
+	μ    sync.Mutex
+	kvs  map[string]blob.KV
+	subs map[string]*Store
+}
+
+func (s *Store) kv() blob.KV {
+	if s.newKV == nil {
+		return NewKV()
+	}
+	return s.newKV()
+}
+
+// Keyspace implements part of [blob.Store].
+// This implementation never reports an error.
+func (s *Store) Keyspace(_ context.Context, name string) (blob.KV, error) {
+	s.μ.Lock()
+	defer s.μ.Unlock()
+	kv, ok := s.kvs[name]
+	if !ok {
+		kv = s.kv()
+		if s.kvs == nil {
+			s.kvs = make(map[string]blob.KV)
+		}
+		s.kvs[name] = kv
+	}
+	return kv, nil
+}
+
+// Sub implements part of [blob.Store].
+// This implementation never reports an error.
+func (s *Store) Sub(_ context.Context, name string) (blob.Store, error) {
+	s.μ.Lock()
+	defer s.μ.Unlock()
+	sub, ok := s.subs[name]
+	if !ok {
+		sub = &Store{newKV: s.newKV}
+		if s.subs == nil {
+			s.subs = make(map[string]*Store)
+		}
+		s.subs[name] = sub
+	}
+	return sub, nil
+}
+
+// Close implements part of [blob.StoreCloser]. This implementation is a no-op.
+func (*Store) Close(context.Context) error { return nil }
+
+// New constructs a new empty Store that uses newKV to construct keyspaces.
+// If newKV == nil, [NewKV] is used.
+func New(newKV func() blob.KV) *Store {
+	return &Store{kvs: make(map[string]blob.KV), newKV: newKV}
+}
+
 // KV implements the [blob.KV] interface using an in-memory dictionary. The
 // contents of a Store are not persisted. All operations on a memstore are safe
 // for concurrent use by multiple goroutines.
@@ -41,12 +100,14 @@ type entry struct {
 
 func compareEntries(a, b entry) int { return strings.Compare(a.key, b.key) }
 
-// Opener constructs a memstore, for use with the store package.  The address
-// is ignored, and an error will never be returned.
-func Opener(_ context.Context, _ string) (blob.KV, error) { return New(), nil }
+// Opener constructs a [memstore.KV], for use with the [store] package.  The
+// address is ignored, and an error will never be returned.
+//
+// [store]: https://godoc.org/github.com/creachadair/ffstools/lib/store
+func Opener(_ context.Context, _ string) (blob.KV, error) { return NewKV(), nil }
 
-// New constructs a new, empty store.
-func New() *KV { return &KV{m: stree.New(300, compareEntries)} }
+// NewKV constructs a new, empty key-value namespace.
+func NewKV() *KV { return &KV{m: stree.New(300, compareEntries)} }
 
 // Clear removes all keys and values from s.
 func (s *KV) Clear() {
@@ -150,6 +211,3 @@ func (s *KV) Len(context.Context) (int64, error) {
 	defer s.μ.Unlock()
 	return int64(s.m.Len()), nil
 }
-
-// Close implements part of [blob.KV]. It is a no-op here.
-func (*KV) Close(context.Context) error { return nil }

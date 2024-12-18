@@ -178,17 +178,6 @@ func (s *KV) Len(ctx context.Context) (int64, error) {
 	return int64(s.keymap.Len()), nil
 }
 
-// Close implements [blob.Closer] by closing the underlying store.
-func (s *KV) Close(ctx context.Context) error {
-	s.μ.Lock()
-	defer s.μ.Unlock()
-
-	// Release the memory held by the caches.
-	s.cache.Clear()
-	s.keymap = nil
-	return s.base.Close(ctx)
-}
-
 // CAS implements a cached wrapper around a blob.CAS instance.
 type CAS struct {
 	*KV

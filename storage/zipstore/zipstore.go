@@ -29,18 +29,18 @@ import (
 	"github.com/creachadair/ffs/storage/hexkey"
 )
 
-// A Store wraps a zip.Reader and serves its contents as a blob.Store.  The
-// contents of the archive must follow the same layout as a filestore.Store,
+// A KV wraps a [zip.Reader] and serves its contents as a [blob.KV].  The
+// contents of the archive must follow the same layout as a [filestore.KV],
 // with keys encoded as hexadecimal.
-type Store struct {
+type KV struct {
 	zf  *zip.ReadCloser
 	key hexkey.Config
 }
 
-// New constructs a Store from the given open zip.Reader. If opts == nil,
-// default options are used as described by the Options type. The Store takes
-// ownership of zf, and will close zf when the Store is closed.
-func New(zf *zip.ReadCloser, opts *Options) Store {
+// NewKV constructs a [KV] from the given open [zip.Reader]. If opts == nil,
+// default options are used as described by the Options type. The KV takes
+// ownership of zf, and will close zf when the KV is closed.
+func NewKV(zf *zip.ReadCloser, opts *Options) KV {
 	// Sort file entries so we get the required lexicographical order.
 	sort.Slice(zf.File, func(i, j int) bool {
 		return zf.File[i].Name < zf.File[j].Name
@@ -49,7 +49,7 @@ func New(zf *zip.ReadCloser, opts *Options) Store {
 	if pfx == "" {
 		pfx = longestPrefix(zf)
 	}
-	return Store{zf: zf, key: hexkey.Config{Prefix: pfx, Shard: 3}}
+	return KV{zf: zf, key: hexkey.Config{Prefix: pfx, Shard: 3}}
 }
 
 func longestPrefix(zf *zip.ReadCloser) string {
@@ -73,7 +73,7 @@ func longestPrefix(zf *zip.ReadCloser) string {
 	return strings.TrimSuffix(longest, "/")
 }
 
-// Options are optional settings for a Store. A nil *Options is ready for use
+// Options are optional settings for a [KV]. A nil *Options is ready for use
 // and provides default values as described.
 type Options struct {
 	// Consider only files whose names have this prefix followed by a "/".
@@ -90,7 +90,7 @@ func (o *Options) prefix() string {
 	return strings.TrimSuffix(o.Prefix, "/")
 }
 
-func (s Store) findFile(key string) *zip.File {
+func (s KV) findFile(key string) *zip.File {
 	path := filepath.FromSlash(s.key.Encode(key))
 	n := sort.Search(len(s.zf.File), func(i int) bool {
 		return s.zf.File[i].Name >= path
@@ -101,7 +101,7 @@ func (s Store) findFile(key string) *zip.File {
 	return nil
 }
 
-func (s Store) loadKey(key string) ([]byte, error) {
+func (s KV) loadKey(key string) ([]byte, error) {
 	fp := s.findFile(key)
 	if fp == nil {
 		return nil, blob.KeyNotFound(key)
@@ -117,19 +117,19 @@ func (s Store) loadKey(key string) ([]byte, error) {
 
 var errReadOnly = errors.New("storage is read-only")
 
-// Get implements a method of the blob.Store interface.
-func (s Store) Get(_ context.Context, key string) ([]byte, error) { return s.loadKey(key) }
+// Get implements a method of the [blob.KV] interface.
+func (s KV) Get(_ context.Context, key string) ([]byte, error) { return s.loadKey(key) }
 
-// Put implements a method of the blob.Store interface.  This implementation
+// Put implements a method of the [blob.KV] interface.  This implementation
 // always reports an error, since the store is read-only.
-func (s Store) Put(context.Context, blob.PutOptions) error { return errReadOnly }
+func (s KV) Put(context.Context, blob.PutOptions) error { return errReadOnly }
 
-// Delete implements a method of the blob.Store interface. This implementation
+// Delete implements a method of the [blob.KV] interface. This implementation
 // always reports an error, since the store is read-only.
-func (s Store) Delete(_ context.Context, key string) error { return errReadOnly }
+func (s KV) Delete(_ context.Context, key string) error { return errReadOnly }
 
-// List implements a method of the blob.Store interface.
-func (s Store) List(_ context.Context, start string, f func(string) error) error {
+// List implements a method of the [blob.KV] interface.
+func (s KV) List(_ context.Context, start string, f func(string) error) error {
 	for _, fp := range s.zf.File {
 		dec, err := s.key.Decode(fp.Name)
 		if err != nil {
@@ -147,8 +147,8 @@ func (s Store) List(_ context.Context, start string, f func(string) error) error
 	return nil
 }
 
-// Len implements a method of the blob.Store interface.
-func (s Store) Len(ctx context.Context) (int64, error) {
+// Len implements a method of the [blob.KV] interface.
+func (s KV) Len(ctx context.Context) (int64, error) {
 	var count int64
 	err := s.List(ctx, "", func(key string) error {
 		count++
@@ -157,5 +157,5 @@ func (s Store) Len(ctx context.Context) (int64, error) {
 	return count, err
 }
 
-// Close implements a method of the blob.Store interface.
-func (s Store) Close(context.Context) error { return s.zf.Close() }
+// Close implements a method of the [blob.KV] interface.
+func (s KV) Close(context.Context) error { return s.zf.Close() }

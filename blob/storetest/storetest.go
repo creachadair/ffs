@@ -183,14 +183,62 @@ func errorOK(err, werr error) bool {
 
 // Run applies the test script to empty store s, then closes s.  Any errors are
 // reported to t.  After Run returns, the contents of s are garbage.
-func Run(t *testing.T, s blob.KV) {
+func Run(t *testing.T, s blob.StoreCloser) {
 	ctx := context.Background()
-	for _, op := range script {
-		op(ctx, t, s)
+	k1, err := s.Keyspace(ctx, "one")
+	if err != nil {
+		t.Fatalf("Create keyspace 1: %v", err)
 	}
-	for _, op := range delScript {
-		op(ctx, t, s)
+	k2, err := s.Keyspace(ctx, "two")
+	if err != nil {
+		t.Fatalf("Create keyspace 2: %v", err)
 	}
+
+	// Run the test script on k1 and verify that k2 was not affected.
+	// Precondition: k1 and k2 are both initially empty.
+	runCheck := func(k1, k2 blob.KV) func(t *testing.T) {
+		return func(t *testing.T) {
+			for _, op := range script {
+				op(ctx, t, k1)
+			}
+
+			// Verify that the edits to k1 did not impart mass to k2.
+			if n, err := k2.Len(ctx); err != nil || n != 0 {
+				t.Errorf("Keyspace 2 len: got (%v, %v), want (0, nil)", n, err)
+			}
+		}
+	}
+
+	// Run the deletion script on k and verify that k is empty afterward.
+	cleanup := func(k blob.KV) func(t *testing.T) {
+		return func(t *testing.T) {
+			for _, op := range delScript {
+				op(ctx, t, k)
+			}
+
+			// Verify that k is empty after cleanup.
+			if n, err := k.Len(ctx); err != nil || n != 0 {
+				t.Errorf("k1.Len: got (%v, %v), want (0, nil)", n, err)
+			}
+		}
+	}
+
+	t.Run("Basic", runCheck(k1, k2))
+
+	t.Run("Cleanup", cleanup(k1))
+
+	t.Run("Sub", func(t *testing.T) {
+		sub, err := s.Sub(ctx, "testsub")
+		if err != nil {
+			t.Fatalf("Create test substore: %v", err)
+		}
+		k3, err := sub.Keyspace(ctx, "three")
+		if err != nil {
+			t.Fatalf("Create keyspace 3: %v", err)
+		}
+		t.Run("Basic", runCheck(k3, k1))
+		t.Run("Cleanup", cleanup(k3))
+	})
 
 	// Exercise concurrency.
 	const numWorkers = 16
@@ -200,68 +248,104 @@ func Run(t *testing.T, s blob.KV) {
 		return fmt.Sprintf("task-%d-key-%d", task, key)
 	}
 
-	var wg sync.WaitGroup
-	for i := 0; i < numWorkers; i++ {
-		wg.Add(1)
-		i := i
-		go func() {
-			defer wg.Done()
+	t.Run("Concurrent", func(t *testing.T) {
+		var wg sync.WaitGroup
+		for i := range numWorkers {
+			wg.Add(1)
+			i := i
+			go func() {
+				defer wg.Done()
 
-			for k := 1; k <= numKeys; k++ {
-				key := taskKey(i, k)
-				value := strconv.Itoa(k)
-				if err := s.Put(ctx, blob.PutOptions{
-					Key:     key,
-					Data:    []byte(value),
-					Replace: true,
+				for k := range numKeys {
+					key := taskKey(i, k+1)
+					value := strconv.Itoa(k)
+					if err := k2.Put(ctx, blob.PutOptions{
+						Key:     key,
+						Data:    []byte(value),
+						Replace: true,
+					}); err != nil {
+						t.Errorf("Task %d: s.Put(%q=%q) failed: %v", i, key, value, err)
+					}
+				}
+
+				// List all the keys currently in the store, and pick out all those
+				// that belong to this task.
+				mine := fmt.Sprintf("task-%d-", i)
+				got := mapset.New[string]()
+				if err := k2.List(ctx, "", func(key string) error {
+					if strings.HasPrefix(key, mine) {
+						got.Add(key)
+					}
+					return nil
 				}); err != nil {
-					t.Errorf("Task %d: s.Put(%q=%q) failed: %v", i, key, value, err)
-				}
-			}
-
-			// List all the keys currently in the store, and pick out all those
-			// that belong to this task.
-			mine := fmt.Sprintf("task-%d-", i)
-			got := mapset.New[string]()
-			if err := s.List(ctx, "", func(key string) error {
-				if strings.HasPrefix(key, mine) {
-					got.Add(key)
-				}
-				return nil
-			}); err != nil {
-				t.Errorf("Task %d: s.List failed: %v", i, err)
-			}
-
-			for k := 1; k <= numKeys; k++ {
-				key := taskKey(i, k)
-				if _, err := s.Get(ctx, key); err != nil {
-					t.Errorf("Task %d: s.Get(%q) failed: %v", i, key, err)
+					t.Errorf("Task %d: s.List failed: %v", i, err)
 				}
 
-				// Verify that List did not miss any of this task's keys.
-				if !got.Has(key) {
-					t.Errorf("Task %d: s.List missing key %q", i, key)
-				}
-			}
+				for k := 1; k <= numKeys; k++ {
+					key := taskKey(i, k)
+					if val, err := k1.Get(ctx, key); err == nil {
+						t.Errorf("Task %d: k1.Get(%q) got %q, want error", i, key, val)
+					}
+					if _, err := k2.Get(ctx, key); err != nil {
+						t.Errorf("Task %d: k2.Get(%q) failed: %v", i, key, err)
+					}
 
-			for k := 1; k <= numKeys; k++ {
-				key := taskKey(i, k)
-				if err := s.Delete(ctx, key); err != nil {
-					t.Errorf("Task %d: s.Delete(%q) failed: %v", i, key, err)
+					// Verify that List did not miss any of this task's keys.
+					if !got.Has(key) {
+						t.Errorf("Task %d: k2.List missing key %q", i, key)
+					}
 				}
-			}
-		}()
-	}
-	wg.Wait()
 
-	// Verify that everything was properly cleaned up.
-	if n, err := s.Len(ctx); err != nil {
-		t.Errorf("Len failed: %v", err)
-	} else if n != 0 {
-		t.Errorf("Len at end: got %d, want 0", n)
-	}
+				for k := 1; k <= numKeys; k++ {
+					key := taskKey(i, k)
+					if err := k2.Delete(ctx, key); err != nil {
+						t.Errorf("Task %d: s.Delete(%q) failed: %v", i, key, err)
+					}
+				}
+			}()
+		}
+		wg.Wait()
+
+		// Verify that k2 is empty after the test settles.
+		if n, err := k2.Len(ctx); err != nil || n != 0 {
+			t.Errorf("k2.Len: got (%v, %v), want (0, nil)", n, err)
+		}
+	})
 
 	if err := s.Close(ctx); err != nil {
 		t.Errorf("Close failed: %v", err)
 	}
+}
+
+type nopStoreCloser struct {
+	blob.Store
+}
+
+func (nopStoreCloser) Close(context.Context) error { return nil }
+
+// NopCloser wraps a [blob.Store] with a no-op Close method to implement [blob.StoreCloser].
+func NopCloser(s blob.Store) blob.StoreCloser { return nopStoreCloser{Store: s} }
+
+// SubKeyspace traverses a sequence of zero or more subspace names beginning at
+// s, and returns a keyspace for the last name in the sequence. Any error
+// during traversal logs a failure in t.
+func SubKeyspace(t *testing.T, ctx context.Context, s blob.Store, names ...string) blob.KV {
+	t.Helper()
+	if len(names) == 0 {
+		t.Fatal("No keyspace name provided")
+	}
+	cur := s
+	for _, name := range names[:len(names)-1] {
+		next, err := cur.Sub(ctx, name)
+		if err != nil {
+			t.Fatalf("Sub(%q) failed: %v", name, err)
+		}
+		cur = next
+	}
+	last := names[len(names)-1]
+	kv, err := cur.Keyspace(ctx, last)
+	if err != nil {
+		t.Fatalf("Keyspace(%q) failed: %v", last, err)
+	}
+	return kv
 }

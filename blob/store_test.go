@@ -123,14 +123,14 @@ func TestKeyError(t *testing.T) {
 }
 
 func TestListSyncKeyer(t *testing.T) {
-	m := memstore.New().Init(map[string]string{
+	kv := memstore.NewKV().Init(map[string]string{
 		"1": "one",
 		"2": "two",
 		"3": "three",
 		"4": "four",
 		"5": "five",
 	})
-	sk := blob.ListSyncKeyer{KV: m}
+	sk := blob.ListSyncKeyer{KV: kv}
 	ctx := context.Background()
 	check := func(t *testing.T, keys []string, want ...string) {
 		t.Helper()

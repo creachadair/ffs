@@ -24,11 +24,43 @@ import (
 	"sort"
 )
 
-// A KV represents a mutable key-value store in which each value is identified
-// by a unique, opaque string key.  An implementation of KV is permitted (but
-// not required) to report an error from Put when given an empty key.  If the
-// implementation cannot store empty keys, it must report ErrKeyNotFound when
-// operating on an empty key.
+// A Store represents a collection of key-value namespaces ("keyspaces")
+// identified by string labels. Each keyspace in a store is logically distinct;
+// the keys from one space are independent of the keys in another.
+//
+// Implementations of this interface must be safe for concurrent use by
+// multiple goroutines.
+type Store interface {
+	// Keyspace returns a key space on the store.
+	//
+	// Multiple calls to Keyspace with the same name are not required to return
+	// exactly the same [KV] value, but should return values that will converge
+	// (eventually) to the same view of the storage.
+	Keyspace(ctx context.Context, name string) (KV, error)
+
+	// Sub returns a new Store subordinate to the receiver (a "substore").
+	// A substore shares logical storage with its parent store, but keyspaces
+	// derived from the substore are distinct from keyspaces of the parent store
+	// or any other substores derived from it.
+	//
+	// Multiple calls to Sub with the same name are not required to return
+	// exactly the same [Store] value, but should return values that will
+	// converge (eventually) to the same view of the storage.
+	Sub(ctx context.Context, name string) (Store, error)
+}
+
+// StoreCloser combines a [Store] with a Close method that settles state and
+// releases any resources from the store when it is no longer in use.
+type StoreCloser interface {
+	Store
+	Close(context.Context) error
+}
+
+// A KV represents a mutable set of key-value pairs in which each value is
+// identified by a unique, opaque string key.  An implementation of KV is
+// permitted (but not required) to report an error from Put when given an empty
+// key.  If the implementation cannot store empty keys, it must report
+// ErrKeyNotFound when operating on an empty key.
 //
 // Implementations of this interface must be safe for concurrent use by
 // multiple goroutines.  Moreover, any sequence of operations on a KV that does
@@ -57,10 +89,6 @@ type KV interface {
 
 	// Len reports the number of keys currently in the store.
 	Len(ctx context.Context) (int64, error)
-
-	// Close allows the store to release any resources held open while in use.
-	// If an implementation has nothing to release, it must return nil.
-	Close(context.Context) error
 }
 
 // PutOptions regulate the behaviour of the Put method of a [KV]

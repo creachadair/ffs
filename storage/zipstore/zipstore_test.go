@@ -29,16 +29,20 @@ import (
 
 func TestZipStore(t *testing.T) {
 	fpath := t.TempDir()
+	ctx := context.Background()
 
 	// Create a filestore with some keys in it.
 	fs, err := filestore.New(fpath)
 	if err != nil {
 		t.Fatalf("Create filestore: %v", err)
 	}
+	kv, err := fs.Keyspace(ctx, "")
+	if err != nil {
+		t.Fatalf("Create keyspace: %v", err)
+	}
 
-	ctx := context.Background()
 	mustPut := func(key, value string) {
-		if err := fs.Put(ctx, blob.PutOptions{
+		if err := kv.Put(ctx, blob.PutOptions{
 			Key:     key,
 			Data:    []byte(value),
 			Replace: true,
@@ -52,8 +56,6 @@ func TestZipStore(t *testing.T) {
 	mustPut("0", "zero")
 	mustPut("8675309", "jenny")
 	mustPut("68000", "sixty-eight thousand")
-
-	fs.Close(ctx)
 
 	// Create a ZIP archive containin the contents of the filestore.
 	zpath := filepath.Join(t.TempDir(), "test.zip")
@@ -69,7 +71,7 @@ func TestZipStore(t *testing.T) {
 
 	// Open the ZIP archive with a zipstore and verify that it has the
 	// appropriate contents.
-	st := zipstore.New(zf, nil)
+	st := zipstore.NewKV(zf, nil)
 	mustGet := func(key, want string, ok bool) {
 		data, err := st.Get(ctx, key)
 		if (err == nil) != ok {
