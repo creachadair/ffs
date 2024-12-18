@@ -91,3 +91,6 @@ func (c Config) Decode(ekey string) (string, error) {
 	key, err := hex.DecodeString(post)
 	return string(key), err
 }
+
+// WithPrefix returns a copy of c with its prefix set to pfx.
+func (c Config) WithPrefix(pfx string) Config { c.Prefix = pfx; return c }
