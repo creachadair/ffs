@@ -27,7 +27,7 @@ import (
 // A M value manages keyspace and substore allocations for the specified
 // database and KV implementations. The resulting value implements [blob.Store].
 type M[DB any, KV blob.KV] struct {
-	db     DB
+	DB     DB
 	prefix dbkey.Prefix
 	newKV  func(Config[DB]) KV
 
@@ -50,7 +50,7 @@ func New[DB any, KV blob.KV](db DB, prefix dbkey.Prefix, newKV func(Config[DB]) 
 		panic("KV constructor is nil")
 	}
 	return &M[DB, KV]{
-		db:     db,
+		DB:     db,
 		prefix: prefix,
 		newKV:  newKV,
 		subs:   make(map[string]*M[DB, KV]),
@@ -66,7 +66,7 @@ func (d *M[DB, KV]) Keyspace(_ context.Context, name string) (blob.KV, error) {
 
 	kv, ok := d.kvs[name]
 	if !ok {
-		kv = d.newKV(Config[DB]{DB: d.db, Prefix: d.prefix})
+		kv = d.newKV(Config[DB]{DB: d.DB, Prefix: d.prefix})
 		d.kvs[name] = kv
 	}
 	return kv, nil
@@ -80,7 +80,7 @@ func (d *M[DB, KV]) Sub(_ context.Context, name string) (blob.Store, error) {
 
 	sub, ok := d.subs[name]
 	if !ok {
-		sub = New(d.db, d.prefix, d.newKV)
+		sub = New(d.DB, d.prefix, d.newKV)
 		d.subs[name] = sub
 	}
 	return sub, nil
