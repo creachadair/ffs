@@ -91,16 +91,14 @@ type KV struct {
 }
 
 // Opener constructs a filestore from an address comprising a path, for use
-// with the store package.
-func Opener(ctx context.Context, addr string) (blob.KV, error) {
-	s, err := New(strings.TrimPrefix(addr, "//")) // tolerate URL-like paths
-	if err != nil {
-		return nil, err
-	}
-	return s.Keyspace(ctx, "")
+// with the [store] package. The concrete type of the result is [Store].
+//
+// [store]: https://godoc.org/github.com/creachadair/ffstools/lib/store
+func Opener(ctx context.Context, addr string) (blob.StoreCloser, error) {
+	return New(strings.TrimPrefix(addr, "//")) // allow URL-like paths
 }
 
-func (s *KV) keyPath(key string) string { return s.key.Encode(key) }
+func (s KV) keyPath(key string) string { return s.key.Encode(key) }
 
 // Get implements part of [blob.KV]. It linearizes to the point at which
 // opening the key path for reading returns.
