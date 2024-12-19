@@ -66,7 +66,7 @@ func (d *M[DB, KV]) Keyspace(_ context.Context, name string) (blob.KV, error) {
 
 	kv, ok := d.kvs[name]
 	if !ok {
-		kv = d.newKV(Config[DB]{DB: d.DB, Prefix: d.prefix})
+		kv = d.newKV(Config[DB]{DB: d.DB, Prefix: d.prefix.Keyspace(name)})
 		d.kvs[name] = kv
 	}
 	return kv, nil
@@ -80,7 +80,7 @@ func (d *M[DB, KV]) Sub(_ context.Context, name string) (blob.Store, error) {
 
 	sub, ok := d.subs[name]
 	if !ok {
-		sub = New(d.DB, d.prefix, d.newKV)
+		sub = New(d.DB, d.prefix.Sub(name), d.newKV)
 		d.subs[name] = sub
 	}
 	return sub, nil
