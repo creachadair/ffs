@@ -102,11 +102,12 @@ type entry struct {
 
 func compareEntries(a, b entry) int { return strings.Compare(a.key, b.key) }
 
-// Opener constructs a [memstore.KV], for use with the [store] package.  The
-// address is ignored, and an error will never be returned.
+// Opener constructs a [blob.StoreCloser] for use with the [store] package.
+// The concrete type of the result is [memstore.Store]. The address is ignored,
+// and an error is never returned.
 //
 // [store]: https://godoc.org/github.com/creachadair/ffstools/lib/store
-func Opener(_ context.Context, _ string) (blob.KV, error) { return NewKV(), nil }
+func Opener(_ context.Context, _ string) (blob.StoreCloser, error) { return New(nil), nil }
 
 // NewKV constructs a new, empty key-value namespace.
 func NewKV() *KV { return &KV{m: stree.New(300, compareEntries)} }
