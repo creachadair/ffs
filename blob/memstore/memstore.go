@@ -12,7 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package memstore implements the [blob.KV] interface using a map.
+// Package memstore implements the [blob.Store] and [blob.KV] interfaces using
+// in-memory dictionaries. This is primarily useful for testing, as the
+// contents are not persisted.
 package memstore
 
 import (
