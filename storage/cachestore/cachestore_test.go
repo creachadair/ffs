@@ -26,22 +26,22 @@ import (
 )
 
 var (
-	_ blob.KV  = (*cachestore.KV)(nil)
-	_ blob.CAS = cachestore.CAS{}
+	_ blob.KV    = (*cachestore.KV)(nil)
+	_ blob.CAS   = cachestore.CAS{}
+	_ blob.Store = cachestore.Store{}
 )
 
-func TestKV(t *testing.T) {
-	storetest.Run(t, memstore.New(func() blob.KV {
-		m := memstore.NewKV()
-		return cachestore.New(m, 100)
-	}))
-}
-
-func TestCAS(t *testing.T) {
-	storetest.Run(t, memstore.New(func() blob.KV {
-		bs := blob.NewCAS(memstore.NewKV(), sha1.New)
-		return cachestore.NewCAS(bs, 100)
-	}))
+func TestStore(t *testing.T) {
+	t.Run("KV", func(t *testing.T) {
+		s := cachestore.New(memstore.New(nil), 100)
+		storetest.Run(t, storetest.NopCloser(s))
+	})
+	t.Run("CAS", func(t *testing.T) {
+		s := cachestore.New(memstore.New(func() blob.KV {
+			return blob.NewCAS(memstore.NewKV(), sha1.New)
+		}), 100)
+		storetest.Run(t, storetest.NopCloser(s))
+	})
 }
 
 func TestRegression_keyMap(t *testing.T) {
@@ -51,7 +51,7 @@ func TestRegression_keyMap(t *testing.T) {
 		Key:  "init",
 		Data: []byte(data),
 	})
-	c := cachestore.New(m, 100)
+	c := cachestore.NewKV(m, 100)
 	got, err := c.Get(context.Background(), "init")
 	if err != nil {
 		t.Fatalf("Get failed: %v", err)

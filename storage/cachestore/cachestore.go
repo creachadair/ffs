@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package cachestore implements the [blob.KV] that delegates to an underlying
-// store through an in-memory cache.
+// Package cachestore implements a [blob.Store] that wraps the keyspaces of an
+// underlying store in memory caches.
 package cachestore
 
 import (
@@ -28,6 +28,45 @@ import (
 	"github.com/creachadair/mds/stree"
 	"github.com/creachadair/taskgroup"
 )
+
+// Store implements the [blob.Store] interface.
+type Store struct {
+	base     blob.Store
+	maxBytes int
+}
+
+// New constructs a new root Store delegated to base.
+// It will panic if maxBytes < 0.
+func New(base blob.Store, maxBytes int) Store {
+	if maxBytes < 0 {
+		panic("cache size is negative")
+	}
+	return Store{base: base, maxBytes: maxBytes}
+}
+
+// Keyspace implements a method of the [blob.Store] interface.
+// A successful result has concrete type [*KV] or [CAS], depending
+// whether the [blob.KV] returned by the base store implements [blob.CAS].
+// Each keyspace has its own separate cache.
+func (s Store) Keyspace(ctx context.Context, name string) (blob.KV, error) {
+	kv, err := s.base.Keyspace(ctx, name)
+	if err != nil {
+		return nil, err
+	}
+	if cas, ok := kv.(blob.CAS); ok {
+		return NewCAS(cas, s.maxBytes), nil
+	}
+	return NewKV(kv, s.maxBytes), nil
+}
+
+// Sub implements a method of the [blob.Store] interface.
+func (s Store) Sub(ctx context.Context, name string) (blob.Store, error) {
+	sub, err := s.base.Sub(ctx, name)
+	if err != nil {
+		return nil, err
+	}
+	return Store{base: sub, maxBytes: s.maxBytes}, nil
+}
 
 // KV implements a [blob.KV] that delegates to an underlying store through an
 // in-memory cache. This is appropriate for a high-latency or quota-limited
@@ -48,9 +87,9 @@ type KV struct {
 	// Additional keys are added by store queries.
 }
 
-// New constructs a new cached store with the specified capacity in bytes,
+// NewKV constructs a new cached [KV] with the specified capacity in bytes,
 // delegating storage operations to s.  It will panic if maxBytes < 0.
-func New(s blob.KV, maxBytes int) *KV {
+func NewKV(s blob.KV, maxBytes int) *KV {
 	return &KV{
 		base:   s,
 		keymap: stree.New[string](300, strings.Compare),
@@ -188,7 +227,7 @@ type CAS struct {
 // delegating storage operations to cas.  It will panic if maxBytes < 0.
 func NewCAS(cas blob.CAS, maxBytes int) CAS {
 	return CAS{
-		KV:  New(cas, maxBytes),
+		KV:  NewKV(cas, maxBytes),
 		cas: cas,
 	}
 }
