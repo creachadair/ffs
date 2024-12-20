@@ -16,7 +16,6 @@ package root_test
 
 import (
 	"context"
-	"crypto/sha1"
 	"io/fs"
 	"testing"
 
@@ -27,10 +26,11 @@ import (
 )
 
 func TestRoot(t *testing.T) {
-	cas := blob.NewCAS(memstore.NewKV(), sha1.New)
+	kv := memstore.NewKV()
+	cas := blob.CASFromKV(kv)
 	ctx := context.Background()
 
-	r := root.New(cas, &root.Options{
+	r := root.New(kv, &root.Options{
 		Description: "Test root",
 		IndexKey:    "hey you get off of my cloud",
 	})
@@ -56,7 +56,7 @@ func TestRoot(t *testing.T) {
 	}
 
 	// Load a copy of the root back in and make sure it looks sensible.
-	rc, err := root.Open(ctx, cas, "test-root")
+	rc, err := root.Open(ctx, kv, "test-root")
 	if err != nil {
 		t.Fatalf("Open failed: %v", err)
 	}

@@ -34,12 +34,12 @@ type KV struct {
 	suffix string
 }
 
-// New creates a KV associated with the specified kv. The initial value is
+// NewKV creates a KV associated with the specified kv. The initial value is
 // exactly equivalent to the underlying store; use Derive to create clones that
 // use a different prefix/suffix.
 //
 // Affixes do not nest: If s is already a [KV], it is returned as-is.
-func New(kv blob.KV) KV {
+func NewKV(kv blob.KV) KV {
 	if p, ok := kv.(KV); ok {
 		return p
 	}
@@ -145,63 +145,4 @@ func (s KV) Len(ctx context.Context) (int64, error) {
 		return nil
 	})
 	return nk, err
-}
-
-// CAS implements an affixed wrapper around a [blob.CAS] instance.
-// The resulting store adds designated prefix/suffix strings to the keys
-// delegated to its care.
-type CAS struct {
-	KV
-	cas blob.CAS
-}
-
-// NewCAS creates a new affixed [KV] associated with the specified cas.
-// Affixes do not nest: If cas is already an affixed.CAS, it is returned as.is.
-func NewCAS(cas blob.CAS) CAS {
-	if p, ok := cas.(CAS); ok {
-		return p
-	}
-	return CAS{KV: New(cas), cas: cas}
-}
-
-// Base returns the underlying store associated with c.
-func (c CAS) Base() blob.CAS { return c.cas }
-
-// WithPrefix creates a clone of c that delegates to the same underlying store,
-// but using a different prefix. The suffix, if any, is unchanged.
-func (c CAS) WithPrefix(prefix string) CAS {
-	return CAS{KV: c.KV.WithPrefix(prefix), cas: c.cas}
-}
-
-// WithSuffix creates a clone of c that delegates to the same underlying store,
-// but using a different suffix. The prefix, if any, is unchanged.
-func (c CAS) WithSuffix(suffix string) CAS {
-	return CAS{KV: c.KV.WithSuffix(suffix), cas: c.cas}
-}
-
-// Derive creates a clone of c that delegates to the same underlying store, but
-// using a different prefix and suffix. If prefix == suffix == "", Derive
-// returns a store that is equivalent to the original base store.
-func (c CAS) Derive(prefix, suffix string) CAS {
-	return CAS{KV: c.KV.Derive(prefix, suffix), cas: c.cas}
-}
-
-func (c CAS) setOptions(opts blob.CASPutOptions) blob.CASPutOptions {
-	return blob.CASPutOptions{
-		Data:   opts.Data,
-		Prefix: opts.Prefix + c.KV.prefix,
-		Suffix: c.KV.suffix + opts.Suffix,
-	}
-}
-
-// CASPut implements part of the [blob.CAS] interface.
-func (c CAS) CASPut(ctx context.Context, opts blob.CASPutOptions) (string, error) {
-	key, err := c.cas.CASPut(ctx, c.setOptions(opts))
-	return c.UnwrapKey(key), err
-}
-
-// CASKey implements part of the blob.CAS interface.
-func (c CAS) CASKey(ctx context.Context, opts blob.CASPutOptions) (string, error) {
-	key, err := c.cas.CASKey(ctx, c.setOptions(opts))
-	return c.UnwrapKey(key), err
 }

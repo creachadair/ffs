@@ -44,19 +44,19 @@ func New(base blob.Store, maxBytes int) Store {
 	return Store{base: base, maxBytes: maxBytes}
 }
 
-// Keyspace implements a method of the [blob.Store] interface.
-// A successful result has concrete type [*KV] or [CAS], depending
-// whether the [blob.KV] returned by the base store implements [blob.CAS].
-// Each keyspace has its own separate cache.
-func (s Store) Keyspace(ctx context.Context, name string) (blob.KV, error) {
-	kv, err := s.base.Keyspace(ctx, name)
+// KV implements a method of the [blob.Store] interface.  A successful result
+// has concrete type [*KV].  Each keyspace has its own separate cache.
+func (s Store) KV(ctx context.Context, name string) (blob.KV, error) {
+	kv, err := s.base.KV(ctx, name)
 	if err != nil {
 		return nil, err
 	}
-	if cas, ok := kv.(blob.CAS); ok {
-		return NewCAS(cas, s.maxBytes), nil
-	}
 	return NewKV(kv, s.maxBytes), nil
+}
+
+// CAS implements a method of the [blob.Store] interface.
+func (s Store) CAS(ctx context.Context, name string) (blob.CAS, error) {
+	return blob.CASFromKVError(s.KV(ctx, name))
 }
 
 // Sub implements a method of the [blob.Store] interface.
@@ -223,41 +223,4 @@ func (s *KV) Len(ctx context.Context) (int64, error) {
 		return 0, err
 	}
 	return int64(s.keymap.Len()), nil
-}
-
-// CAS implements a cached wrapper around a blob.CAS instance.
-type CAS struct {
-	*KV
-	cas blob.CAS
-}
-
-// NewCAS constructs a new cached store with the specified capacity in bytes,
-// delegating storage operations to cas.  It will panic if maxBytes < 0.
-func NewCAS(cas blob.CAS, maxBytes int) CAS {
-	return CAS{
-		KV:  NewKV(cas, maxBytes),
-		cas: cas,
-	}
-}
-
-// CASPut implements part of blob.CAS using the underlying store.
-func (c CAS) CASPut(ctx context.Context, opts blob.CASPutOptions) (string, error) {
-	c.μ.Lock()
-	defer c.μ.Unlock()
-	if err := c.initKeyMapLocked(ctx); err != nil {
-		return "", err
-	}
-
-	key, err := c.cas.CASPut(ctx, opts)
-	if err != nil {
-		return "", err
-	}
-	c.cache.Put(key, opts.Data)
-	c.keymap.Replace(key)
-	return key, nil
-}
-
-// CASKey implements part of blob.CAS using the underlying store.
-func (c CAS) CASKey(ctx context.Context, opts blob.CASPutOptions) (string, error) {
-	return c.cas.CASKey(ctx, opts)
 }

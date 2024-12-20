@@ -60,8 +60,8 @@ func TestConsistency(t *testing.T) {
 		return memstore.NewKV().Init(data)
 	})
 
-	k1 := storetest.SubKeyspace(t, ctx, s, "foo", "bar")
-	k2 := storetest.SubKeyspace(t, ctx, s, "foo", "bar")
+	k1 := storetest.SubKV(t, ctx, s, "foo", "bar")
+	k2 := storetest.SubKV(t, ctx, s, "foo", "bar")
 
 	for key, want := range data {
 		got1, err := k1.Get(ctx, key)

@@ -53,8 +53,8 @@ func TestNesting(t *testing.T) {
 	}
 
 	ctx := context.Background()
-	k1 := storetest.SubKeyspace(t, ctx, s, "foo", "bar")
-	k2 := storetest.SubKeyspace(t, ctx, s, "foo/_bar")
+	k1 := storetest.SubKV(t, ctx, s, "foo", "bar")
+	k2 := storetest.SubKV(t, ctx, s, "foo/_bar")
 
 	if k1d, k2d := k1.(filestore.KV).Dir(), k2.(filestore.KV).Dir(); k1d == k2d {
 		t.Fatalf("Equal directories: %q", k1d)

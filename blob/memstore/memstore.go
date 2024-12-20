@@ -45,9 +45,9 @@ func (s *Store) kv() blob.KV {
 	return s.newKV()
 }
 
-// Keyspace implements part of [blob.Store].
+// KV implements part of [blob.Store].
 // This implementation never reports an error.
-func (s *Store) Keyspace(_ context.Context, name string) (blob.KV, error) {
+func (s *Store) KV(_ context.Context, name string) (blob.KV, error) {
 	s.μ.Lock()
 	defer s.μ.Unlock()
 	kv, ok := s.kvs[name]
@@ -59,6 +59,12 @@ func (s *Store) Keyspace(_ context.Context, name string) (blob.KV, error) {
 		s.kvs[name] = kv
 	}
 	return kv, nil
+}
+
+// CAS implements part of [blob.Store].
+// This implementation never reports an error.
+func (s *Store) CAS(ctx context.Context, name string) (blob.CAS, error) {
+	return blob.CASFromKVError(s.KV(ctx, name))
 }
 
 // Sub implements part of [blob.Store].

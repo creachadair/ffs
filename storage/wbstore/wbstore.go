@@ -36,26 +36,23 @@ type Store struct {
 	base blob.Store // the underlying delegated store
 }
 
-// Keyspace implements part of [blob.Store]. It wraps the [blob.KV] produced by
-// the base store to direct writes through the buffer.
+// KV implements part of [blob.Store]. It wraps the [blob.KV] produced by the
+// base store to direct writes through the buffer.
 //
 // If the [blob.KV] returned by the base store implements [blob.CAS], then the
 // returned wrapper does also. Otherwise it does not.
-func (s Store) Keyspace(ctx context.Context, name string) (blob.KV, error) {
-	kv, err := s.base.Keyspace(ctx, name)
+func (s Store) KV(ctx context.Context, name string) (blob.KV, error) {
+	kv, err := s.base.KV(ctx, name)
 	if err != nil {
 		return nil, err
 	}
 	id := s.wb.addKV(kv)
-	if cas, ok := kv.(blob.CAS); ok {
-		// Their KV is also a CAS, so ours will be too.
-		return casWrapper{
-			kvWrapper: kvWrapper{wb: s.wb, id: id, kv: kv},
-			cas:       cas,
-		}, nil
-	}
-	// Their KV is not a CAS so ours will not be either.
 	return kvWrapper{wb: s.wb, id: id, kv: kv}, nil
+}
+
+// CAS implements part of the [blob.Store] interface.
+func (s Store) CAS(ctx context.Context, name string) (blob.CAS, error) {
+	return blob.CASFromKVError(s.KV(ctx, name))
 }
 
 // Sub implements part of [blob.Store]. It wraps the substore produced by the

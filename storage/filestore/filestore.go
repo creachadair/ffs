@@ -60,13 +60,18 @@ func (s Store) mkPath(name string) (string, error) {
 	return path, os.MkdirAll(path, 0700)
 }
 
-// Keyspace implements part of the [blob.Store] interface.
-func (s Store) Keyspace(_ context.Context, name string) (blob.KV, error) {
+// KV implements part of the [blob.Store] interface.
+func (s Store) KV(_ context.Context, name string) (blob.KV, error) {
 	path, err := s.mkPath(name)
 	if err != nil {
 		return nil, err
 	}
 	return KV{key: s.key.WithPrefix(path)}, nil
+}
+
+// CAS implements part of the [blob.Store] interface.
+func (s Store) CAS(ctx context.Context, name string) (blob.CAS, error) {
+	return blob.CASFromKVError(s.KV(ctx, name))
 }
 
 // Sub implements part of the [blob.Store] interface.

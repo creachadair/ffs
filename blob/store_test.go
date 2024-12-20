@@ -29,11 +29,6 @@ import (
 	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
-var (
-	_ blob.KV  = blob.HashCAS{} // satisfaction check
-	_ blob.CAS = blob.HashCAS{}
-)
-
 func TestSentinelErrors(t *testing.T) {
 	plain := errors.New("it's not for you")
 	keyExists := fmt.Errorf("test: %w", blob.ErrKeyExists)

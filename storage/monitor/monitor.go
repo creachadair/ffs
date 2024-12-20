@@ -74,9 +74,9 @@ func New[DB any, KV blob.KV](cfg Config[DB, KV]) *M[DB, KV] {
 	}
 }
 
-// Keyspace implements a method of [blob.Store].  A successful result has
-// concrete type [KV].  This method never reports an error.
-func (d *M[DB, KV]) Keyspace(ctx context.Context, name string) (blob.KV, error) {
+// KV implements a method of [blob.Store].  A successful result has concrete
+// type [KV].  This method never reports an error.
+func (d *M[DB, KV]) KV(ctx context.Context, name string) (blob.KV, error) {
 	d.μ.Lock()
 	defer d.μ.Unlock()
 
@@ -90,6 +90,11 @@ func (d *M[DB, KV]) Keyspace(ctx context.Context, name string) (blob.KV, error) 
 		d.kvs[name] = kv
 	}
 	return kv, nil
+}
+
+// CAS implements a method of [blob.Store].
+func (d *M[DB, KV]) CAS(ctx context.Context, name string) (blob.CAS, error) {
+	return blob.CASFromKVError(d.KV(ctx, name))
 }
 
 // Sub implements a method of [blob.Store].  This method never reports an
