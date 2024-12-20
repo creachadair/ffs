@@ -32,7 +32,7 @@ var ErrNoData = errors.New("requested data not found")
 
 // A Root records the location of the root of a file tree.
 type Root struct {
-	cas blob.CAS
+	kv blob.KV
 
 	Description string // a human-readable description
 	FileKey     string // the storage key of the file node
@@ -41,12 +41,12 @@ type Root struct {
 
 // New constructs a new empty Root associated with the given store.
 // If opts != nil, initial values are set from its contents.
-func New(s blob.CAS, opts *Options) *Root {
+func New(s blob.KV, opts *Options) *Root {
 	if opts == nil {
 		opts = new(Options)
 	}
 	return &Root{
-		cas: s,
+		kv: s,
 
 		Description: opts.Description,
 		FileKey:     opts.FileKey,
@@ -55,7 +55,7 @@ func New(s blob.CAS, opts *Options) *Root {
 }
 
 // Open opens a stored root record given its storage key in s.
-func Open(ctx context.Context, s blob.CAS, key string) (*Root, error) {
+func Open(ctx context.Context, s blob.KV, key string) (*Root, error) {
 	var obj wiretype.Object
 	if err := wiretype.Load(ctx, s, key, &obj); err != nil {
 		return nil, fmt.Errorf("loading root %q: %w", key, err)
@@ -70,7 +70,7 @@ func (r *Root) File(ctx context.Context, s blob.CAS) (*file.File, error) {
 		return nil, ErrNoData
 	}
 	if s == nil {
-		s = r.cas
+		s = blob.CASFromKV(r.kv)
 	}
 	return file.Open(ctx, s, r.FileKey)
 }
@@ -84,7 +84,7 @@ func (r *Root) Save(ctx context.Context, key string, replace bool) error {
 	if err != nil {
 		return err
 	}
-	return r.cas.Put(ctx, blob.PutOptions{
+	return r.kv.Put(ctx, blob.PutOptions{
 		Key:     key,
 		Data:    bits,
 		Replace: replace,
@@ -106,13 +106,13 @@ func Encode(r *Root) *wiretype.Object {
 
 // Decode decodes a protobuf-encoded root record and associates it with the
 // storage in s.
-func Decode(s blob.CAS, obj *wiretype.Object) (*Root, error) {
+func Decode(s blob.KV, obj *wiretype.Object) (*Root, error) {
 	pb, ok := obj.Value.(*wiretype.Object_Root)
 	if !ok {
 		return nil, errors.New("object does not contain a root")
 	}
 	return &Root{
-		cas: s,
+		kv: s,
 
 		Description: pb.Root.Description,
 		FileKey:     string(pb.Root.FileKey),

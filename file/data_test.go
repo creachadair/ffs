@@ -31,6 +31,7 @@ import (
 	"github.com/creachadair/mds/mapset"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
+	"golang.org/x/crypto/sha3"
 )
 
 var cmpFileDataOpts = []cmp.Option{
@@ -430,9 +431,8 @@ func TestBlockReader(t *testing.T) {
 }
 
 func hashOf(s string) string {
-	h := sha1.New()
-	io.WriteString(h, s)
-	return string(h.Sum(nil))
+	h := sha3.Sum256([]byte(s))
+	return string(h[:])
 }
 
 type dataTester struct {
@@ -446,7 +446,7 @@ func newDataTester(t *testing.T, sc *block.SplitConfig) *dataTester {
 	return &dataTester{
 		t:   t,
 		ctx: context.Background(),
-		cas: blob.NewCAS(memstore.NewKV(), sha1.New),
+		cas: blob.CASFromKV(memstore.NewKV()),
 		fd:  &fileData{sc: sc},
 	}
 }

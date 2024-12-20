@@ -16,7 +16,6 @@ package file_test
 
 import (
 	"context"
-	"crypto/sha1"
 	"fmt"
 	"io"
 	"io/fs"
@@ -46,7 +45,7 @@ var (
 )
 
 func TestRoundTrip(t *testing.T) {
-	cas := blob.NewCAS(memstore.NewKV(), sha1.New)
+	cas := blob.CASFromKV(memstore.NewKV())
 
 	// Construct a new file and write it to storage, then read it back and
 	// verify that the original state was correctly restored.
@@ -143,7 +142,7 @@ func TestRoundTrip(t *testing.T) {
 }
 
 func TestScan(t *testing.T) {
-	cas := blob.NewCAS(memstore.NewKV(), sha1.New)
+	cas := blob.CASFromKV(memstore.NewKV())
 	ctx := context.Background()
 
 	root := file.New(cas, nil)
@@ -194,7 +193,7 @@ func TestScan(t *testing.T) {
 }
 
 func TestChild(t *testing.T) {
-	cas := blob.NewCAS(memstore.NewKV(), sha1.New)
+	cas := blob.CASFromKV(memstore.NewKV())
 	ctx := context.Background()
 	root := file.New(cas, nil)
 
@@ -233,7 +232,7 @@ func TestChild(t *testing.T) {
 }
 
 func TestCycleCheck(t *testing.T) {
-	cas := blob.NewCAS(memstore.NewKV(), sha1.New)
+	cas := blob.CASFromKV(memstore.NewKV())
 	ctx := context.Background()
 	root := file.New(cas, nil)
 
@@ -250,7 +249,7 @@ func TestCycleCheck(t *testing.T) {
 }
 
 func TestSetData(t *testing.T) {
-	cas := blob.NewCAS(memstore.NewKV(), sha1.New)
+	cas := blob.CASFromKV(memstore.NewKV())
 	ctx := context.Background()
 	root := file.New(cas, &file.NewOptions{
 		Split: &block.SplitConfig{
@@ -322,7 +321,7 @@ and despair!`
 }
 
 func TestConcurrentFile(t *testing.T) {
-	cas := blob.NewCAS(memstore.NewKV(), sha1.New)
+	cas := blob.CASFromKV(memstore.NewKV())
 	ctx := context.Background()
 	root := file.New(cas, nil)
 	root.Child().Set("foo", file.New(cas, nil))
