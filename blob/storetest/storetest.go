@@ -185,11 +185,11 @@ func errorOK(err, werr error) bool {
 // reported to t.  After Run returns, the contents of s are garbage.
 func Run(t *testing.T, s blob.StoreCloser) {
 	ctx := context.Background()
-	k1, err := s.Keyspace(ctx, "one")
+	k1, err := s.KV(ctx, "one")
 	if err != nil {
 		t.Fatalf("Create keyspace 1: %v", err)
 	}
-	k2, err := s.Keyspace(ctx, "two")
+	k2, err := s.KV(ctx, "two")
 	if err != nil {
 		t.Fatalf("Create keyspace 2: %v", err)
 	}
@@ -204,7 +204,7 @@ func Run(t *testing.T, s blob.StoreCloser) {
 
 			// Verify that the edits to k1 did not impart mass to k2.
 			if n, err := k2.Len(ctx); err != nil || n != 0 {
-				t.Errorf("Keyspace 2 len: got (%v, %v), want (0, nil)", n, err)
+				t.Errorf("KV 2 len: got (%v, %v), want (0, nil)", n, err)
 			}
 		}
 	}
@@ -223,21 +223,40 @@ func Run(t *testing.T, s blob.StoreCloser) {
 		}
 	}
 
-	t.Run("Basic", runCheck(k1, k2))
+	casTest := func(s blob.Store) func(t *testing.T) {
+		return func(t *testing.T) {
+			cas, err := s.CAS(ctx, "testcas")
+			if err != nil {
+				t.Fatalf("Create CAS substore: %v", err)
+			}
+			const testData = "abcde"
+			key, err := cas.CASPut(ctx, []byte(testData))
+			if err != nil {
+				t.Errorf("CASPut %q: unexpected error: %v", testData, err)
+			} else if err := cas.Delete(ctx, key); err != nil {
+				t.Errorf("Delete(%x): unexpected error: %v", key, err)
+			}
+		}
+	}
 
-	t.Run("Cleanup", cleanup(k1))
+	t.Run("Root", func(t *testing.T) {
+		t.Run("Basic", runCheck(k1, k2))
+		t.Run("Cleanup", cleanup(k1))
+		t.Run("CAS", casTest(s))
+	})
 
 	t.Run("Sub", func(t *testing.T) {
 		sub, err := s.Sub(ctx, "testsub")
 		if err != nil {
 			t.Fatalf("Create test substore: %v", err)
 		}
-		k3, err := sub.Keyspace(ctx, "three")
+		k3, err := sub.KV(ctx, "three")
 		if err != nil {
 			t.Fatalf("Create keyspace 3: %v", err)
 		}
 		t.Run("Basic", runCheck(k3, k1))
 		t.Run("Cleanup", cleanup(k3))
+		t.Run("CAS", casTest(s))
 	})
 
 	// Exercise concurrency.
@@ -326,10 +345,25 @@ func (nopStoreCloser) Close(context.Context) error { return nil }
 // NopCloser wraps a [blob.Store] with a no-op Close method to implement [blob.StoreCloser].
 func NopCloser(s blob.Store) blob.StoreCloser { return nopStoreCloser{Store: s} }
 
-// SubKeyspace traverses a sequence of zero or more subspace names beginning at
-// s, and returns a keyspace for the last name in the sequence. Any error
-// during traversal logs a failure in t.
-func SubKeyspace(t *testing.T, ctx context.Context, s blob.Store, names ...string) blob.KV {
+// SubKV traverses a sequence of zero or more subspace names beginning at s,
+// and returns a KV for the last name in the sequence. Any error during
+// traversal logs a failure in t.
+func SubKV(t *testing.T, ctx context.Context, s blob.Store, names ...string) blob.KV {
+	return subWalk(t, ctx, s, names, func(s blob.Store, name string) (blob.KV, error) {
+		return s.KV(ctx, name)
+	})
+}
+
+// SubCAS traverses a sequence of zero or more subspace names beginning at s,
+// and returns a CAS for the last name in the sequence. Any error during
+// traversal logs a failure in t.
+func SubCAS(t *testing.T, ctx context.Context, s blob.Store, names ...string) blob.CAS {
+	return subWalk(t, ctx, s, names, func(s blob.Store, name string) (blob.CAS, error) {
+		return s.CAS(ctx, name)
+	})
+}
+
+func subWalk[T any](t *testing.T, ctx context.Context, s blob.Store, names []string, f func(blob.Store, string) (T, error)) T {
 	t.Helper()
 	if len(names) == 0 {
 		t.Fatal("No keyspace name provided")
@@ -343,9 +377,9 @@ func SubKeyspace(t *testing.T, ctx context.Context, s blob.Store, names ...strin
 		cur = next
 	}
 	last := names[len(names)-1]
-	kv, err := cur.Keyspace(ctx, last)
+	v, err := f(cur, last)
 	if err != nil {
-		t.Fatalf("Keyspace(%q) failed: %v", last, err)
+		t.Fatalf("Lookup(%q) failed: %v", last, err)
 	}
-	return kv
+	return v
 }
