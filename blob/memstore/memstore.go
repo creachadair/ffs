@@ -64,11 +64,7 @@ func (s *Store) KV(_ context.Context, name string) (blob.KV, error) {
 // CAS implements part of [blob.Store].
 // This implementation never reports an error.
 func (s *Store) CAS(ctx context.Context, name string) (blob.CAS, error) {
-	kv, err := s.KV(ctx, name)
-	if err != nil {
-		return nil, err
-	}
-	return blob.CASFromKV(kv), nil
+	return blob.CASFromKVError(s.KV(ctx, name))
 }
 
 // Sub implements part of [blob.Store].

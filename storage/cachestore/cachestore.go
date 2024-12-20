@@ -56,11 +56,7 @@ func (s Store) KV(ctx context.Context, name string) (blob.KV, error) {
 
 // CAS implements a method of the [blob.Store] interface.
 func (s Store) CAS(ctx context.Context, name string) (blob.CAS, error) {
-	kv, err := s.KV(ctx, name)
-	if err != nil {
-		return nil, err
-	}
-	return blob.CASFromKV(kv), nil
+	return blob.CASFromKVError(s.KV(ctx, name))
 }
 
 // Sub implements a method of the [blob.Store] interface.

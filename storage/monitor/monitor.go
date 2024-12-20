@@ -94,11 +94,7 @@ func (d *M[DB, KV]) KV(ctx context.Context, name string) (blob.KV, error) {
 
 // CAS implements a method of [blob.Store].
 func (d *M[DB, KV]) CAS(ctx context.Context, name string) (blob.CAS, error) {
-	kv, err := d.KV(ctx, name)
-	if err != nil {
-		return nil, err
-	}
-	return blob.CASFromKV(kv), nil
+	return blob.CASFromKVError(d.KV(ctx, name))
 }
 
 // Sub implements a method of [blob.Store].  This method never reports an

@@ -151,6 +151,16 @@ func CASFromKV(kv KV) CAS {
 	return hashCAS{kv}
 }
 
+// CASFromKVError converts a [KV] into a [CAS]. This is a convenience wrapper
+// to combine an error check with a call to [CASFromKV] for use in storage
+// implementations.
+func CASFromKVError(kv KV, err error) (CAS, error) {
+	if err != nil {
+		return nil, err
+	}
+	return CASFromKV(kv), nil
+}
+
 var (
 	// ErrKeyExists is reported by Put when writing a key that already exists in
 	// the store.
