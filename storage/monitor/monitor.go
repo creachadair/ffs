@@ -33,11 +33,11 @@ type Config[DB any, KV blob.KV] struct {
 	Prefix dbkey.Prefix
 
 	// NewKV construts a KV instance from the current state.
-	NewKV func(DB, string) (KV, error)
+	NewKV func(DB, dbkey.Prefix, string) (KV, error)
 
 	// NewSub constructs a sub-DB state from the current state.
 	// If nil, the existing state is copied.
-	NewSub func(DB, string) (DB, error)
+	NewSub func(DB, dbkey.Prefix, string) (DB, error)
 }
 
 // A M value manages keyspace and substore allocations for the specified
@@ -45,8 +45,8 @@ type Config[DB any, KV blob.KV] struct {
 type M[DB any, KV blob.KV] struct {
 	DB     DB
 	prefix dbkey.Prefix
-	newKV  func(DB, string) (KV, error)
-	newSub func(DB, string) (DB, error)
+	newKV  func(DB, dbkey.Prefix, string) (KV, error)
+	newSub func(DB, dbkey.Prefix, string) (DB, error)
 
 	μ    sync.Mutex
 	subs map[string]*M[DB, KV]
@@ -60,7 +60,7 @@ func New[DB any, KV blob.KV](cfg Config[DB, KV]) *M[DB, KV] {
 		panic("KV constructor is nil")
 	}
 	if cfg.NewSub == nil {
-		cfg.NewSub = func(old DB, _ string) (DB, error) { return old, nil }
+		cfg.NewSub = func(old DB, _ dbkey.Prefix, _ string) (DB, error) { return old, nil }
 	}
 	return &M[DB, KV]{
 		DB:     cfg.DB,
@@ -81,7 +81,7 @@ func (d *M[DB, KV]) Keyspace(_ context.Context, name string) (blob.KV, error) {
 	kv, ok := d.kvs[name]
 	if !ok {
 		var err error
-		kv, err = d.newKV(d.DB, name)
+		kv, err = d.newKV(d.DB, d.prefix.Keyspace(name), name)
 		if err != nil {
 			return nil, err
 		}
@@ -98,13 +98,14 @@ func (d *M[DB, KV]) Sub(_ context.Context, name string) (blob.Store, error) {
 
 	sub, ok := d.subs[name]
 	if !ok {
-		ndb, err := d.newSub(d.DB, name)
+		npfx := d.prefix.Sub(name)
+		ndb, err := d.newSub(d.DB, npfx, name)
 		if err != nil {
 			return nil, err
 		}
 		sub = New(Config[DB, KV]{
 			DB:     ndb,
-			Prefix: d.prefix.Sub(name),
+			Prefix: npfx,
 			NewKV:  d.newKV,
 			NewSub: d.newSub,
 		})
