@@ -49,11 +49,17 @@ type Store interface {
 	Sub(ctx context.Context, name string) (Store, error)
 }
 
+// Closer is an extension interface representing the ability to close and
+// release resources claimed by a storage component.
+type Closer interface {
+	Close(context.Context) error
+}
+
 // StoreCloser combines a [Store] with a Close method that settles state and
 // releases any resources from the store when it is no longer in use.
 type StoreCloser interface {
 	Store
-	Close(context.Context) error
+	Closer
 }
 
 // A KV represents a mutable set of key-value pairs in which each value is
