@@ -33,11 +33,11 @@ type Config[DB any, KV blob.KV] struct {
 	Prefix dbkey.Prefix
 
 	// NewKV construts a KV instance from the current state.
-	NewKV func(DB, dbkey.Prefix, string) (KV, error)
+	NewKV func(context.Context, DB, dbkey.Prefix, string) (KV, error)
 
 	// NewSub constructs a sub-DB state from the current state.
 	// If nil, the existing state is copied.
-	NewSub func(DB, dbkey.Prefix, string) (DB, error)
+	NewSub func(context.Context, DB, dbkey.Prefix, string) (DB, error)
 }
 
 // A M value manages keyspace and substore allocations for the specified
@@ -45,8 +45,8 @@ type Config[DB any, KV blob.KV] struct {
 type M[DB any, KV blob.KV] struct {
 	DB     DB
 	prefix dbkey.Prefix
-	newKV  func(DB, dbkey.Prefix, string) (KV, error)
-	newSub func(DB, dbkey.Prefix, string) (DB, error)
+	newKV  func(context.Context, DB, dbkey.Prefix, string) (KV, error)
+	newSub func(context.Context, DB, dbkey.Prefix, string) (DB, error)
 
 	μ    sync.Mutex
 	subs map[string]*M[DB, KV]
@@ -60,7 +60,9 @@ func New[DB any, KV blob.KV](cfg Config[DB, KV]) *M[DB, KV] {
 		panic("KV constructor is nil")
 	}
 	if cfg.NewSub == nil {
-		cfg.NewSub = func(old DB, _ dbkey.Prefix, _ string) (DB, error) { return old, nil }
+		cfg.NewSub = func(_ context.Context, old DB, _ dbkey.Prefix, _ string) (DB, error) {
+			return old, nil
+		}
 	}
 	return &M[DB, KV]{
 		DB:     cfg.DB,
@@ -74,14 +76,14 @@ func New[DB any, KV blob.KV](cfg Config[DB, KV]) *M[DB, KV] {
 
 // Keyspace implements a method of [blob.Store].  A successful result has
 // concrete type [KV].  This method never reports an error.
-func (d *M[DB, KV]) Keyspace(_ context.Context, name string) (blob.KV, error) {
+func (d *M[DB, KV]) Keyspace(ctx context.Context, name string) (blob.KV, error) {
 	d.μ.Lock()
 	defer d.μ.Unlock()
 
 	kv, ok := d.kvs[name]
 	if !ok {
 		var err error
-		kv, err = d.newKV(d.DB, d.prefix.Keyspace(name), name)
+		kv, err = d.newKV(ctx, d.DB, d.prefix.Keyspace(name), name)
 		if err != nil {
 			return nil, err
 		}
@@ -92,14 +94,14 @@ func (d *M[DB, KV]) Keyspace(_ context.Context, name string) (blob.KV, error) {
 
 // Sub implements a method of [blob.Store].  This method never reports an
 // error.
-func (d *M[DB, KV]) Sub(_ context.Context, name string) (blob.Store, error) {
+func (d *M[DB, KV]) Sub(ctx context.Context, name string) (blob.Store, error) {
 	d.μ.Lock()
 	defer d.μ.Unlock()
 
 	sub, ok := d.subs[name]
 	if !ok {
 		npfx := d.prefix.Sub(name)
-		ndb, err := d.newSub(d.DB, npfx, name)
+		ndb, err := d.newSub(ctx, d.DB, npfx, name)
 		if err != nil {
 			return nil, err
 		}
