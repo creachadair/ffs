@@ -131,7 +131,7 @@ type CAS interface {
 	// CASKey returns the content address of data without modifying the store.
 	// This must be the same value that would be returned by a successful call
 	// to CASPut on data.
-	CASKey(ctx context.Context, data []byte) (string, error)
+	CASKey(ctx context.Context, data []byte) string
 }
 
 // PutOptions regulate the behaviour of the Put method of a [KV]
@@ -241,10 +241,7 @@ func (c hashCAS) CASPut(ctx context.Context, data []byte) (string, error) {
 }
 
 // CASKey constructs the content address for the specified data.
-// This implementation never reports an error.
-func (c hashCAS) CASKey(_ context.Context, data []byte) (string, error) {
-	return c.key(data), nil
-}
+func (c hashCAS) CASKey(_ context.Context, data []byte) string { return c.key(data) }
 
 // SyncKeyer is an optional interface that a store may implement to support
 // checking for the presence of keys in the store without fetching them.
