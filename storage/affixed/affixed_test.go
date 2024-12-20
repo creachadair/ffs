@@ -25,15 +25,12 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
-var (
-	_ blob.KV  = affixed.KV{}
-	_ blob.CAS = affixed.CAS{}
-)
+var _ blob.KV = affixed.KV{}
 
 func TestKV(t *testing.T) {
 	storetest.Run(t, memstore.New(func() blob.KV {
 		m := memstore.NewKV()
-		return affixed.New(m).Derive("POG:", ":CHAMP")
+		return affixed.NewKV(m).Derive("POG:", ":CHAMP")
 	}))
 }
 
@@ -74,9 +71,8 @@ func runList(p blob.KV, want ...string) func(t *testing.T) {
 
 func TestAffixes(t *testing.T) {
 	m := memstore.NewKV()
-	p1 := affixed.New(m).Derive("A:", ":A")
+	p1 := affixed.NewKV(m).Derive("A:", ":A")
 	p2 := p1.Derive("B:", ":B")
-	p3 := affixed.NewCAS(selfCAS{m}).Derive("C:", ":C")
 
 	// Verify that the keys that arrive in the underlying store reflect the
 	// correct affixes, and that the namespaces are disjoint as long as the
@@ -86,36 +82,21 @@ func TestAffixes(t *testing.T) {
 	mustPut(t, p1, "xyzzy", "plugh")
 	mustPut(t, p2, "foo", "quux")
 	mustPut(t, p2, "bar", "plover")
-	mustPut(t, p3, "foo", "bizzle")
-	mustPut(t, p3, "zuul", "dana")
 
 	// Make sure the values round-trip.
 	mustGet(t, p1, "foo", "bar")
 	mustGet(t, p1, "xyzzy", "plugh")
 	mustGet(t, p2, "foo", "quux")
 	mustGet(t, p2, "bar", "plover")
-	mustGet(t, p3, "foo", "bizzle")
-	mustGet(t, p3, "zuul", "dana")
-
-	// Verify that a CAS key is properly affixed.
-	ckey, err := p3.CASPut(context.Background(), blob.CASPutOptions{Data: []byte("hexxus")})
-	if err != nil {
-		t.Errorf("p3 CAS put: %v", err)
-	}
-
-	mustGet(t, p3, ckey, "hexxus")
 
 	t.Run("Snapshot", func(t *testing.T) {
 		snap := m.Snapshot(make(map[string]string))
 
 		if diff := cmp.Diff(map[string]string{
-			"A:foo:A":          "bar",
-			"A:xyzzy:A":        "plugh",
-			"B:foo:B":          "quux",
-			"B:bar:B":          "plover",
-			"C:foo:C":          "bizzle",
-			"C:zuul:C":         "dana",   // from p3.Put
-			"C:" + ckey + ":C": "hexxus", // from p3.CASPut
+			"A:foo:A":   "bar",
+			"A:xyzzy:A": "plugh",
+			"B:foo:B":   "quux",
+			"B:bar:B":   "plover",
 		}, snap); diff != "" {
 			t.Errorf("Affixed store: wrong content (-want, +got)\n%s", diff)
 		}
@@ -123,12 +104,11 @@ func TestAffixes(t *testing.T) {
 
 	t.Run("List-1", runList(p1, "foo", "xyzzy"))
 	t.Run("List-2", runList(p2, "bar", "foo"))
-	t.Run("List-3", runList(p3, "foo", "hexxus", "zuul"))
 }
 
 func TestLen(t *testing.T) {
 	m := memstore.NewKV()
-	p0 := affixed.New(m)
+	p0 := affixed.NewKV(m)
 	p1 := p0.Derive("X:", ":X")
 	p2 := p1.WithPrefix("Y:")
 
@@ -162,17 +142,11 @@ func TestLen(t *testing.T) {
 
 func TestNesting(t *testing.T) {
 	m := memstore.NewKV()
-	p1 := affixed.New(m)
-	c1 := affixed.NewCAS(selfCAS{m})
+	p1 := affixed.NewKV(m)
 
 	t.Run("Renew", func(t *testing.T) {
-		if p2 := affixed.New(p1); p2 != p1 {
+		if p2 := affixed.NewKV(p1); p2 != p1 {
 			t.Errorf("Wrapped new: got %v, want %v", p2, p1)
-		}
-	})
-	t.Run("RenewCAS", func(t *testing.T) {
-		if c2 := affixed.NewCAS(c1); c2 != c1 {
-			t.Errorf("Wrapped new: got %v, want %v", c2, c1)
 		}
 	})
 
@@ -206,21 +180,4 @@ func TestNesting(t *testing.T) {
 			t.Errorf("Affixed store: wrong content (-want, +got)\n%s", diff)
 		}
 	})
-}
-
-type selfCAS struct {
-	blob.KV
-}
-
-func (selfCAS) CASKey(_ context.Context, opts blob.CASPutOptions) (string, error) {
-	return opts.Prefix + string(opts.Data) + opts.Suffix, nil
-}
-
-func (s selfCAS) CASPut(ctx context.Context, opts blob.CASPutOptions) (string, error) {
-	key := opts.Prefix + string(opts.Data) + opts.Suffix
-	err := s.Put(ctx, blob.PutOptions{Key: key, Data: opts.Data})
-	if err != nil && !blob.IsKeyExists(err) {
-		return key, err
-	}
-	return key, nil
 }
