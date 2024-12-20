@@ -12,9 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package encoded implements a [blob.KV] that applies a reversible encoding
-// such as compression to the data. Storage is delegated to an underlying
-// [blob.KV] implementation to which the encoding is opaque.
+// Package encoded implements a [blob.StoreCloser] that applies a reversible
+// encoding such as compression or encryption to the data.
 package encoded
 
 import (
@@ -59,6 +58,14 @@ func (s Store) Sub(ctx context.Context, name string) (blob.Store, error) {
 		return nil, err
 	}
 	return Store{codec: s.codec, real: sub}, nil
+}
+
+// Close implements a method of the [blob.StoreCloser] interface.
+func (s Store) Close(ctx context.Context) error {
+	if c, ok := s.real.(blob.Closer); ok {
+		return c.Close(ctx)
+	}
+	return nil
 }
 
 // New constructs a new store that delegates to s and uses c to encode and
