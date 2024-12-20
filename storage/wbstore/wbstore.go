@@ -19,6 +19,7 @@ package wbstore
 
 import (
 	"context"
+	"errors"
 
 	"github.com/creachadair/ffs/blob"
 	"github.com/creachadair/msync"
@@ -68,7 +69,13 @@ func (s Store) Sub(ctx context.Context, name string) (blob.Store, error) {
 }
 
 // Close implements part of the [blob.StoreCloser] interface.
-func (s Store) Close(ctx context.Context) error { return s.wb.Close(ctx) }
+func (s Store) Close(ctx context.Context) error {
+	var berr error
+	if c, ok := s.base.(blob.Closer); ok {
+		berr = c.Close(ctx)
+	}
+	return errors.Join(berr, s.wb.Close(ctx))
+}
 
 // New constructs a [blob.Store] wrapper that delegates to base and uses buf as
 // a local buffer store. New will panic if base == nil or buf == nil. The ctx
