@@ -31,6 +31,12 @@ import (
 //
 // Implementations of this interface must be safe for concurrent use by
 // multiple goroutines.
+//
+// The [Store.KV] and [Store.CAS] methods share a namespace, meaning that a KV
+// and a CAS on the same name must share the same underlying key-value space.
+// In particular a Put to a KV or a CASPut (from a CAS) must be visible to a
+// Get or List from either, if both were made from the same Store with the same
+// name.
 type Store interface {
 	// KV returns a key space on the store.
 	//
