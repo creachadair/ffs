@@ -40,14 +40,23 @@ type Store struct {
 	real  blob.Store
 }
 
-// Keyspace implements a method of [blob.Store]. The concrete type of keyspaces
+// KV implements a method of [blob.Store]. The concrete type of keyspaces
 // returned is [KV].
-func (s Store) Keyspace(ctx context.Context, name string) (blob.KV, error) {
-	kv, err := s.real.Keyspace(ctx, name)
+func (s Store) KV(ctx context.Context, name string) (blob.KV, error) {
+	kv, err := s.real.KV(ctx, name)
 	if err != nil {
 		return nil, err
 	}
 	return KV{codec: s.codec, real: NewKV(kv, s.codec)}, nil
+}
+
+// CAS implements a method of [blob.Store].
+func (s Store) CAS(ctx context.Context, name string) (blob.CAS, error) {
+	kv, err := s.KV(ctx, name)
+	if err != nil {
+		return nil, err
+	}
+	return blob.CASFromKV(kv), nil
 }
 
 // Sub implements a method of [blob.Store]. The concrete type of stores
