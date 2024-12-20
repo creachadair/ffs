@@ -30,12 +30,6 @@ type kvWrapper struct {
 	kv blob.KV // the underlying KV to which writes are forwarded
 }
 
-// casWrapper implements [blob.KV] and [blob.CAS].
-type casWrapper struct {
-	kvWrapper
-	cas blob.CAS
-}
-
 // Get implements part of [blob.KV]. If key is in the write-behind store, its
 // value there is returned; otherwise it is fetched from the base store.
 func (s kvWrapper) Get(ctx context.Context, key string) ([]byte, error) {
@@ -176,33 +170,4 @@ func keysBetween(t *stree.Tree[string], lo, hi string) (between []string) {
 		between = append(between, key)
 	}
 	return
-}
-
-// CASPut implements part of blob.CAS. It queries the base store for the
-// content key, but stores the blob only in the buffer.
-func (s casWrapper) CASPut(ctx context.Context, opts blob.CASPutOptions) (string, error) {
-	if ok, err := s.wb.checkExited(); ok {
-		return "", err
-	}
-	key, err := s.cas.CASKey(ctx, opts)
-	if err != nil {
-		return "", err
-	}
-	err = s.wb.buffer().Put(ctx, blob.PutOptions{
-		Key:     joinKey(s.id, key),
-		Data:    opts.Data,
-		Replace: false, // no need to replace content-addressed data
-	})
-	if blob.IsKeyExists(err) {
-		err = nil // ignore, this is fine for a CAS write
-	}
-	if err == nil {
-		s.wb.signal()
-	}
-	return key, err
-}
-
-// CASKey implements part of [blob.CAS].
-func (s casWrapper) CASKey(ctx context.Context, opts blob.CASPutOptions) (string, error) {
-	return s.cas.CASKey(ctx, opts)
 }

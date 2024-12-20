@@ -16,7 +16,6 @@ package wbstore_test
 
 import (
 	"context"
-	"crypto/sha1"
 	"sort"
 	"testing"
 
@@ -27,7 +26,7 @@ import (
 )
 
 type slowKV struct {
-	blob.CAS
+	blob.KV
 	next <-chan chan struct{}
 }
 
@@ -37,48 +36,18 @@ func (s slowKV) Put(ctx context.Context, opts blob.PutOptions) error {
 		return ctx.Err()
 	case p := <-s.next:
 		defer close(p)
-		return s.CAS.Put(ctx, opts)
+		return s.KV.Put(ctx, opts)
 	}
 }
 
-func (s slowKV) CASPut(ctx context.Context, opts blob.CASPutOptions) (string, error) {
+func (s slowKV) CASPut(ctx context.Context, data []byte) (string, error) {
 	select {
 	case <-ctx.Done():
 		return "", ctx.Err()
 	case p := <-s.next:
 		defer close(p)
-		return s.CAS.CASPut(ctx, opts)
+		return blob.CASFromKV(s.KV).CASPut(ctx, data)
 	}
-}
-
-func TestWrapperTypes(t *testing.T) {
-	ctx := context.Background()
-
-	t.Run("YesCAS", func(t *testing.T) {
-		base := memstore.New(func() blob.KV {
-			return blob.NewCAS(memstore.NewKV(), sha1.New)
-		})
-		st := wbstore.New(ctx, base, memstore.NewKV())
-		kv, err := st.Keyspace(ctx, "test")
-		if err != nil {
-			t.Fatalf("Create test keyspace: %v", err)
-		}
-		if _, ok := kv.(blob.CAS); !ok {
-			t.Errorf("KV wrapper does not implement CAS: %T", kv)
-		}
-	})
-
-	t.Run("NoCAS", func(t *testing.T) {
-		base := memstore.New(nil)
-		st := wbstore.New(ctx, base, memstore.NewKV())
-		kv, err := st.Keyspace(ctx, "test")
-		if err != nil {
-			t.Fatalf("Create test keyspace: %v", err)
-		}
-		if cas, ok := kv.(blob.CAS); ok {
-			t.Errorf("KV wrapper unexpectedly implements CAS: %T", cas)
-		}
-	})
 }
 
 func TestStore(t *testing.T) {
@@ -88,28 +57,27 @@ func TestStore(t *testing.T) {
 
 	next := make(chan chan struct{}, 1)
 	base := memstore.New(func() blob.KV {
-		return slowKV{
-			CAS:  blob.NewCAS(phys, sha1.New),
-			next: next,
-		}
+		return slowKV{KV: phys, next: next}
 	})
 
 	buf := memstore.NewKV()
 	st := wbstore.New(ctx, base, buf)
-	kv, err := st.Keyspace(ctx, "test")
+	kv, err := st.KV(ctx, "test")
 	if err != nil {
-		t.Fatalf("Create test keyspace: %v", err)
+		t.Fatalf("Create test KV: %v", err)
 	}
-	s, ok := kv.(blob.CAS)
-	if !ok {
-		t.Fatalf("Keyspace is not a CAS: %[1]T %[1]#v", kv)
+	cas, err := st.CAS(ctx, "test")
+	if err != nil {
+		t.Fatalf("Create test CAS: %v", err)
 	}
 
-	bufKey := func(key string) string { return "\x00\x01" + key }
+	bufKey := func(id uint16, key string) string {
+		return string([]byte{byte(id >> 8), byte(id & 255)}) + key
+	}
 
 	mustWrite := func(val string) string {
 		t.Helper()
-		key, err := s.CASPut(ctx, blob.CASPutOptions{Data: []byte(val)})
+		key, err := cas.CASPut(ctx, []byte(val))
 		if err != nil {
 			t.Fatalf("CASPut %q failed: %v", val, err)
 		}
@@ -117,7 +85,7 @@ func TestStore(t *testing.T) {
 	}
 	mustPut := func(key, val string, replace bool) {
 		t.Helper()
-		if err := s.Put(ctx, blob.PutOptions{
+		if err := kv.Put(ctx, blob.PutOptions{
 			Key:     key,
 			Data:    []byte(val),
 			Replace: replace,
@@ -125,7 +93,7 @@ func TestStore(t *testing.T) {
 			t.Fatalf("Put %q failed: %v", val, err)
 		}
 	}
-	checkVal := func(m blob.KV, key, want string) {
+	checkVal := func(m blob.KVCore, key, want string) {
 		t.Helper()
 		bits, err := m.Get(ctx, key)
 		if blob.IsKeyNotFound(err) && want == "" {
@@ -136,7 +104,7 @@ func TestStore(t *testing.T) {
 			t.Errorf("Get %x: got %q, want %q", key, got, want)
 		}
 	}
-	checkLen := func(m blob.KV, want int) {
+	checkLen := func(m blob.KVCore, want int) {
 		t.Helper()
 		got, err := m.Len(ctx)
 		if err != nil {
@@ -145,7 +113,7 @@ func TestStore(t *testing.T) {
 			t.Errorf("Len: got %d, want %d", got, want)
 		}
 	}
-	checkList := func(m blob.KV, want ...string) {
+	checkList := func(m blob.KVCore, want ...string) {
 		t.Helper()
 		sort.Strings(want)
 		var got []string
@@ -173,13 +141,13 @@ func TestStore(t *testing.T) {
 	// The test cases write a value, verify it lands in the cache, then unblock
 	// the writer and verify it lands in the base store.
 	k1 := mustWrite("foo")
-	checkVal(buf, bufKey(k1), "foo") // the write should have hit the buffer
-	checkVal(phys, k1, "")           // it should not have hit the base
+	checkVal(buf, bufKey(2, k1), "foo") // the write should have hit the buffer
+	checkVal(phys, k1, "")              // it should not have hit the base
 	<-push()
 	checkVal(phys, k1, "foo")
 
 	k2 := mustWrite("bar")
-	checkVal(buf, bufKey(k2), "bar")
+	checkVal(buf, bufKey(2, k2), "bar")
 	checkVal(phys, k2, "")
 	<-push()
 	checkVal(phys, k2, "bar")
@@ -187,21 +155,21 @@ func TestStore(t *testing.T) {
 	// A replacement Put should go directly to base, and not hit the buffer.
 	p := push()
 	mustPut("baz", "quux", true)
-	checkVal(buf, bufKey("baz"), "")
+	checkVal(buf, bufKey(1, "baz"), "")
 	<-p
 	checkVal(phys, "baz", "quux")
 
 	// A non-replacement Put should hit the buffer, and not go to base.
 	mustPut("frob", "argh", false)
-	checkVal(buf, bufKey("frob"), "argh")
+	checkVal(buf, bufKey(1, "frob"), "argh")
 	checkVal(phys, "frob", "")
 
 	// The top-level store should see all the keys, even though they are not all
 	// settled yet.
-	checkList(buf, bufKey("frob"))
+	checkList(buf, bufKey(1, "frob"))
 	checkList(phys, k1, k2, "baz")
-	checkList(s, k1, k2, "baz", "frob")
-	checkLen(s, 4)
+	checkList(kv, k1, k2, "baz", "frob")
+	checkLen(kv, 4)
 	<-push()
 
 	if err := st.Sync(ctx); err != nil {
@@ -210,17 +178,17 @@ func TestStore(t *testing.T) {
 
 	// After synchronization, everything should be in the base.
 	checkList(phys, k1, k2, "baz", "frob")
-	checkList(s, k1, k2, "baz", "frob")
-	checkLen(s, 4)
+	checkList(cas, k1, k2, "baz", "frob")
+	checkLen(cas, 4)
 
 	checkVal(phys, k1, "foo")
-	checkVal(s, k1, "foo")
+	checkVal(cas, k1, "foo")
 	checkVal(phys, k2, "bar")
-	checkVal(s, k2, "bar")
+	checkVal(cas, k2, "bar")
 	checkVal(phys, "baz", "quux")
-	checkVal(s, "baz", "quux")
+	checkVal(cas, "baz", "quux")
 	checkVal(phys, "frob", "argh")
-	checkVal(s, "frob", "argh")
+	checkVal(cas, "frob", "argh")
 
 	// Sync should still succeed after no further changes.
 	if err := st.Sync(ctx); err != nil {
