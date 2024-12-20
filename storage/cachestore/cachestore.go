@@ -29,7 +29,7 @@ import (
 	"github.com/creachadair/taskgroup"
 )
 
-// Store implements the [blob.Store] interface.
+// Store implements the [blob.StoreCloser] interface.
 type Store struct {
 	base     blob.Store
 	maxBytes int
@@ -66,6 +66,14 @@ func (s Store) Sub(ctx context.Context, name string) (blob.Store, error) {
 		return nil, err
 	}
 	return Store{base: sub, maxBytes: s.maxBytes}, nil
+}
+
+// Close implements a method of the [blob.StoreCloser] interface.
+func (s Store) Close(ctx context.Context) error {
+	if c, ok := s.base.(blob.Closer); ok {
+		return c.Close(ctx)
+	}
+	return nil
 }
 
 // KV implements a [blob.KV] that delegates to an underlying store through an
