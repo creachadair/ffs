@@ -24,35 +24,49 @@ import (
 	"github.com/creachadair/ffs/storage/dbkey"
 )
 
+// Config carries settings for construction of an [M].
+type Config[DB any, KV blob.KV] struct {
+	// DB represents the initial state of the monitor.
+	DB DB
+
+	// Prefix gives the initial storage prefix of the root.
+	Prefix dbkey.Prefix
+
+	// NewKV construts a KV instance from the current state.
+	NewKV func(DB, string) (KV, error)
+
+	// NewSub constructs a sub-DB state from the current state.
+	// If nil, the existing state is copied.
+	NewSub func(DB, string) (DB, error)
+}
+
 // A M value manages keyspace and substore allocations for the specified
 // database and KV implementations. The resulting value implements [blob.Store].
 type M[DB any, KV blob.KV] struct {
 	DB     DB
 	prefix dbkey.Prefix
-	newKV  func(Config[DB]) KV
+	newKV  func(DB, string) (KV, error)
+	newSub func(DB, string) (DB, error)
 
 	μ    sync.Mutex
 	subs map[string]*M[DB, KV]
 	kvs  map[string]KV
 }
 
-// Config is the set of arguments passed to the newKV constructor when the
-// monitor needs a new KV value.
-type Config[DB any] struct {
-	DB     DB
-	Prefix dbkey.Prefix
-}
-
 // New constructs a new empty store using the specified database, prefix, and
 // KV constructor function. New will panic if newKV == nil.
-func New[DB any, KV blob.KV](db DB, prefix dbkey.Prefix, newKV func(Config[DB]) KV) *M[DB, KV] {
-	if newKV == nil {
+func New[DB any, KV blob.KV](cfg Config[DB, KV]) *M[DB, KV] {
+	if cfg.NewKV == nil {
 		panic("KV constructor is nil")
 	}
+	if cfg.NewSub == nil {
+		cfg.NewSub = func(old DB, _ string) (DB, error) { return old, nil }
+	}
 	return &M[DB, KV]{
-		DB:     db,
-		prefix: prefix,
-		newKV:  newKV,
+		DB:     cfg.DB,
+		prefix: cfg.Prefix,
+		newKV:  cfg.NewKV,
+		newSub: cfg.NewSub,
 		subs:   make(map[string]*M[DB, KV]),
 		kvs:    make(map[string]KV),
 	}
@@ -66,7 +80,11 @@ func (d *M[DB, KV]) Keyspace(_ context.Context, name string) (blob.KV, error) {
 
 	kv, ok := d.kvs[name]
 	if !ok {
-		kv = d.newKV(Config[DB]{DB: d.DB, Prefix: d.prefix.Keyspace(name)})
+		var err error
+		kv, err = d.newKV(d.DB, name)
+		if err != nil {
+			return nil, err
+		}
 		d.kvs[name] = kv
 	}
 	return kv, nil
@@ -80,7 +98,16 @@ func (d *M[DB, KV]) Sub(_ context.Context, name string) (blob.Store, error) {
 
 	sub, ok := d.subs[name]
 	if !ok {
-		sub = New(d.DB, d.prefix.Sub(name), d.newKV)
+		ndb, err := d.newSub(d.DB, name)
+		if err != nil {
+			return nil, err
+		}
+		sub = New(Config[DB, KV]{
+			DB:     ndb,
+			Prefix: d.prefix.Sub(name),
+			NewKV:  d.newKV,
+			NewSub: d.newSub,
+		})
 		d.subs[name] = sub
 	}
 	return sub, nil
