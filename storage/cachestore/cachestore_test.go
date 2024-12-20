@@ -16,7 +16,6 @@ package cachestore_test
 
 import (
 	"context"
-	"crypto/sha1"
 	"testing"
 
 	"github.com/creachadair/ffs/blob"
@@ -27,21 +26,12 @@ import (
 
 var (
 	_ blob.KV          = (*cachestore.KV)(nil)
-	_ blob.CAS         = cachestore.CAS{}
 	_ blob.StoreCloser = cachestore.Store{}
 )
 
 func TestStore(t *testing.T) {
-	t.Run("KV", func(t *testing.T) {
-		s := cachestore.New(memstore.New(nil), 100)
-		storetest.Run(t, storetest.NopCloser(s))
-	})
-	t.Run("CAS", func(t *testing.T) {
-		s := cachestore.New(memstore.New(func() blob.KV {
-			return blob.NewCAS(memstore.NewKV(), sha1.New)
-		}), 100)
-		storetest.Run(t, storetest.NopCloser(s))
-	})
+	s := cachestore.New(memstore.New(nil), 100)
+	storetest.Run(t, storetest.NopCloser(s))
 }
 
 func TestRegression_keyMap(t *testing.T) {
