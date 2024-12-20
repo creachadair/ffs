@@ -19,9 +19,10 @@ package blob
 import (
 	"context"
 	"errors"
-	"hash"
 	"slices"
 	"sort"
+
+	"golang.org/x/crypto/sha3"
 )
 
 // A Store represents a collection of key-value namespaces ("keyspaces")
@@ -31,12 +32,19 @@ import (
 // Implementations of this interface must be safe for concurrent use by
 // multiple goroutines.
 type Store interface {
-	// Keyspace returns a key space on the store.
+	// KV returns a key space on the store.
 	//
-	// Multiple calls to Keyspace with the same name are not required to return
+	// Multiple calls to KV with the same name are not required to return
 	// exactly the same [KV] value, but should return values that will converge
 	// (eventually) to the same view of the storage.
-	Keyspace(ctx context.Context, name string) (KV, error)
+	KV(ctx context.Context, name string) (KV, error)
+
+	// CAS returns a content-addressed key space on the store.
+	//
+	// Multiple calls to CAS with the same name are not required to return
+	// exactly the same [KV] value, but should return values that will converge
+	// (eventually) to the same view of the storage.
+	CAS(ctx context.Context, name string) (CAS, error)
 
 	// Sub returns a new Store subordinate to the receiver (a "substore").
 	// A substore shares logical storage with its parent store, but keyspaces
@@ -62,26 +70,13 @@ type StoreCloser interface {
 	Closer
 }
 
-// A KV represents a mutable set of key-value pairs in which each value is
-// identified by a unique, opaque string key.  An implementation of KV is
-// permitted (but not required) to report an error from Put when given an empty
-// key.  If the implementation cannot store empty keys, it must report
-// ErrKeyNotFound when operating on an empty key.
-//
-// Implementations of this interface must be safe for concurrent use by
-// multiple goroutines.  Moreover, any sequence of operations on a KV that does
-// not overlap with any Delete executions must be linearizable.[1]
-//
-// [1]: https://en.wikipedia.org/wiki/Linearizability
-type KV interface {
+// KVCore is the common interface shared by implementations of a key-value
+// namespace. Users will generally not use this interface directly; it is
+// included by reference in [KV] and [CAS].
+type KVCore interface {
 	// Get fetches the contents of a blob from the store. If the key is not
 	// found in the store, Get must report an ErrKeyNotFound error.
 	Get(ctx context.Context, key string) ([]byte, error)
-
-	// Put writes a blob to the store. If the store already contains the
-	// specified key and opts.Replace is true, the existing value is replaced
-	// without error; otherwise Put must report an ErrKeyExists error.
-	Put(ctx context.Context, opts PutOptions) error
 
 	// Delete atomically removes a blob from the store. If the key is not found
 	// in the store, Delete must report an ErrKeyNotFound error.
@@ -97,12 +92,57 @@ type KV interface {
 	Len(ctx context.Context) (int64, error)
 }
 
+// A KV represents a mutable set of key-value pairs in which each value is
+// identified by a unique, opaque string key.  An implementation of KV is
+// permitted (but not required) to report an error from Put when given an empty
+// key.  If the implementation cannot store empty keys, it must report
+// ErrKeyNotFound when operating on an empty key.
+//
+// Implementations of this interface must be safe for concurrent use by
+// multiple goroutines.  Moreover, any sequence of operations on a KV that does
+// not overlap with any Delete executions must be linearizable.[1]
+//
+// [1]: https://en.wikipedia.org/wiki/Linearizability
+type KV interface {
+	KVCore
+
+	// Put writes a blob to the store. If the store already contains the
+	// specified key and opts.Replace is true, the existing value is replaced
+	// without error; otherwise Put must report an ErrKeyExists error.
+	Put(ctx context.Context, opts PutOptions) error
+}
+
+// CAS represents a mutable set of content-addressed key-value pairs in which
+// each value is identified by a unique, opaque string key.
+type CAS interface {
+	KVCore
+
+	// CASPut writes data to a content-addressed blob in the underlying store,
+	// and returns the assigned key. The target key is returned even in case of
+	// error.
+	CASPut(ctx context.Context, data []byte) (string, error)
+
+	// CASKey returns the content address of data without modifying the store.
+	// This must be the same value that would be returned by a successful call
+	// to CASPut on data.
+	CASKey(ctx context.Context, data []byte) (string, error)
+}
+
 // PutOptions regulate the behaviour of the Put method of a [KV]
 // implementation.
 type PutOptions struct {
 	Key     string // the key to associate with the data
 	Data    []byte // the data to write
 	Replace bool   // whether to replace an existing value for this key
+}
+
+// CASFromKV converts a [KV] into a [CAS]. This is intended for use by storage
+// implementations to support the CAS method of the [Store] interface.
+func CASFromKV(kv KV) CAS {
+	if cas, ok := kv.(CAS); ok {
+		return cas
+	}
+	return hashCAS{kv}
 }
 
 var (
@@ -152,59 +192,31 @@ func KeyNotFound(key string) error { return &KeyError{Key: key, Err: ErrKeyNotFo
 // The concrete type is *blob.KeyError.
 func KeyExists(key string) error { return &KeyError{Key: key, Err: ErrKeyExists} }
 
-// CAS is an optional interface that a store may implement to support content
-// addressing using a one-way hash.
-type CAS interface {
-	KV
-
-	// CASPut writes data to a content-addressed blob in the underlying store,
-	// and returns the assigned key. The target key is returned even in case of
-	// error.
-	CASPut(ctx context.Context, data CASPutOptions) (string, error)
-
-	// CASKey returns the content address of data without modifying the store.
-	// This must be the same value that would be returned by a successful call
-	// to CASPut on data.
-	CASKey(ctx context.Context, opts CASPutOptions) (string, error)
-}
-
-// CASPutOptions are the arguments to the CASPut and CASKey methods of a CAS
-// implementation.
-type CASPutOptions struct {
-	Data           []byte // the data to be stored
-	Prefix, Suffix string // a prefix and suffix to add to the computed key
-}
-
 // A HashCAS is a content-addressable wrapper that adds the CAS methods to a
 // delegated [KV].
-type HashCAS struct {
-	KV
+type hashCAS struct{ KV }
 
-	newHash func() hash.Hash
-}
-
-// NewCAS constructs a HashCAS that delegates to s and uses h to assign keys.
-func NewCAS(kv KV, h func() hash.Hash) HashCAS { return HashCAS{KV: kv, newHash: h} }
+// hash is the digest function used to compute content addresses for hashCAS.
+var hash = sha3.Sum256
 
 // key computes the content key for data using the provided hash.
-func (c HashCAS) key(opts CASPutOptions) string {
-	h := c.newHash()
-	h.Write(opts.Data)
-	hash := string(h.Sum(nil))
-	return opts.Prefix + hash + opts.Suffix
+func (c hashCAS) key(data []byte) string {
+	h := hash(data)
+	return string(h[:])
 }
 
 // CASPut writes data to a content-addressed blob in the underlying store, and
 // returns the assigned key. The target key is returned even in case of error.
-func (c HashCAS) CASPut(ctx context.Context, opts CASPutOptions) (string, error) {
-	key := c.key(opts)
+func (c hashCAS) CASPut(ctx context.Context, data []byte) (string, error) {
+	key := c.key(data)
 
 	// Write the block to storage. Because we are using a content address we
 	// do not request replacement, but we also don't consider it an error if
 	// the address already exists.
 	err := c.Put(ctx, PutOptions{
-		Key:  key,
-		Data: opts.Data,
+		Key:     key,
+		Data:    data,
+		Replace: false,
 	})
 	if IsKeyExists(err) {
 		err = nil
@@ -214,8 +226,8 @@ func (c HashCAS) CASPut(ctx context.Context, opts CASPutOptions) (string, error)
 
 // CASKey constructs the content address for the specified data.
 // This implementation never reports an error.
-func (c HashCAS) CASKey(_ context.Context, opts CASPutOptions) (string, error) {
-	return c.key(opts), nil
+func (c hashCAS) CASKey(_ context.Context, data []byte) (string, error) {
+	return c.key(data), nil
 }
 
 // SyncKeyer is an optional interface that a store may implement to support
