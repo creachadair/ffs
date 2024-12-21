@@ -117,7 +117,7 @@ func TestKeyError(t *testing.T) {
 	}
 }
 
-func TestListSyncKeyer(t *testing.T) {
+func TestSyncKeys(t *testing.T) {
 	kv := memstore.NewKV().Init(map[string]string{
 		"1": "one",
 		"2": "two",
@@ -125,29 +125,36 @@ func TestListSyncKeyer(t *testing.T) {
 		"4": "four",
 		"5": "five",
 	})
-	sk := blob.ListSyncKeyer{KV: kv}
+	cas := blob.CASFromKV(kv)
+
 	ctx := context.Background()
-	check := func(t *testing.T, keys []string, want ...string) {
-		t.Helper()
-		got, err := sk.SyncKeys(ctx, keys)
-		if err != nil {
-			t.Fatalf("SyncKeys: unexpected error: %v", err)
-		} else if diff := gocmp.Diff(got, want, cmpopts.EquateEmpty()); diff != "" {
-			// N.B. We do care about order here, because the wrapper promises it.
-			t.Fatalf("SyncKeys (-got, +want):\n%s", diff)
+	check := func(ks blob.KVCore, keys []string, want ...string) func(t *testing.T) {
+		return func(t *testing.T) {
+			t.Helper()
+			got, err := blob.SyncKeys(ctx, kv, keys)
+			if err != nil {
+				t.Fatalf("SyncKeys: unexpected error: %v", err)
+			} else if diff := gocmp.Diff(got, want, cmpopts.EquateEmpty()); diff != "" {
+				// N.B. We do care about order here, because the wrapper promises it.
+				t.Fatalf("SyncKeys (-got, +want):\n%s", diff)
+			}
 		}
 	}
 
 	t.Run("Empty", func(t *testing.T) {
-		check(t, nil)
+		t.Run("KV", check(kv, nil))
+		t.Run("CAS", check(cas, nil))
 	})
 	t.Run("NoneMissing", func(t *testing.T) {
-		check(t, []string{"1", "3", "4"})
+		t.Run("KV", check(kv, []string{"1", "3", "4"}))
+		t.Run("CAS", check(cas, []string{"1", "3", "4"}))
 	})
 	t.Run("SomeMissing", func(t *testing.T) {
-		check(t, []string{"1", "6", "4", "7"}, "6", "7")
+		t.Run("KV", check(kv, []string{"1", "6", "4", "7"}, "6", "7"))
+		t.Run("CAS", check(cas, []string{"1", "6", "4", "7"}, "6", "7"))
 	})
 	t.Run("AllMissing", func(t *testing.T) {
-		check(t, []string{"10", "50", "90", "0", "8"}, "0", "10", "50", "8", "90")
+		t.Run("KV", check(kv, []string{"10", "50", "90", "0", "8"}, "0", "10", "50", "8", "90"))
+		t.Run("CAS", check(cas, []string{"10", "50", "90", "0", "8"}, "0", "10", "50", "8", "90"))
 	})
 }
