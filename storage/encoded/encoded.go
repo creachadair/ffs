@@ -47,7 +47,7 @@ func (s Store) KV(ctx context.Context, name string) (blob.KV, error) {
 	if err != nil {
 		return nil, err
 	}
-	return KV{codec: s.codec, real: NewKV(kv, s.codec)}, nil
+	return KV{codec: s.codec, real: kv}, nil
 }
 
 // CAS implements a method of [blob.Store].

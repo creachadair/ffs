@@ -15,9 +15,11 @@
 package encoded_test
 
 import (
+	"context"
 	"io"
 	"testing"
 
+	"github.com/creachadair/ffs/blob"
 	"github.com/creachadair/ffs/blob/memstore"
 	"github.com/creachadair/ffs/blob/storetest"
 	"github.com/creachadair/ffs/storage/encoded"
@@ -37,3 +39,47 @@ func (identity) Encode(w io.Writer, src []byte) error { _, err := w.Write(src); 
 
 // Decode decodes src to w with no transformation.
 func (identity) Decode(w io.Writer, src []byte) error { _, err := w.Write(src); return err }
+
+func TestRegression(t *testing.T) {
+	ctx := context.Background()
+
+	t.Run("DoubleEncode", func(t *testing.T) {
+		// Verify that a given Put or Get only encodes/decodes once.
+		base := memstore.New(nil)
+		enc := encoded.New(base, tagger("@"))
+		kv := storetest.SubKV(t, ctx, enc, "test")
+
+		const testValue = "bar"
+		if err := kv.Put(ctx, blob.PutOptions{
+			Key:  "foo",
+			Data: []byte(testValue),
+		}); err != nil {
+			t.Fatalf("Put foo: %v", err)
+		}
+
+		real := storetest.SubKV(t, ctx, base, "test")
+		if val, err := real.Get(ctx, "foo"); err != nil {
+			t.Fatalf("Get foo: %v", err)
+		} else if got, want := string(val), testValue+"@"; got != want {
+			t.Errorf("Base foo: got %q, want %q", got, want)
+		}
+
+		if val, err := kv.Get(ctx, "foo"); err != nil {
+			t.Fatalf("Get foo: %v", err)
+		} else if got, want := string(val), testValue; got != want {
+			t.Errorf("Get foo: got %q, want %q", got, want)
+		}
+	})
+}
+
+type tagger string
+
+func (t tagger) Encode(w io.Writer, src []byte) error {
+	_, err := w.Write(append(src, t...))
+	return err
+}
+
+func (t tagger) Decode(w io.Writer, src []byte) error {
+	_, err := w.Write(src[:len(src)-1])
+	return err
+}
