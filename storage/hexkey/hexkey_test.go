@@ -55,6 +55,32 @@ func TestConfig(t *testing.T) {
 	}
 }
 
+func TestStart(t *testing.T) {
+	tests := []struct {
+		name        string
+		config      hexkey.Config
+		input, want string
+	}{
+		{"AllEmpty", hexkey.Config{}, "", ""},
+		{"NoShard", hexkey.Config{}, "\x01\x23", "0123"},
+		{"Shard2", hexkey.Config{Shard: 2}, "\x01\x23\x45", "01/012345"},
+		{"Shard3", hexkey.Config{Shard: 3}, "\x01\x23\x45", "012/012345"},
+		{"Shard10", hexkey.Config{Shard: 10}, "\x01\x23\x45", "012345"},
+		{"Prefix0", hexkey.Config{Prefix: "ok"}, "\xab\xcd", "ok/abcd"},
+		{"Prefix2", hexkey.Config{Prefix: "ok", Shard: 2}, "\xab\xcd\xef", "ok/ab/abcdef"},
+		{"Prefix5", hexkey.Config{Prefix: "ok", Shard: 5}, "\xab\xcd\xef", "ok/abcde/abcdef"},
+		{"Prefix10", hexkey.Config{Prefix: "ok", Shard: 10}, "\xab\xcd\xef", "ok/abcdef"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			got := tc.config.Start(tc.input)
+			if got != tc.want {
+				t.Errorf("Start %q: got %q, want %q", tc.input, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestDecodeErrors(t *testing.T) {
 	estr := hexkey.ErrNotMyKey.Error()
 	tests := []struct {

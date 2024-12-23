@@ -92,5 +92,15 @@ func (c Config) Decode(ekey string) (string, error) {
 	return string(key), err
 }
 
+// Start returns the hex encoding of a "start" key, a point in the lexiographic
+// sequence of keys.
+func (c Config) Start(key string) string {
+	tail := hex.EncodeToString([]byte(key))
+	if c.Shard <= 0 || len(tail) <= c.Shard {
+		return path.Join(c.Prefix, tail)
+	}
+	return path.Join(c.Prefix, tail[:c.Shard], tail)
+}
+
 // WithPrefix returns a copy of c with its prefix set to pfx.
 func (c Config) WithPrefix(pfx string) Config { c.Prefix = pfx; return c }
