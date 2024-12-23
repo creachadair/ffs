@@ -54,13 +54,14 @@ func New(base blob.Store, maxBytes int) Store {
 			if err != nil {
 				return nil, err
 			}
-			return &KV{
-				base:   kv,
-				keymap: stree.New[string](300, strings.Compare),
-				cache: cache.New(int64(db.maxBytes), cache.LRU[string, []byte]().
-					WithSize(cache.Length),
-				),
-			}, nil
+			return NewKV(kv, db.maxBytes), nil
+		},
+		NewSub: func(ctx context.Context, db state, _ dbkey.Prefix, name string) (state, error) {
+			sub, err := db.base.Sub(ctx, name)
+			if err != nil {
+				return state{}, err
+			}
+			return state{base: sub, maxBytes: db.maxBytes}, nil
 		},
 	})}
 }
