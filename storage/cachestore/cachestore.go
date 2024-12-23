@@ -24,6 +24,8 @@ import (
 	"sync"
 
 	"github.com/creachadair/ffs/blob"
+	"github.com/creachadair/ffs/storage/dbkey"
+	"github.com/creachadair/ffs/storage/monitor"
 	"github.com/creachadair/mds/cache"
 	"github.com/creachadair/mds/stree"
 	"github.com/creachadair/taskgroup"
@@ -31,6 +33,10 @@ import (
 
 // Store implements the [blob.StoreCloser] interface.
 type Store struct {
+	*monitor.M[state, *KV]
+}
+
+type state struct {
 	base     blob.Store
 	maxBytes int
 }
@@ -41,36 +47,27 @@ func New(base blob.Store, maxBytes int) Store {
 	if maxBytes < 0 {
 		panic("cache size is negative")
 	}
-	return Store{base: base, maxBytes: maxBytes}
-}
-
-// KV implements a method of the [blob.Store] interface.  A successful result
-// has concrete type [*KV].  Each keyspace has its own separate cache.
-func (s Store) KV(ctx context.Context, name string) (blob.KV, error) {
-	kv, err := s.base.KV(ctx, name)
-	if err != nil {
-		return nil, err
-	}
-	return NewKV(kv, s.maxBytes), nil
-}
-
-// CAS implements a method of the [blob.Store] interface.
-func (s Store) CAS(ctx context.Context, name string) (blob.CAS, error) {
-	return blob.CASFromKVError(s.KV(ctx, name))
-}
-
-// Sub implements a method of the [blob.Store] interface.
-func (s Store) Sub(ctx context.Context, name string) (blob.Store, error) {
-	sub, err := s.base.Sub(ctx, name)
-	if err != nil {
-		return nil, err
-	}
-	return Store{base: sub, maxBytes: s.maxBytes}, nil
+	return Store{M: monitor.New(monitor.Config[state, *KV]{
+		DB: state{base: base, maxBytes: maxBytes},
+		NewKV: func(ctx context.Context, db state, _ dbkey.Prefix, name string) (*KV, error) {
+			kv, err := db.base.KV(ctx, name)
+			if err != nil {
+				return nil, err
+			}
+			return &KV{
+				base:   kv,
+				keymap: stree.New[string](300, strings.Compare),
+				cache: cache.New(int64(db.maxBytes), cache.LRU[string, []byte]().
+					WithSize(cache.Length),
+				),
+			}, nil
+		},
+	})}
 }
 
 // Close implements a method of the [blob.StoreCloser] interface.
 func (s Store) Close(ctx context.Context) error {
-	if c, ok := s.base.(blob.Closer); ok {
+	if c, ok := s.M.DB.base.(blob.Closer); ok {
 		return c.Close(ctx)
 	}
 	return nil
