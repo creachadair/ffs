@@ -26,6 +26,7 @@ import (
 	"time"
 
 	"github.com/creachadair/ffs/blob"
+	"github.com/creachadair/ffs/storage/dbkey"
 	"github.com/creachadair/msync"
 	"github.com/creachadair/msync/trigger"
 	"github.com/creachadair/taskgroup"
@@ -47,27 +48,25 @@ type writer struct {
 	// Callers of Sync wait on this condition.
 	bufClean *trigger.Cond
 
-	μ    sync.Mutex // protects the fields below
-	last uint16
-	kvs  map[uint16]blob.KV
+	μ   sync.Mutex // protects the fields below
+	kvs map[dbkey.Prefix]blob.KV
 }
 
 func (w *writer) buffer() blob.KV { return w.buf }
 
 func (w *writer) signal() { w.nempty.Set(nil) }
 
-func (w *writer) addKV(kv blob.KV) uint16 {
+func (w *writer) addKV(pfx dbkey.Prefix, kv blob.KV) {
 	w.μ.Lock()
 	defer w.μ.Unlock()
-	w.last++
-	w.kvs[w.last] = kv
-	return w.last
+	w.kvs[pfx] = kv
 }
 
 func (w *writer) findKV(taggedKey string) (string, blob.KV) {
 	w.μ.Lock()
 	defer w.μ.Unlock()
-	id, key := splitKey(taggedKey)
+	id := dbkey.Prefix(taggedKey[:dbkey.PrefixLen])
+	key := taggedKey[dbkey.PrefixLen:]
 	return key, w.kvs[id]
 }
 
@@ -227,18 +226,4 @@ func fetch(ctx context.Context, s blob.KV, key string) <-chan getResult {
 		ch <- getResult{bits: bits, err: err}
 	}()
 	return ch
-}
-
-// splitKey decodes a key with a 2-byte ID prefix identifying which KV it is
-// destined to be forwarded to, returning the ID and the remainder of the key
-// that belongs to the underlying store.
-func splitKey(s string) (uint16, string) {
-	id := (uint16(s[0]) << 8) | uint16(s[1])
-	return id, s[2:]
-}
-
-// joinKey prepends s with a 2-byte KV ID for use by the writeback worker.
-func joinKey(id uint16, s string) string {
-	tag := []byte{byte(id >> 8), byte(id & 0xff)}
-	return string(tag) + s
 }

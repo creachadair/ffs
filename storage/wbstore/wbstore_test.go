@@ -21,6 +21,7 @@ import (
 
 	"github.com/creachadair/ffs/blob"
 	"github.com/creachadair/ffs/blob/memstore"
+	"github.com/creachadair/ffs/storage/dbkey"
 	"github.com/creachadair/ffs/storage/wbstore"
 	"github.com/google/go-cmp/cmp"
 )
@@ -71,9 +72,8 @@ func TestStore(t *testing.T) {
 		t.Fatalf("Create test CAS: %v", err)
 	}
 
-	bufKey := func(id uint16, key string) string {
-		return string([]byte{byte(id >> 8), byte(id & 255)}) + key
-	}
+	bufKey := dbkey.Prefix("").Keyspace("test")
+	t.Logf("Buffer prefix for test: %q", bufKey)
 
 	mustWrite := func(val string) string {
 		t.Helper()
@@ -141,13 +141,13 @@ func TestStore(t *testing.T) {
 	// The test cases write a value, verify it lands in the cache, then unblock
 	// the writer and verify it lands in the base store.
 	k1 := mustWrite("foo")
-	checkVal(buf, bufKey(2, k1), "foo") // the write should have hit the buffer
-	checkVal(phys, k1, "")              // it should not have hit the base
+	checkVal(buf, bufKey.Add(k1), "foo") // the write should have hit the buffer
+	checkVal(phys, k1, "")               // it should not have hit the base
 	<-push()
 	checkVal(phys, k1, "foo")
 
 	k2 := mustWrite("bar")
-	checkVal(buf, bufKey(2, k2), "bar")
+	checkVal(buf, bufKey.Add(k2), "bar")
 	checkVal(phys, k2, "")
 	<-push()
 	checkVal(phys, k2, "bar")
@@ -155,18 +155,18 @@ func TestStore(t *testing.T) {
 	// A replacement Put should go directly to base, and not hit the buffer.
 	p := push()
 	mustPut("baz", "quux", true)
-	checkVal(buf, bufKey(1, "baz"), "")
+	checkVal(buf, bufKey.Add("baz"), "")
 	<-p
 	checkVal(phys, "baz", "quux")
 
 	// A non-replacement Put should hit the buffer, and not go to base.
 	mustPut("frob", "argh", false)
-	checkVal(buf, bufKey(1, "frob"), "argh")
+	checkVal(buf, bufKey.Add("frob"), "argh")
 	checkVal(phys, "frob", "")
 
 	// The top-level store should see all the keys, even though they are not all
 	// settled yet.
-	checkList(buf, bufKey(1, "frob"))
+	checkList(buf, bufKey.Add("frob"))
 	checkList(phys, k1, k2, "baz")
 	checkList(kv, k1, k2, "baz", "frob")
 	checkLen(kv, 4)

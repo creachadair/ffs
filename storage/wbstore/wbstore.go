@@ -22,6 +22,8 @@ import (
 	"errors"
 
 	"github.com/creachadair/ffs/blob"
+	"github.com/creachadair/ffs/storage/dbkey"
+	"github.com/creachadair/ffs/storage/monitor"
 	"github.com/creachadair/msync"
 	"github.com/creachadair/msync/trigger"
 	"github.com/creachadair/taskgroup"
@@ -32,54 +34,27 @@ import (
 // are buffered and written back to the underlying store by a background worker
 // that runs concurrently with the store.
 type Store struct {
-	wb   *writer    // writeback worker, shared among all derived stores
-	base blob.Store // the underlying delegated store
+	*monitor.M[wbState, kvWrapper]
 }
 
-// KV implements part of [blob.Store]. It wraps the [blob.KV] produced by the
-// base store to direct writes through the buffer.
-//
-// If the [blob.KV] returned by the base store implements [blob.CAS], then the
-// returned wrapper does also. Otherwise it does not.
-func (s Store) KV(ctx context.Context, name string) (blob.KV, error) {
-	kv, err := s.base.KV(ctx, name)
-	if err != nil {
-		return nil, err
-	}
-	id := s.wb.addKV(kv)
-	return kvWrapper{wb: s.wb, id: id, kv: kv}, nil
-}
-
-// CAS implements part of the [blob.Store] interface.
-func (s Store) CAS(ctx context.Context, name string) (blob.CAS, error) {
-	return blob.CASFromKVError(s.KV(ctx, name))
-}
-
-// Sub implements part of [blob.Store]. It wraps the substore produced by the
-// base store to direct writes through the buffer.
-func (s Store) Sub(ctx context.Context, name string) (blob.Store, error) {
-	sub, err := s.base.Sub(ctx, name)
-	if err != nil {
-		return nil, err
-	}
-	return Store{wb: s.wb, base: sub}, nil
+type wbState struct {
+	wb   *writer
+	base blob.Store
 }
 
 // Close implements part of the [blob.StoreCloser] interface.
 func (s Store) Close(ctx context.Context) error {
 	var berr error
-	if c, ok := s.base.(blob.Closer); ok {
+	if c, ok := s.M.DB.base.(blob.Closer); ok {
 		berr = c.Close(ctx)
 	}
-	return errors.Join(berr, s.wb.Close(ctx))
+	return errors.Join(berr, s.M.DB.wb.Close(ctx))
 }
 
 // New constructs a [blob.Store] wrapper that delegates to base and uses buf as
 // a local buffer store. New will panic if base == nil or buf == nil. The ctx
 // value governs the operation of the background writer, which will run until
 // the store is closed or ctx terminates.
-//
-// If the buffer store is not empty, existing blobs there will be discarded.
 func New(ctx context.Context, base blob.Store, buf blob.KV) Store {
 	if base == nil {
 		panic("base is nil")
@@ -88,21 +63,14 @@ func New(ctx context.Context, base blob.Store, buf blob.KV) Store {
 	}
 
 	ctx, cancel := context.WithCancel(ctx)
-
-	// Discard existing contents of the buffer.
-	buf.List(ctx, "", func(key string) error {
-		buf.Delete(ctx, key) // best-effort
-		return nil
-	})
 	w := &writer{
 		buf:      buf,
 		exited:   make(chan struct{}),
 		stop:     cancel,
 		nempty:   msync.NewFlag[any](),
 		bufClean: trigger.New(),
-		kvs:      make(map[uint16]blob.KV),
+		kvs:      make(map[dbkey.Prefix]blob.KV),
 	}
-
 	w.nempty.Set(nil) // prime
 	g := taskgroup.Go(func() error { return w.run(ctx) })
 
@@ -112,11 +80,21 @@ func New(ctx context.Context, base blob.Store, buf blob.KV) Store {
 		w.err = g.Wait()
 		close(w.exited)
 	}()
-	return Store{wb: w, base: base}
+	return Store{M: monitor.New(monitor.Config[wbState, kvWrapper]{
+		DB: wbState{wb: w, base: base},
+		NewKV: func(ctx context.Context, db wbState, pfx dbkey.Prefix, name string) (kvWrapper, error) {
+			kv, err := db.base.KV(ctx, name)
+			if err != nil {
+				return kvWrapper{}, err
+			}
+			db.wb.addKV(pfx, kv)
+			return kvWrapper{wb: db.wb, pfx: pfx, kv: kv}, nil
+		},
+	})}
 }
 
 // Buffer returns the buffer store used by s.
-func (s Store) Buffer() blob.KV { return s.wb.buffer() }
+func (s Store) Buffer() blob.KV { return s.M.DB.wb.buffer() }
 
 // Sync blocks until the buffer is empty or ctx ends.
-func (s Store) Sync(ctx context.Context) error { return s.wb.Sync(ctx) }
+func (s Store) Sync(ctx context.Context) error { return s.M.DB.wb.Sync(ctx) }
