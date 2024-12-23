@@ -90,6 +90,13 @@ func New(ctx context.Context, base blob.Store, buf blob.KV) Store {
 			db.wb.addKV(pfx, kv)
 			return kvWrapper{wb: db.wb, pfx: pfx, kv: kv}, nil
 		},
+		NewSub: func(ctx context.Context, db wbState, pfx dbkey.Prefix, name string) (wbState, error) {
+			sub, err := db.base.Sub(ctx, name)
+			if err != nil {
+				return wbState{}, err
+			}
+			return wbState{wb: db.wb, base: sub}, nil
+		},
 	})}
 }
 
