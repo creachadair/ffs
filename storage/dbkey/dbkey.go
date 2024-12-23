@@ -46,6 +46,10 @@ func (p Prefix) Add(s string) string { return string(p) + s }
 // Remove returns a copy of s with the representation of p removed from it.
 func (p Prefix) Remove(s string) string { return strings.TrimPrefix(s, string(p)) }
 
+// Cut reports whether s begins with p, and if so returns p.Remove(s).
+// If not, it returns s unmodified.
+func (p Prefix) Cut(s string) (string, bool) { return strings.CutPrefix(s, string(p)) }
+
 // derive computes a key prefix based on p and the name of the derived
 // entity. The resulting prefix should be unique among all paths from the root.
 //
