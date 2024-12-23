@@ -20,14 +20,15 @@ import (
 	"strings"
 
 	"github.com/creachadair/ffs/blob"
+	"github.com/creachadair/ffs/storage/dbkey"
 	"github.com/creachadair/mds/stree"
 )
 
 // kvWrapper implements [blob.KV] but not [blob.CAS].
 type kvWrapper struct {
-	wb *writer
-	id uint16  // the key prefix for this KV instance (used by the writer)
-	kv blob.KV // the underlying KV to which writes are forwarded
+	wb  *writer
+	pfx dbkey.Prefix // the key prefix for this KV instance (used by the writer)
+	kv  blob.KV      // the underlying KV to which writes are forwarded
 }
 
 // Get implements part of [blob.KV]. If key is in the write-behind store, its
@@ -42,7 +43,7 @@ func (s kvWrapper) Get(ctx context.Context, key string) ([]byte, error) {
 	// result to be available quickly.
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	bufc := fetch(ctx, s.wb.buffer(), joinKey(s.id, key))
+	bufc := fetch(ctx, s.wb.buffer(), s.pfx.Add(key))
 	base := fetch(ctx, s.kv, key)
 	r := <-bufc
 	if r.err == nil {
@@ -58,7 +59,7 @@ func (s kvWrapper) Get(ctx context.Context, key string) ([]byte, error) {
 // and the base store, and succeeds as long as either of those operations
 // succeeds.
 func (s kvWrapper) Delete(ctx context.Context, key string) error {
-	cerr := s.wb.buffer().Delete(ctx, joinKey(s.id, key))
+	cerr := s.wb.buffer().Delete(ctx, s.pfx.Add(key))
 	berr := s.kv.Delete(ctx, key)
 	if cerr != nil && berr != nil {
 		return berr
@@ -77,7 +78,7 @@ func (s kvWrapper) Put(ctx context.Context, opts blob.PutOptions) error {
 		// Don't buffer writes that request replacement.
 		return s.kv.Put(ctx, opts)
 	}
-	opts.Key = joinKey(s.id, opts.Key)
+	opts.Key = s.pfx.Add(opts.Key)
 	if err := s.wb.buffer().Put(ctx, opts); err != nil {
 		return err
 	}
@@ -89,12 +90,11 @@ func (s kvWrapper) Put(ctx context.Context, opts blob.PutOptions) error {
 // are greater than or equal to start.
 func (s kvWrapper) bufferKeys(ctx context.Context, start string) (*stree.Tree[string], error) {
 	buf := stree.New(300, strings.Compare)
-	pfx := joinKey(s.id, "")
-	if err := s.wb.buffer().List(ctx, pfx, func(key string) error {
-		if !strings.HasPrefix(key, pfx) {
+	if err := s.wb.buffer().List(ctx, string(s.pfx), func(key string) error {
+		rkey, ok := s.pfx.Cut(key)
+		if !ok {
 			return blob.ErrStopListing // not ours
 		}
-		_, rkey := splitKey(key) // discard the tag
 		buf.Add(rkey)
 		return nil
 	}); err != nil {
