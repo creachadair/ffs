@@ -27,7 +27,7 @@ import (
 
 	"github.com/creachadair/ffs/blob"
 	"github.com/creachadair/mds/mapset"
-	"github.com/google/go-cmp/cmp"
+	gocmp "github.com/google/go-cmp/cmp"
 )
 
 type op = func(context.Context, *testing.T, blob.KV)
@@ -155,7 +155,7 @@ func opListRange(from, to string, want ...string) op {
 		if err != nil {
 			t.Errorf("s.List(...): unexpected error: %v", err)
 		}
-		if diff := cmp.Diff(want, got); diff != "" {
+		if diff := gocmp.Diff(want, got); diff != "" {
 			t.Errorf("s.List(...): wrong keys (-want, +got):\n%s", diff)
 		}
 	}
@@ -200,6 +200,20 @@ func Run(t *testing.T, s blob.StoreCloser) {
 		return func(t *testing.T) {
 			for _, op := range script {
 				op(ctx, t, k1)
+			}
+
+			// Verify that the edits to k1 gave the expected result.
+			st, err := k1.Stat(ctx, "fruit", "animal", "beverage", "nut", "nonesuch", "0")
+			if err != nil {
+				t.Errorf("KV 1 stat: unexpected error: %v", err)
+			} else if diff := gocmp.Diff(st, blob.StatMap{
+				"0":        {Size: 10},
+				"animal":   {Size: 6},
+				"fruit":    {Size: 4},
+				"nut":      {Size: 8},
+				"beverage": {Size: 12}, // ñ is two bytes
+			}); diff != "" {
+				t.Errorf("KV 1 stat (-got, +want):\n%s", diff)
 			}
 
 			// Verify that the edits to k1 did not impart mass to k2.

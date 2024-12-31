@@ -120,6 +120,22 @@ func (s KV) Get(ctx context.Context, key string) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
+// Stat implements part of the [blob.KV] interface.
+func (s KV) Stat(ctx context.Context, keys ...string) (blob.StatMap, error) {
+	sts, err := s.real.Stat(ctx, keys...)
+	if err != nil {
+		return nil, err
+	}
+	for key := range sts {
+		data, err := s.Get(ctx, key)
+		if err != nil {
+			return nil, err
+		}
+		sts[key] = blob.Stat{Size: int64(len(data))}
+	}
+	return sts, nil
+}
+
 // Put implements part of the [blob.KV] interface.
 func (s KV) Put(ctx context.Context, opts blob.PutOptions) error {
 	buf := bytes.NewBuffer(make([]byte, 0, len(opts.Data)))

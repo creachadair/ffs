@@ -111,7 +111,13 @@ func (s *KV) Get(ctx context.Context, key string) ([]byte, error) {
 	defer s.μ.Unlock()
 	if err := s.initKeyMapLocked(ctx); err != nil {
 		return nil, err
-	} else if data, ok := s.cache.Get(key); ok {
+	}
+	return s.getLocked(ctx, key)
+}
+
+// getLocked implements the lookup of a key in the store.
+func (s *KV) getLocked(ctx context.Context, key string) ([]byte, error) {
+	if data, ok := s.cache.Get(key); ok {
 		return bytes.Clone(data), nil
 	} else if _, ok := s.keymap.Get(key); !ok {
 		return nil, blob.KeyNotFound(key)
@@ -125,6 +131,25 @@ func (s *KV) Get(ctx context.Context, key string) ([]byte, error) {
 	}
 	s.cache.Put(key, data)
 	return data, nil
+}
+
+// Stat implements a method of [blob.KV].
+func (s *KV) Stat(ctx context.Context, keys ...string) (blob.StatMap, error) {
+	s.μ.Lock()
+	defer s.μ.Unlock()
+	if err := s.initKeyMapLocked(ctx); err != nil {
+		return nil, err
+	}
+	out := make(blob.StatMap)
+	for _, key := range keys {
+		data, err := s.getLocked(ctx, key)
+		if err == nil {
+			out[key] = blob.Stat{Size: int64(len(data))}
+		} else if !blob.IsKeyNotFound(err) {
+			return nil, err
+		}
+	}
+	return out, nil
 }
 
 // Put implements a method of [blob.KV].

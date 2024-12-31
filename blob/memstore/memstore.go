@@ -163,6 +163,19 @@ func (s *KV) Get(_ context.Context, key string) ([]byte, error) {
 	return nil, blob.KeyNotFound(key)
 }
 
+// Stat implements part of [blob.KV].
+func (s *KV) Stat(_ context.Context, keys ...string) (blob.StatMap, error) {
+	s.μ.Lock()
+	defer s.μ.Unlock()
+	out := make(blob.StatMap)
+	for _, key := range keys {
+		if e, ok := s.m.Get(entry{key: key}); ok {
+			out[key] = blob.Stat{Size: int64(len(e.val))}
+		}
+	}
+	return out, nil
+}
+
 // Put implements part of [blob.KV].
 func (s *KV) Put(_ context.Context, opts blob.PutOptions) error {
 	s.μ.Lock()
