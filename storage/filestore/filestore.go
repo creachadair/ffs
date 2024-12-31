@@ -110,12 +110,26 @@ func (s KV) keyPath(key string) string { return s.key.Encode(key) }
 func (s KV) Get(_ context.Context, key string) ([]byte, error) {
 	bits, err := os.ReadFile(s.keyPath(key))
 	if err != nil {
-		if os.IsNotExist(err) {
+		if errors.Is(err, os.ErrNotExist) {
 			err = blob.KeyNotFound(key)
 		}
 		return nil, fmt.Errorf("key %q: %w", key, err)
 	}
 	return bits, nil
+}
+
+// Stat implements part of [blob.KV].
+func (s KV) Stat(ctx context.Context, keys ...string) (blob.StatMap, error) {
+	out := make(blob.StatMap)
+	for _, key := range keys {
+		fi, err := os.Stat(s.keyPath(key))
+		if err == nil {
+			out[key] = blob.Stat{Size: fi.Size()}
+		} else if !errors.Is(err, os.ErrNotExist) {
+			return nil, fmt.Errorf("key %q: %w", key, err)
+		}
+	}
+	return out, nil
 }
 
 // Put implements part of [blob.KV]. A successful Put linearizes to the point

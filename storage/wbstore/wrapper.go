@@ -17,6 +17,7 @@ package wbstore
 import (
 	"context"
 	"errors"
+	"fmt"
 	"strings"
 
 	"github.com/creachadair/ffs/blob"
@@ -53,6 +54,41 @@ func (s kvWrapper) Get(ctx context.Context, key string) ([]byte, error) {
 	}
 	r = <-base
 	return r.bits, r.err
+}
+
+// Stat implements part of [blob.KV].
+func (s kvWrapper) Stat(ctx context.Context, keys ...string) (blob.StatMap, error) {
+	// Look up keys in the buffer first. It is possible we may have some there
+	// that are not yet written back. Do this first so that if a writeback
+	// completes while we're checking the base store, we will still have a
+	// coherent value.
+	statKeys := make([]string, len(keys))
+	for i, key := range keys {
+		statKeys[i] = s.pfx.Add(key)
+	}
+	have, err := s.wb.buffer().Stat(ctx, statKeys...)
+	if err != nil {
+		return nil, fmt.Errorf("buffer stat: %w", err)
+	}
+	if len(have) == len(statKeys) {
+		return have, nil // we found everything
+	}
+
+	// Collect the keys that we did not find in the buffer (the "absent").
+	statKeys = statKeys[:0] // reuse
+	for _, key := range keys {
+		if !have.Has(key) {
+			statKeys = append(statKeys, key) // N.B. no need to decorate base keys
+		}
+	}
+	base, err := s.kv.Stat(ctx, statKeys...)
+	if err != nil {
+		return nil, fmt.Errorf("base stat: %w", err)
+	}
+	for key, st := range base {
+		have[key] = st
+	}
+	return have, nil
 }
 
 // Delete implements part of [blob.KV]. The key is deleted from both the buffer
