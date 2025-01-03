@@ -244,6 +244,11 @@ func (c hashCAS) key(data []byte) string {
 func (c hashCAS) CASPut(ctx context.Context, data []byte) (string, error) {
 	key := c.key(data)
 
+	// Skip writing if the content address is already present.
+	if st, err := c.Stat(ctx, key); err == nil && st.Has(key) {
+		return key, nil
+	}
+
 	// Write the block to storage. Because we are using a content address we
 	// do not request replacement, but we also don't consider it an error if
 	// the address already exists.
