@@ -21,6 +21,7 @@ import (
 	"path"
 	"reflect"
 	"runtime"
+	"slices"
 	"testing"
 
 	"github.com/creachadair/ffs/blob"
@@ -134,8 +135,10 @@ func TestSyncKeys(t *testing.T) {
 			got, err := blob.SyncKeys(ctx, kv, keys)
 			if err != nil {
 				t.Fatalf("SyncKeys: unexpected error: %v", err)
-			} else if diff := gocmp.Diff(got, want, cmpopts.EquateEmpty()); diff != "" {
-				// N.B. We do care about order here, because the wrapper promises it.
+			}
+			slices.Sort(got)
+			slices.Sort(want)
+			if diff := gocmp.Diff(got, want, cmpopts.EquateEmpty()); diff != "" {
 				t.Fatalf("SyncKeys (-got, +want):\n%s", diff)
 			}
 		}

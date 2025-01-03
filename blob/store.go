@@ -19,8 +19,6 @@ package blob
 import (
 	"context"
 	"errors"
-	"slices"
-	"sort"
 
 	"golang.org/x/crypto/sha3"
 )
@@ -261,52 +259,20 @@ func (c hashCAS) CASPut(ctx context.Context, data []byte) (string, error) {
 // CASKey constructs the content address for the specified data.
 func (c hashCAS) CASKey(_ context.Context, data []byte) string { return c.key(data) }
 
-// SyncKeyer is an optional interface that a store may implement to support
-// checking for the presence of keys in the store without fetching them.
-type SyncKeyer interface {
-	// SyncKeys reports which of the given keys are not present in the store.
-	// If all the keys are present, SyncKeys returns an empty slice or nil.
-	// The order of returned keys is unspecified.
-	SyncKeys(ctx context.Context, keys []string) ([]string, error)
-}
-
 // SyncKeys reports which of the given keys are not present in the key space.
 // If all the keys are present, SyncKeys returns an empty slice or nil.  The
 // order of returned keys is unspecified.
-//
-// If ks implements the [SyncKeyer] interface, its implementation is used;
-// otherwise an implementation using the List method is provided.
 func SyncKeys(ctx context.Context, ks KVCore, keys []string) ([]string, error) {
-	if s, ok := ks.(SyncKeyer); ok {
-		return s.SyncKeys(ctx, keys)
-	}
-	if len(keys) == 0 {
-		return nil, nil
-	}
-	cp := slices.Clone(keys)
-	sort.Strings(cp)
-
-	var missing []string
-	i := 0
-	if err := ks.List(ctx, cp[0], func(got string) error {
-		// The order of these checks matters. If got is bigger than the current
-		// key, it is possible it may be equal a later one.
-		for i < len(cp) && got > cp[i] {
-			missing = append(missing, cp[i])
-			i++
-		}
-
-		// Reaching here, either there are no more keys left or got <= cp[i].
-		if i < len(cp) && got == cp[i] {
-			i++
-		}
-
-		if i >= len(cp) {
-			return ErrStopListing
-		}
-		return nil
-	}); err != nil {
+	stat, err := ks.Stat(ctx, keys...)
+	if err != nil {
 		return nil, err
 	}
-	return append(missing, cp[i:]...), nil
+
+	var missing []string
+	for _, key := range keys {
+		if !stat.Has(key) {
+			missing = append(missing, key)
+		}
+	}
+	return missing, nil
 }
