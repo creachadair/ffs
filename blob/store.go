@@ -13,7 +13,22 @@
 // limitations under the License.
 
 // Package blob implements an interface and support code for persistent storage
-// of untyped binary blobs.
+// of opaque (untyped) binary blobs.
+//
+// # Implementation Notes
+//
+// The [Store] and [KV] interfaces defined here are intended to be
+// implementable on a variety of concrete substrates (files, databases,
+// key-value stores) in a straightforward manner.  The API of these types is
+// intended to support blobs of a "reasonable" size, where any individual blob
+// can be efficiently processed in memory without streaming or chunking.
+//
+// While in principle blobs of arbitrary size may be stored, an implementation
+// may reject "very large" blobs. Practically an implementation should try to
+// accept blobs on the order of (up to) ~100MIB, but may reject blobs much
+// larger than that.  This interface is intended to store data that is
+// partitioned at a higher level in the protocol, and may not be a good fit for
+// use cases that require large individual blobs.
 package blob
 
 import (
