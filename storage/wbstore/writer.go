@@ -136,12 +136,12 @@ func (w *writer) run(ctx context.Context) error {
 		// List all the buffered keys and shuffle them so that we don't hammer
 		// the same shards of the underlying store in cases where that matters.
 		work = work[:0]
-		if err := w.buf.List(ctx, "", func(key string) error {
+		for key, err := range w.buf.List(ctx, "") {
+			if err != nil {
+				log.Printf("DEBUG :: error scanning buffer: %v", err)
+				continue
+			}
 			work = append(work, key)
-			return nil
-		}); err != nil {
-			log.Printf("DEBUG :: error scanning buffer: %v", err)
-			continue
 		}
 		rand.Shuffle(len(work), func(i, j int) { work[i], work[j] = work[j], work[i] })
 
