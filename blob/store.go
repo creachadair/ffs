@@ -110,8 +110,15 @@ type KVCore interface {
 	Delete(ctx context.Context, key string) error
 
 	// List returns an iterator over each key in the store greater than or equal
-	// to start, in lexicographic order.  Each pair reported by the iterator
-	// must have a nil error, except possibly the last.
+	// to start, in lexicographic order.
+	//
+	// Requirements:
+	//
+	// Each pair reported by the iterator MUST be either a valid key and a nil
+	// error, or an empty key and a non-nil error.
+	//
+	// After the iterator reports an error, it MUST immediately return, even if
+	// the yield function reports true.
 	//
 	// The caller should check the error as part of iteration:
 	//
@@ -121,7 +128,6 @@ type KVCore interface {
 	//     }
 	//     // ... process key
 	//  }
-	//
 	List(ctx context.Context, start string) iter.Seq2[string, error]
 
 	// Len reports the number of keys currently in the store.
