@@ -128,6 +128,10 @@ type KVCore interface {
 	//     }
 	//     // ... process key
 	//  }
+	//
+	// It must be safe to call Get, Has, List, and Len during iteration.
+	// A caller should not attempt to modify the store while listing, unless the
+	// storage implementation documents that it is safe to do so.
 	List(ctx context.Context, start string) iter.Seq2[string, error]
 
 	// Len reports the number of keys currently in the store.
