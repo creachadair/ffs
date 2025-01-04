@@ -19,8 +19,6 @@ package blob
 import (
 	"context"
 	"errors"
-	"slices"
-	"sort"
 
 	"github.com/creachadair/mds/mapset"
 	"golang.org/x/crypto/sha3"
@@ -266,30 +264,16 @@ func SyncKeys(ctx context.Context, ks KVCore, keys []string) ([]string, error) {
 	if len(keys) == 0 {
 		return nil, nil
 	}
-	cp := slices.Clone(keys)
-	sort.Strings(cp)
-
-	var missing []string
-	i := 0
-	if err := ks.List(ctx, cp[0], func(got string) error {
-		// The order of these checks matters. If got is bigger than the current
-		// key, it is possible it may be equal a later one.
-		for i < len(cp) && got > cp[i] {
-			missing = append(missing, cp[i])
-			i++
-		}
-
-		// Reaching here, either there are no more keys left or got <= cp[i].
-		if i < len(cp) && got == cp[i] {
-			i++
-		}
-
-		if i >= len(cp) {
-			return ErrStopListing
-		}
-		return nil
-	}); err != nil {
+	have, err := ks.Has(ctx, keys...)
+	if err != nil {
 		return nil, err
 	}
-	return append(missing, cp[i:]...), nil
+	var missing []string
+	for _, key := range keys {
+		if !have.Has(key) {
+			missing = append(missing, key)
+			have.Add(key) // filter duplicates
+		}
+	}
+	return missing, nil
 }
