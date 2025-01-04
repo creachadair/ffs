@@ -19,7 +19,7 @@ package cachestore
 import (
 	"bytes"
 	"context"
-	"errors"
+	"iter"
 	"strings"
 	"sync"
 
@@ -215,13 +215,15 @@ func (s *KV) initKeyMapLocked(ctx context.Context) error {
 	for i := 0; i < 256; i++ {
 		pfx := string([]byte{byte(i)})
 		coll.Report(func(report func(string)) error {
-			return s.base.List(ictx, pfx, func(key string) error {
-				if !strings.HasPrefix(key, pfx) {
-					return blob.ErrStopListing
+			for key, err := range s.base.List(ictx, pfx) {
+				if err != nil {
+					return err
+				} else if !strings.HasPrefix(key, pfx) {
+					break
 				}
 				report(key)
-				return nil
-			})
+			}
+			return nil
 		})
 	}
 	err := g.Wait()
@@ -230,21 +232,21 @@ func (s *KV) initKeyMapLocked(ctx context.Context) error {
 }
 
 // List implements a method of [blob.KV].
-func (s *KV) List(ctx context.Context, start string, f func(string) error) error {
-	s.μ.Lock()
-	defer s.μ.Unlock()
-	if err := s.initKeyMapLocked(ctx); err != nil {
-		return err
-	}
+func (s *KV) List(ctx context.Context, start string) iter.Seq2[string, error] {
+	return func(yield func(string, error) bool) {
+		s.μ.Lock()
+		defer s.μ.Unlock()
+		if err := s.initKeyMapLocked(ctx); err != nil {
+			yield("", err)
+			return
+		}
 
-	for key := range s.keymap.InorderAfter(start) {
-		if err := f(key); errors.Is(err, blob.ErrStopListing) {
-			return nil
-		} else if err != nil {
-			return err
+		for key := range s.keymap.InorderAfter(start) {
+			if !yield(key, nil) {
+				return
+			}
 		}
 	}
-	return nil
 }
 
 // Len implements a method of [blob.KV].
