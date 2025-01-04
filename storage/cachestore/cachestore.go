@@ -142,18 +142,18 @@ func (s *KV) getLocked(ctx context.Context, key string) ([]byte, bool, error) {
 	return data, ok, nil
 }
 
-// Stat implements a method of [blob.KV].
-func (s *KV) Stat(ctx context.Context, keys ...string) (blob.StatMap, error) {
+// Has implements a method of [blob.KV].
+func (s *KV) Has(ctx context.Context, keys ...string) (blob.KeySet, error) {
 	s.μ.Lock()
 	defer s.μ.Unlock()
 	if err := s.initKeyMapLocked(ctx); err != nil {
 		return nil, err
 	}
-	out := make(blob.StatMap)
+	var out blob.KeySet
 	for _, key := range keys {
-		data, _, err := s.getLocked(ctx, key)
+		_, _, err := s.getLocked(ctx, key)
 		if err == nil {
-			out[key] = blob.Stat{Size: int64(len(data))}
+			out.Add(key)
 		} else if !blob.IsKeyNotFound(err) {
 			return nil, err
 		}

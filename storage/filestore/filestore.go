@@ -118,13 +118,12 @@ func (s KV) Get(_ context.Context, key string) ([]byte, error) {
 	return bits, nil
 }
 
-// Stat implements part of [blob.KV].
-func (s KV) Stat(ctx context.Context, keys ...string) (blob.StatMap, error) {
-	out := make(blob.StatMap)
+// Has implements part of [blob.KV].
+func (s KV) Has(ctx context.Context, keys ...string) (blob.KeySet, error) {
+	var out blob.KeySet
 	for _, key := range keys {
-		fi, err := os.Stat(s.keyPath(key))
-		if err == nil {
-			out[key] = blob.Stat{Size: fi.Size()}
+		if _, err := os.Stat(s.keyPath(key)); err == nil {
+			out.Add(key)
 		} else if !errors.Is(err, os.ErrNotExist) {
 			return nil, fmt.Errorf("key %q: %w", key, err)
 		}

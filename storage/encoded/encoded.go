@@ -120,20 +120,9 @@ func (s KV) Get(ctx context.Context, key string) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-// Stat implements part of the [blob.KV] interface.
-func (s KV) Stat(ctx context.Context, keys ...string) (blob.StatMap, error) {
-	sts, err := s.real.Stat(ctx, keys...)
-	if err != nil {
-		return nil, err
-	}
-	for key := range sts {
-		data, err := s.Get(ctx, key)
-		if err != nil {
-			return nil, err
-		}
-		sts[key] = blob.Stat{Size: int64(len(data))}
-	}
-	return sts, nil
+// Has implements part of the [blob.KV] interface.
+func (s KV) Has(ctx context.Context, keys ...string) (blob.KeySet, error) {
+	return s.real.Has(ctx, keys...)
 }
 
 // Put implements part of the [blob.KV] interface.

@@ -56,8 +56,8 @@ func (s kvWrapper) Get(ctx context.Context, key string) ([]byte, error) {
 	return r.bits, r.err
 }
 
-// Stat implements part of [blob.KV].
-func (s kvWrapper) Stat(ctx context.Context, keys ...string) (blob.StatMap, error) {
+// Has implements part of [blob.KV].
+func (s kvWrapper) Has(ctx context.Context, keys ...string) (blob.KeySet, error) {
 	// Look up keys in the buffer first. It is possible we may have some there
 	// that are not yet written back. Do this first so that if a writeback
 	// completes while we're checking the base store, we will still have a
@@ -66,29 +66,27 @@ func (s kvWrapper) Stat(ctx context.Context, keys ...string) (blob.StatMap, erro
 	for i, key := range keys {
 		statKeys[i] = s.pfx.Add(key)
 	}
-	have, err := s.wb.buffer().Stat(ctx, statKeys...)
+	out, err := s.wb.buffer().Has(ctx, statKeys...)
 	if err != nil {
 		return nil, fmt.Errorf("buffer stat: %w", err)
 	}
-	if len(have) == len(statKeys) {
-		return have, nil // we found everything
+	if len(out) == len(statKeys) {
+		return out, nil // we found everything
 	}
 
 	// Collect the keys that we did not find in the buffer (the "absent").
 	statKeys = statKeys[:0] // reuse
 	for _, key := range keys {
-		if !have.Has(key) {
+		if !out.Has(key) {
 			statKeys = append(statKeys, key) // N.B. no need to decorate base keys
 		}
 	}
-	base, err := s.kv.Stat(ctx, statKeys...)
+	base, err := s.kv.Has(ctx, statKeys...)
 	if err != nil {
 		return nil, fmt.Errorf("base stat: %w", err)
 	}
-	for key, st := range base {
-		have[key] = st
-	}
-	return have, nil
+	out.AddAll(base)
+	return out, nil
 }
 
 // Delete implements part of [blob.KV]. The key is deleted from both the buffer

@@ -203,16 +203,10 @@ func Run(t *testing.T, s blob.StoreCloser) {
 			}
 
 			// Verify that the edits to k1 gave the expected result.
-			st, err := k1.Stat(ctx, "fruit", "animal", "beverage", "nut", "nonesuch", "0")
+			st, err := k1.Has(ctx, "fruit", "animal", "beverage", "nut", "nonesuch", "0")
 			if err != nil {
 				t.Errorf("KV 1 stat: unexpected error: %v", err)
-			} else if diff := gocmp.Diff(st, blob.StatMap{
-				"0":        {Size: 10},
-				"animal":   {Size: 6},
-				"fruit":    {Size: 4},
-				"nut":      {Size: 8},
-				"beverage": {Size: 12}, // ñ is two bytes
-			}); diff != "" {
+			} else if diff := gocmp.Diff(st, mapset.New("0", "animal", "fruit", "nut", "beverage")); diff != "" {
 				t.Errorf("KV 1 stat (-got, +want):\n%s", diff)
 			}
 

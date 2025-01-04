@@ -22,6 +22,7 @@ import (
 	"slices"
 	"sort"
 
+	"github.com/creachadair/mds/mapset"
 	"golang.org/x/crypto/sha3"
 )
 
@@ -84,11 +85,11 @@ type KVCore interface {
 	// found in the store, Get must report an ErrKeyNotFound error.
 	Get(ctx context.Context, key string) ([]byte, error)
 
-	// Stat reports the status of the specified blobs in the store.  The result
-	// map contains one entry for each requested key that is present in the
-	// store. If none of the requested keys is present, the resulting map may be
-	// either empty or nil.
-	Stat(ctx context.Context, keys ...string) (StatMap, error)
+	// Has reports which of the specified keys are present in the store.
+	// The result set contains one entry for each requested key that is present
+	// in the store. If none of the requested keys is present, the resulting set
+	// may be either empty or nil.
+	Has(ctx context.Context, keys ...string) (KeySet, error)
 
 	// Delete atomically removes a blob from the store. If the key is not found
 	// in the store, Delete must report an ErrKeyNotFound error.
@@ -214,17 +215,9 @@ func KeyNotFound(key string) error { return &KeyError{Key: key, Err: ErrKeyNotFo
 // The concrete type is *blob.KeyError.
 func KeyExists(key string) error { return &KeyError{Key: key, Err: ErrKeyExists} }
 
-// StatMap reports metadata about a collection of key-value pairs.
-type StatMap map[string]Stat
-
-// Has reports whether key is present in s.  It is a convenience wrapper for a
-// map lookup.
-func (s StatMap) Has(key string) bool { _, ok := s[key]; return ok }
-
-// Stat reports metadata about a single blob.
-type Stat struct {
-	Size int64 // the size in bytes of the value (if present)
-}
+// KeySet represents a set of keys. It is aliased here so the caller does not
+// need to explicitly import [mapset].
+type KeySet = mapset.Set[string]
 
 // A HashCAS is a content-addressable wrapper that adds the CAS methods to a
 // delegated [KV].
@@ -245,7 +238,7 @@ func (c hashCAS) CASPut(ctx context.Context, data []byte) (string, error) {
 	key := c.key(data)
 
 	// Skip writing if the content address is already present.
-	if st, err := c.Stat(ctx, key); err == nil && st.Has(key) {
+	if st, err := c.Has(ctx, key); err == nil && st.Has(key) {
 		return key, nil
 	}
 
