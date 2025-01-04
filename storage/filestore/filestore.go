@@ -22,6 +22,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"iter"
 	"os"
 	"path"
 	"path/filepath"
@@ -158,40 +159,42 @@ func (s KV) Delete(_ context.Context, key string) error {
 // later than the current scan position succeeds, List linearizes immediately
 // prior to the earliest such Put operation. Otherwise, List may be linearized
 // to any point during its execution.
-func (s KV) List(_ context.Context, start string, f func(string) error) error {
-	roots, err := listdir(s.Dir())
-	if err != nil {
-		return err
-	}
-	for _, root := range roots {
-		cur := filepath.Join(s.Dir(), root)
-		keys, err := listdir(cur)
+func (s KV) List(_ context.Context, start string) iter.Seq2[string, error] {
+	return func(yield func(string, error) bool) {
+		roots, err := listdir(s.Dir())
 		if err != nil {
-			return err
+			yield("", err)
+			return // regardless
 		}
-		for _, tail := range keys {
-			key, err := s.key.Decode(path.Join(cur, tail))
-			if err != nil || key < start {
-				continue // skip non-key files and keys prior to the start
-			} else if err := f(key); errors.Is(err, blob.ErrStopListing) {
-				return nil
-			} else if err != nil {
-				return err
+		for _, root := range roots {
+			cur := filepath.Join(s.Dir(), root)
+			keys, err := listdir(cur)
+			if err != nil {
+				yield("", err)
+				return
+			}
+			for _, tail := range keys {
+				key, err := s.key.Decode(path.Join(cur, tail))
+				if err != nil || key < start {
+					continue // skip non-key files and keys prior to the start
+				}
+				if !yield(key, nil) {
+					return
+				}
 			}
 		}
 	}
-	return nil
 }
 
 // Len implements part of [blob.KV]. It is implemented using List, so it
 // linearizes in the same manner.
 func (s KV) Len(ctx context.Context) (int64, error) {
 	var nb int64
-	if err := s.List(ctx, "", func(string) error {
+	for _, err := range s.List(ctx, "") {
+		if err != nil {
+			return 0, err
+		}
 		nb++
-		return nil
-	}); err != nil {
-		return 0, err
 	}
 	return nb, nil
 }
