@@ -34,6 +34,7 @@ package blob
 import (
 	"context"
 	"errors"
+	"iter"
 
 	"github.com/creachadair/mds/mapset"
 	"golang.org/x/crypto/sha3"
@@ -108,11 +109,30 @@ type KVCore interface {
 	// in the store, Delete must report an ErrKeyNotFound error.
 	Delete(ctx context.Context, key string) error
 
-	// List calls f with each key in the store in lexicographic order, beginning
-	// with the first key greater than or equal to start.  If f reports an error
-	// listing stops and List returns.  If f reported an ErrStopListing error,
-	// List returns nil; otherwise List returns the error reported by f.
-	List(ctx context.Context, start string, f func(string) error) error
+	// List returns an iterator over each key in the store greater than or equal
+	// to start, in lexicographic order.
+	//
+	// Requirements:
+	//
+	// Each pair reported by the iterator MUST be either a valid key and a nil
+	// error, or an empty key and a non-nil error.
+	//
+	// After the iterator reports an error, it MUST immediately return, even if
+	// the yield function reports true.
+	//
+	// The caller should check the error as part of iteration:
+	//
+	//  for key, err := range kv.List(ctx, start) {
+	//     if err != nil {
+	//        return fmt.Errorf("list: %w", err)
+	//     }
+	//     // ... process key
+	//  }
+	//
+	// It must be safe to call Get, Has, List, and Len during iteration.
+	// A caller should not attempt to modify the store while listing, unless the
+	// storage implementation documents that it is safe to do so.
+	List(ctx context.Context, start string) iter.Seq2[string, error]
 
 	// Len reports the number of keys currently in the store.
 	Len(ctx context.Context) (int64, error)

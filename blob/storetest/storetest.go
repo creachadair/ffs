@@ -145,18 +145,17 @@ func opListRange(from, to string, want ...string) op {
 	return func(ctx context.Context, t *testing.T, s blob.KV) {
 		t.Helper()
 		var got []string
-		err := s.List(ctx, from, func(key string) error {
+		for key, err := range s.List(ctx, from) {
+			if err != nil {
+				t.Fatalf("s.List: unexpected error: %v", err)
+			}
 			if to != "" && key >= to {
-				return blob.ErrStopListing
+				break
 			}
 			got = append(got, key)
-			return nil
-		})
-		if err != nil {
-			t.Errorf("s.List(...): unexpected error: %v", err)
 		}
-		if diff := gocmp.Diff(want, got); diff != "" {
-			t.Errorf("s.List(...): wrong keys (-want, +got):\n%s", diff)
+		if diff := gocmp.Diff(got, want); diff != "" {
+			t.Errorf("s.List: wrong keys (-got, +want):\n%s", diff)
 		}
 	}
 }
@@ -299,13 +298,14 @@ func Run(t *testing.T, s blob.StoreCloser) {
 				// that belong to this task.
 				mine := fmt.Sprintf("task-%d-", i)
 				got := mapset.New[string]()
-				if err := k2.List(ctx, "", func(key string) error {
+				for key, err := range k2.List(ctx, "") {
+					if err != nil {
+						t.Errorf("Task %d: s.List failed: %v", i, err)
+						break
+					}
 					if strings.HasPrefix(key, mine) {
 						got.Add(key)
 					}
-					return nil
-				}); err != nil {
-					t.Errorf("Task %d: s.List failed: %v", i, err)
 				}
 
 				for k := 1; k <= numKeys; k++ {

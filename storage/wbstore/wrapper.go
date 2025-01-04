@@ -16,8 +16,8 @@ package wbstore
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"iter"
 	"strings"
 
 	"github.com/creachadair/ffs/blob"
@@ -124,15 +124,15 @@ func (s kvWrapper) Put(ctx context.Context, opts blob.PutOptions) error {
 // are greater than or equal to start.
 func (s kvWrapper) bufferKeys(ctx context.Context, start string) (*stree.Tree[string], error) {
 	buf := stree.New(300, strings.Compare)
-	if err := s.wb.buffer().List(ctx, string(s.pfx), func(key string) error {
+	for key, err := range s.wb.buffer().List(ctx, string(s.pfx)) {
+		if err != nil {
+			return nil, err
+		}
 		rkey, ok := s.pfx.Cut(key)
 		if !ok {
-			return blob.ErrStopListing // not ours
+			break // no more for us
 		}
 		buf.Add(rkey)
-		return nil
-	}); err != nil {
-		return nil, err
 	}
 	return buf, nil
 }
@@ -147,12 +147,12 @@ func (s kvWrapper) Len(ctx context.Context) (int64, error) {
 	}
 
 	var baseKeys int64
-	if err := s.kv.List(ctx, "", func(key string) error {
+	for key, err := range s.kv.List(ctx, "") {
+		if err != nil {
+			return 0, err
+		}
 		baseKeys++
 		buf.Remove(key)
-		return nil
-	}); err != nil {
-		return 0, err
 	}
 
 	// Now any keys remaining in buf are ONLY in buf, so we can add their number
@@ -163,36 +163,40 @@ func (s kvWrapper) Len(ctx context.Context) (int64, error) {
 // List implements part of [blob.KV]. It merges contents from the buffer that
 // are not listed in the underlying store, so that the keys reported include
 // those that have not yet been written back.
-func (s kvWrapper) List(ctx context.Context, start string, f func(string) error) error {
-	buf, err := s.bufferKeys(ctx, start)
-	if err != nil {
-		return err
-	}
+func (s kvWrapper) List(ctx context.Context, start string) iter.Seq2[string, error] {
+	return func(yield func(string, error) bool) {
+		buf, err := s.bufferKeys(ctx, start)
+		if err != nil {
+			yield("", err)
+			return
+		}
 
-	prev := start
-	if err := s.kv.List(ctx, start, func(key string) error {
-		// Pull out keys from the buffer that are between prev and key, and
-		// report them to the caller before sending key itself.
-		for _, p := range keysBetween(buf, prev, key) {
-			if err := f(p); err != nil {
-				return err
+		prev := start
+		for key, err := range s.kv.List(ctx, start) {
+			if err != nil {
+				yield("", err)
+				return
+			}
+			// Pull out keys from the buffer that are between prev and key, and
+			// report them to the caller before sending key itself.
+			for _, p := range keysBetween(buf, prev, key) {
+				if !yield(p, nil) {
+					return
+				}
+			}
+			prev = key // save
+			if !yield(key, nil) {
+				return // deliver key itself
 			}
 		}
-		prev = key // save
-		return f(key)
-	}); err != nil {
-		return err
-	}
 
-	// Now ship any keys left in the buffer after the last key we sent.
-	for _, p := range keysBetween(buf, prev, buf.Max()+"x") {
-		if err := f(p); errors.Is(err, blob.ErrStopListing) {
-			break
-		} else if err != nil {
-			return err
+		// Now ship any keys left in the buffer after the last key we sent.
+		for _, p := range keysBetween(buf, prev, buf.Max()+"x") {
+			if !yield(p, nil) {
+				return
+			}
 		}
 	}
-	return nil
 }
 
 // keysBetween returns the keys in t strictly between lo and hi.

@@ -77,3 +77,27 @@ func TestConsistency(t *testing.T) {
 		}
 	}
 }
+
+func TestReadWhileListing(t *testing.T) {
+	ctx := context.Background()
+
+	want := map[string]string{
+		"cheddar": "ham",
+		"babou":   "dozing",
+		"olive":   "slumpt",
+		"monty":   "grumpus",
+		"luna":    "buckwild",
+	}
+	kv := memstore.NewKV().Init(want)
+	for key, err := range kv.List(ctx, "") {
+		if err != nil {
+			t.Fatalf("Unexpected error from list: %v", err)
+		}
+		got, err := kv.Get(ctx, key)
+		if err != nil {
+			t.Errorf("Get %q: unexpected error: %v", key, err)
+		} else if string(got) != want[key] {
+			t.Errorf("Get %q: got %q, want %q", key, got, want[key])
+		}
+	}
+}

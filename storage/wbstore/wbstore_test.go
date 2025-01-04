@@ -117,12 +117,14 @@ func TestStore(t *testing.T) {
 		t.Helper()
 		sort.Strings(want)
 		var got []string
-		if err := m.List(ctx, "", func(key string) error {
+		for key, err := range m.List(ctx, "") {
+			if err != nil {
+				t.Errorf("List: unexpected error: %v", err)
+				break
+			}
 			got = append(got, key)
-			return nil
-		}); err != nil {
-			t.Errorf("List: unexpected error: %v", err)
-		} else if diff := cmp.Diff(got, want); diff != "" {
+		}
+		if diff := cmp.Diff(got, want); diff != "" {
 			t.Errorf("List (-got, +want):\n%s", diff)
 		}
 	}

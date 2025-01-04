@@ -19,7 +19,7 @@ package memstore
 
 import (
 	"context"
-	"errors"
+	"iter"
 	"strings"
 	"sync"
 
@@ -96,7 +96,7 @@ func New(newKV func() blob.KV) *Store {
 // contents of a Store are not persisted. All operations on a memstore are safe
 // for concurrent use by multiple goroutines.
 type KV struct {
-	μ sync.Mutex
+	μ sync.RWMutex
 	m *stree.Tree[entry]
 }
 
@@ -132,8 +132,8 @@ func (s *KV) Snapshot(m map[string]string) map[string]string {
 	if m == nil {
 		m = make(map[string]string)
 	}
-	s.μ.Lock()
-	defer s.μ.Unlock()
+	s.μ.RLock()
+	defer s.μ.RUnlock()
 	for e := range s.m.Inorder {
 		m[e.key] = e.val
 	}
@@ -154,8 +154,8 @@ func (s *KV) Init(m map[string]string) *KV {
 
 // Get implements part of [blob.KV].
 func (s *KV) Get(_ context.Context, key string) ([]byte, error) {
-	s.μ.Lock()
-	defer s.μ.Unlock()
+	s.μ.RLock()
+	defer s.μ.RUnlock()
 
 	if e, ok := s.m.Get(entry{key: key}); ok {
 		return []byte(e.val), nil
@@ -165,8 +165,8 @@ func (s *KV) Get(_ context.Context, key string) ([]byte, error) {
 
 // Has implements part of [blob.KV].
 func (s *KV) Has(_ context.Context, keys ...string) (blob.KeySet, error) {
-	s.μ.Lock()
-	defer s.μ.Unlock()
+	s.μ.RLock()
+	defer s.μ.RUnlock()
 	out := make(blob.KeySet)
 	for _, key := range keys {
 		if _, ok := s.m.Get(entry{key: key}); ok {
@@ -190,17 +190,6 @@ func (s *KV) Put(_ context.Context, opts blob.PutOptions) error {
 	return nil
 }
 
-// Size implements part of [blob.KV].
-func (s *KV) Size(_ context.Context, key string) (int64, error) {
-	s.μ.Lock()
-	defer s.μ.Unlock()
-
-	if e, ok := s.m.Get(entry{key: key}); ok {
-		return int64(len(e.val)), nil
-	}
-	return 0, blob.KeyNotFound(key)
-}
-
 // Delete implements part of [blob.KV].
 func (s *KV) Delete(_ context.Context, key string) error {
 	s.μ.Lock()
@@ -213,23 +202,22 @@ func (s *KV) Delete(_ context.Context, key string) error {
 }
 
 // List implements part of [blob.KV].
-func (s *KV) List(_ context.Context, start string, f func(string) error) error {
-	s.μ.Lock()
-	defer s.μ.Unlock()
+func (s *KV) List(_ context.Context, start string) iter.Seq2[string, error] {
+	return func(yield func(string, error) bool) {
+		s.μ.RLock()
+		defer s.μ.RUnlock()
 
-	for e := range s.m.InorderAfter(entry{key: start}) {
-		if err := f(e.key); errors.Is(err, blob.ErrStopListing) {
-			return nil
-		} else if err != nil {
-			return err
+		for e := range s.m.InorderAfter(entry{key: start}) {
+			if !yield(e.key, nil) {
+				return
+			}
 		}
 	}
-	return nil
 }
 
 // Len implements part of [blob.KV].
 func (s *KV) Len(context.Context) (int64, error) {
-	s.μ.Lock()
-	defer s.μ.Unlock()
+	s.μ.RLock()
+	defer s.μ.RUnlock()
 	return int64(s.m.Len()), nil
 }
