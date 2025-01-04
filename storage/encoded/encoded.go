@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"context"
 	"io"
+	"iter"
 
 	"github.com/creachadair/ffs/blob"
 )
@@ -144,8 +145,8 @@ func (s KV) Delete(ctx context.Context, key string) error {
 
 // List implements part of the [blob.KV] interface.
 // It delegates directly to the underlying store.
-func (s KV) List(ctx context.Context, start string, f func(string) error) error {
-	return s.real.List(ctx, start, f)
+func (s KV) List(ctx context.Context, start string) iter.Seq2[string, error] {
+	return s.real.List(ctx, start)
 }
 
 // Len implements part of the [blob.KV] interface.
