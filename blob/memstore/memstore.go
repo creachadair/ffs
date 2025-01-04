@@ -19,7 +19,7 @@ package memstore
 
 import (
 	"context"
-	"errors"
+	"iter"
 	"strings"
 	"sync"
 
@@ -213,18 +213,17 @@ func (s *KV) Delete(_ context.Context, key string) error {
 }
 
 // List implements part of [blob.KV].
-func (s *KV) List(_ context.Context, start string, f func(string) error) error {
-	s.μ.Lock()
-	defer s.μ.Unlock()
+func (s *KV) List(_ context.Context, start string) iter.Seq2[string, error] {
+	return func(yield func(string, error) bool) {
+		s.μ.Lock()
+		defer s.μ.Unlock()
 
-	for e := range s.m.InorderAfter(entry{key: start}) {
-		if err := f(e.key); errors.Is(err, blob.ErrStopListing) {
-			return nil
-		} else if err != nil {
-			return err
+		for e := range s.m.InorderAfter(entry{key: start}) {
+			if !yield(e.key, nil) {
+				return
+			}
 		}
 	}
-	return nil
 }
 
 // Len implements part of [blob.KV].
