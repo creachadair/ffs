@@ -178,11 +178,8 @@ func (s *KV) Has(ctx context.Context, keys ...string) (blob.KeySet, error) {
 	defer s.μ.RUnlock()
 	var out blob.KeySet
 	for _, key := range keys {
-		_, _, err := s.getLocked(ctx, key)
-		if err == nil {
+		if _, ok := s.keymap.Get(key); ok {
 			out.Add(key)
-		} else if !blob.IsKeyNotFound(err) {
-			return nil, err
 		}
 	}
 	return out, nil
