@@ -283,6 +283,21 @@ func (s *KV) isInvalid(key string) bool {
 	return s.invalid.Has(key)
 }
 
+func (s *KV) nextKey(start string, done bool) (string, bool) {
+	s.μ.RLock()
+	defer s.μ.RUnlock()
+	cur := s.keymap.Find(start)
+	if cur == nil {
+		return "", false
+	}
+	if done && cur.Key() <= start {
+		if !cur.Next().Valid() {
+			return "", false
+		}
+	}
+	return cur.Key(), true
+}
+
 // List implements a method of [blob.KV].
 func (s *KV) List(ctx context.Context, start string) iter.Seq2[string, error] {
 	return func(yield func(string, error) bool) {
@@ -290,12 +305,13 @@ func (s *KV) List(ctx context.Context, start string) iter.Seq2[string, error] {
 			yield("", err)
 			return
 		}
-		s.μ.RLock()
-		defer s.μ.RUnlock()
-		for key := range s.keymap.InorderAfter(start) {
-			if s.isInvalid(key) {
-				continue
-			} else if !yield(key, nil) {
+		next, ok := s.nextKey(start, false)
+		if !ok {
+			return // nothing to send
+		}
+		for yield(next, nil) {
+			next, ok = s.nextKey(next, true)
+			if !ok {
 				return
 			}
 		}
