@@ -22,11 +22,13 @@ import (
 	"iter"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"github.com/creachadair/ffs/blob"
 	"github.com/creachadair/ffs/storage/dbkey"
 	"github.com/creachadair/ffs/storage/monitor"
 	"github.com/creachadair/mds/cache"
+	"github.com/creachadair/mds/mapset"
 	"github.com/creachadair/mds/stree"
 	"github.com/creachadair/taskgroup"
 )
@@ -84,10 +86,23 @@ func (s Store) Close(ctx context.Context) error {
 type KV struct {
 	base blob.KV
 
-	μ      sync.Mutex
-	listed bool                         // keymap has been fully populated
-	keymap *stree.Tree[string]          // known keys
-	cache  *cache.Cache[string, []byte] // blob cache
+	listed atomic.Bool // keymap has been fully populated
+
+	cache *cache.Cache[string, []byte] // blob cache
+
+	μ      sync.RWMutex        // protects the keymap
+	keymap *stree.Tree[string] // known keys
+
+	// When fetching blobs, we may discover that some keys in the keymap have
+	// become invalid, i.e., we saw them but now the underlying store reports
+	// them gone. This is not expected -- it means something else is modifying
+	// the underlying store separately, but we want to deal with it gracefully.
+	// However, we discover this while holding a shared lock on the keymap, so
+	// we cannot update it directly. This set collects those keys, which are
+	// updated by operations that lock the keymap exclusively. List operations
+	// filter them out.
+	vμ      sync.RWMutex
+	invalid mapset.Set[string]
 
 	// The keymap is initialized to the keyspace of the underlying store.
 	// Additional keys are added by store queries.
@@ -107,11 +122,11 @@ func NewKV(s blob.KV, maxBytes int) *KV {
 
 // Get implements a method of [blob.KV].
 func (s *KV) Get(ctx context.Context, key string) ([]byte, error) {
-	s.μ.Lock()
-	defer s.μ.Unlock()
-	if err := s.initKeyMapLocked(ctx); err != nil {
+	if err := s.initKeyMap(ctx); err != nil {
 		return nil, err
 	}
+	s.μ.RLock()
+	defer s.μ.RUnlock()
 	data, cached, err := s.getLocked(ctx, key)
 	if err != nil {
 		return nil, err
@@ -125,30 +140,42 @@ func (s *KV) Get(ctx context.Context, key string) ([]byte, error) {
 // reports whether the result is shared with the cache.  If so, the caller must
 // copy the bytes before returning them, though it is safe to read the contents
 // without a copy or a lock.
+//
+// Precondition: initKeyMap must have previously succeeded. The caller may hold
+// s.μ either exclusively or shared.
 func (s *KV) getLocked(ctx context.Context, key string) ([]byte, bool, error) {
-	if data, ok := s.cache.Get(key); ok {
-		return data, true, nil
-	} else if _, ok := s.keymap.Get(key); !ok {
+	if _, ok := s.keymap.Get(key); !ok {
 		return nil, false, blob.KeyNotFound(key)
 	}
+	if data, ok := s.cache.Get(key); ok {
+		return data, true, nil
+	}
+
+	// Reaching here, the key is in the key map but not in the cache.
 	data, err := s.base.Get(ctx, key)
 	if err != nil {
-		if blob.IsKeyNotFound(err) {
-			s.keymap.Remove(key)
-		}
+		// N.B. If the base store reports the key as not found, it means our
+		// keymap is out of sync. But we can'tmodify the keymap here, as we do
+		// not have it exclusively. Record the offender so that the next call to
+		// List can process it out (since that's where it would be visible).
+		s.vμ.Lock()
+		s.invalid.Add(key)
+		s.vμ.Unlock()
 		return nil, false, err
 	}
-	ok := s.cache.Put(key, data)
-	return data, ok, nil
+
+	// Update the cache before returning the value.
+	cached := s.cache.Put(key, data)
+	return data, cached, nil
 }
 
 // Has implements a method of [blob.KV].
 func (s *KV) Has(ctx context.Context, keys ...string) (blob.KeySet, error) {
-	s.μ.Lock()
-	defer s.μ.Unlock()
-	if err := s.initKeyMapLocked(ctx); err != nil {
+	if err := s.initKeyMap(ctx); err != nil {
 		return nil, err
 	}
+	s.μ.RLock()
+	defer s.μ.RUnlock()
 	var out blob.KeySet
 	for _, key := range keys {
 		_, _, err := s.getLocked(ctx, key)
@@ -163,11 +190,13 @@ func (s *KV) Has(ctx context.Context, keys ...string) (blob.KeySet, error) {
 
 // Put implements a method of [blob.KV].
 func (s *KV) Put(ctx context.Context, opts blob.PutOptions) error {
-	s.μ.Lock()
-	defer s.μ.Unlock()
-	if err := s.initKeyMapLocked(ctx); err != nil {
+	if err := s.initKeyMap(ctx); err != nil {
 		return err
 	}
+	s.μ.Lock()
+	defer s.μ.Unlock()
+	s.checkInvalidLocked()
+
 	if !opts.Replace {
 		if s.cache.Has(opts.Key) {
 			return blob.KeyExists(opts.Key)
@@ -183,11 +212,12 @@ func (s *KV) Put(ctx context.Context, opts blob.PutOptions) error {
 
 // Delete implements a method of [blob.KV].
 func (s *KV) Delete(ctx context.Context, key string) error {
-	s.μ.Lock()
-	defer s.μ.Unlock()
-	if err := s.initKeyMapLocked(ctx); err != nil {
+	if err := s.initKeyMap(ctx); err != nil {
 		return err
 	}
+	s.μ.Lock()
+	defer s.μ.Unlock()
+	s.checkInvalidLocked()
 
 	// Even if we fail to delete the key from the underlying store, take this as
 	// a signal that we should forget about its data.
@@ -196,12 +226,17 @@ func (s *KV) Delete(ctx context.Context, key string) error {
 	return s.base.Delete(ctx, key)
 }
 
-// initKeyMapLocked fills the key map from the base store.
-// The caller must hold s.μ.
-func (s *KV) initKeyMapLocked(ctx context.Context) error {
-	if s.listed {
-		return nil
+// initKeyMap initializes the key map from the base store.
+func (s *KV) initKeyMap(ctx context.Context) error {
+	if s.listed.Load() {
+		return nil // affirmatively already done
 	}
+	s.μ.Lock()
+	defer s.μ.Unlock()
+	if s.listed.Load() {
+		return nil // someone else did it, OK
+	}
+
 	ictx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	g := taskgroup.New(cancel)
@@ -227,22 +262,43 @@ func (s *KV) initKeyMapLocked(ctx context.Context) error {
 		})
 	}
 	err := g.Wait()
-	s.listed = err == nil
+	s.listed.Store(err == nil)
 	return err
+}
+
+// checkInvalidLocked updates the keymap to remove any keys found to be
+// invalid, that is found to be missing from the base store during a Get.
+// The caller must hold s.μ exclusively.
+func (s *KV) checkInvalidLocked() {
+	s.vμ.Lock()
+	defer s.vμ.Unlock()
+	if !s.invalid.IsEmpty() {
+		for key := range s.invalid {
+			s.keymap.Remove(key)
+		}
+		s.invalid.Clear()
+	}
+}
+
+func (s *KV) isInvalid(key string) bool {
+	s.vμ.RLock()
+	defer s.vμ.RUnlock()
+	return s.invalid.Has(key)
 }
 
 // List implements a method of [blob.KV].
 func (s *KV) List(ctx context.Context, start string) iter.Seq2[string, error] {
 	return func(yield func(string, error) bool) {
-		s.μ.Lock()
-		defer s.μ.Unlock()
-		if err := s.initKeyMapLocked(ctx); err != nil {
+		if err := s.initKeyMap(ctx); err != nil {
 			yield("", err)
 			return
 		}
-
+		s.μ.RLock()
+		defer s.μ.RUnlock()
 		for key := range s.keymap.InorderAfter(start) {
-			if !yield(key, nil) {
+			if s.isInvalid(key) {
+				continue
+			} else if !yield(key, nil) {
 				return
 			}
 		}
@@ -251,10 +307,10 @@ func (s *KV) List(ctx context.Context, start string) iter.Seq2[string, error] {
 
 // Len implements a method of [blob.KV].
 func (s *KV) Len(ctx context.Context) (int64, error) {
-	s.μ.Lock()
-	defer s.μ.Unlock()
-	if err := s.initKeyMapLocked(ctx); err != nil {
+	if err := s.initKeyMap(ctx); err != nil {
 		return 0, err
 	}
+	s.μ.RLock()
+	defer s.μ.RUnlock()
 	return int64(s.keymap.Len()), nil
 }

@@ -49,3 +49,37 @@ func TestRegression_keyMap(t *testing.T) {
 		t.Fatalf("Wrong data: got %#q, want %#q", s, data)
 	}
 }
+
+func TestRecurrentList(t *testing.T) {
+	ctx := context.Background()
+
+	want := map[string]string{
+		"1": "one",
+		"2": "two",
+		"3": "three",
+		"4": "four",
+	}
+	base := memstore.New(func() blob.KV {
+		return memstore.NewKV().Init(want)
+	})
+	cs := cachestore.New(base, 100)
+	kv := storetest.SubKV(t, ctx, cs, "test")
+
+	for key, err := range kv.List(ctx, "") {
+		if err != nil {
+			t.Fatalf("List: unexpected error: %v", err)
+		}
+		if got, err := kv.Get(ctx, key); err != nil {
+			t.Errorf("Get %q: unexpected error: %v", key, err)
+		} else if string(got) != want[key] {
+			t.Errorf("Get %q: got %q, want %q", key, got, want[key])
+		}
+
+		for k2, err := range kv.List(ctx, key) {
+			if err != nil {
+				t.Fatalf("Inner List: unexpected error: %v", err)
+			}
+			t.Logf("List %q OK", k2)
+		}
+	}
+}
