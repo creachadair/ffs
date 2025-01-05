@@ -209,9 +209,6 @@ var (
 	// ErrKeyNotFound is reported by Get or Size when given a key that does not
 	// exist in the store.
 	ErrKeyNotFound = errors.New("key not found")
-
-	// ErrStopListing is used by a List callback to terminate the listing.
-	ErrStopListing = errors.New("stop listing keys")
 )
 
 // IsKeyNotFound reports whether err or is or wraps ErrKeyNotFound.
