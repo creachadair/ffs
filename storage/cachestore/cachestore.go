@@ -277,10 +277,10 @@ func (s *KV) checkInvalidLocked() {
 	}
 }
 
-func (s *KV) isInvalid(key string) bool {
+func (s *KV) isValid(key string) bool {
 	s.vμ.RLock()
 	defer s.vμ.RUnlock()
-	return s.invalid.Has(key)
+	return !s.invalid.Has(key)
 }
 
 func (s *KV) nextKey(start string, done bool) (string, bool) {
@@ -290,7 +290,7 @@ func (s *KV) nextKey(start string, done bool) (string, bool) {
 	if cur == nil {
 		return "", false
 	}
-	if done && cur.Key() <= start {
+	if done && cur.Key() == start {
 		if !cur.Next().Valid() {
 			return "", false
 		}
@@ -305,15 +305,21 @@ func (s *KV) List(ctx context.Context, start string) iter.Seq2[string, error] {
 			yield("", err)
 			return
 		}
-		next, ok := s.nextKey(start, false)
+		cur, ok := s.nextKey(start, false)
 		if !ok {
 			return // nothing to send
 		}
-		for yield(next, nil) {
-			next, ok = s.nextKey(next, true)
-			if !ok {
-				return
+		for {
+			if s.isValid(cur) {
+				if !yield(cur, nil) {
+					return
+				}
 			}
+			next, ok := s.nextKey(cur, true)
+			if !ok {
+				return // no more
+			}
+			cur = next
 		}
 	}
 }
