@@ -21,11 +21,11 @@ import (
 	"path"
 	"reflect"
 	"runtime"
-	"slices"
 	"testing"
 
 	"github.com/creachadair/ffs/blob"
 	"github.com/creachadair/ffs/blob/memstore"
+	"github.com/creachadair/mds/mapset"
 	gocmp "github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
 )
@@ -136,9 +136,7 @@ func TestSyncKeys(t *testing.T) {
 			if err != nil {
 				t.Fatalf("SyncKeys: unexpected error: %v", err)
 			}
-			slices.Sort(got)
-			slices.Sort(want)
-			if diff := gocmp.Diff(got, want, cmpopts.EquateEmpty()); diff != "" {
+			if diff := gocmp.Diff(got, mapset.New(want...), cmpopts.EquateEmpty()); diff != "" {
 				t.Fatalf("SyncKeys (-got, +want):\n%s", diff)
 			}
 		}

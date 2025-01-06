@@ -318,9 +318,8 @@ func (c hashCAS) CASPut(ctx context.Context, data []byte) (string, error) {
 func (c hashCAS) CASKey(_ context.Context, data []byte) string { return c.key(data) }
 
 // SyncKeys reports which of the given keys are not present in the key space.
-// If all the keys are present, SyncKeys returns an empty slice or nil.  The
-// order of returned keys is unspecified.
-func SyncKeys(ctx context.Context, ks KVCore, keys []string) ([]string, error) {
+// If all the keys are present, SyncKeys returns an empty [KeySet].
+func SyncKeys(ctx context.Context, ks KVCore, keys []string) (KeySet, error) {
 	if len(keys) == 0 {
 		return nil, nil
 	}
@@ -328,11 +327,10 @@ func SyncKeys(ctx context.Context, ks KVCore, keys []string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	var missing []string
+	var missing KeySet
 	for _, key := range keys {
 		if !have.Has(key) {
-			missing = append(missing, key)
-			have.Add(key) // filter duplicates
+			missing.Add(key)
 		}
 	}
 	return missing, nil
