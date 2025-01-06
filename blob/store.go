@@ -15,6 +15,22 @@
 // Package blob implements an interface and support code for persistent storage
 // of opaque (untyped) binary blobs.
 //
+// # Summary
+//
+// A [Store] represents a collection of disjoint named key-value namespaces
+// backed by a shared pool of storage.  A store may further be partititioned
+// into named "substores", each of which manages its own collection of
+// keyspaces within its enclosing store. While stores and their keyspaces are
+// logically distinct, they are intended to represent partitions of a single
+// underlying storage layer.
+//
+// Keyspaces are either arbitrary ([KV]) or content-addressed ([CAS]).
+// Both types implement the common [KVCore] interface.
+// Arbitrary keyspaces allow writing of values under user-chosen keys ("Put"),
+// while content-addressed keyspaces write values under their content address
+// only ("CASPut"). An arbitrary keyspace can be converted into a content
+// addressed keyspace using [CASFromKV].
+//
 // # Implementation Notes
 //
 // The [Store] and [KV] interfaces defined here are intended to be
@@ -29,6 +45,14 @@
 // larger than that.  This interface is intended to store data that is
 // partitioned at a higher level in the protocol, and may not be a good fit for
 // use cases that require large individual blobs.
+//
+// The [memstore] package provides an implementation suitable for use in
+// testing. The [filestore] package provides an implementation that uses files
+// and directories on a local filesystem. More interesting implementations
+// using other storage libraries can be found in other repositories.
+//
+// [memstore]: https://godoc.org/github.com/creachadair/ffs/blob/memstore
+// [filestore]: https://godoc.org/github.com/creachadair/ffs/storage/filestore
 package blob
 
 import (
@@ -47,24 +71,26 @@ import (
 // Implementations of this interface must be safe for concurrent use by
 // multiple goroutines.
 //
-// The [Store.KV] and [Store.CAS] methods share a namespace, meaning that a KV
-// and a CAS on the same name must share the same underlying key-value space.
-// In particular a Put to a KV or a CASPut (from a CAS) must be visible to a
-// Get or List from either, if both were made from the same Store with the same
-// name.
+// The KV and CAS methods share a namespace, meaning that a KV and a CAS
+// derived from the same Store and using the same name must share the same
+// underlying key-value space.  In particular a Put to a KV or a CASPut to a
+// CAS must be visible to a Get or List from either.
 type Store interface {
 	// KV returns a key space on the store.
 	//
 	// Multiple calls to KV with the same name are not required to return
-	// exactly the same [KV] value, but should return values that will converge
+	// exactly the same KV value, but should return values that will converge
 	// (eventually) to the same view of the storage.
 	KV(ctx context.Context, name string) (KV, error)
 
 	// CAS returns a content-addressed key space on the store.
 	//
 	// Multiple calls to CAS with the same name are not required to return
-	// exactly the same [KV] value, but should return values that will converge
+	// exactly the same CAS value, but should return values that will converge
 	// (eventually) to the same view of the storage.
+	//
+	// Implementations of this method that do not require special handling are
+	// encouraged to use CASFromKV to derive a CAS from a KV.
 	CAS(ctx context.Context, name string) (CAS, error)
 
 	// Sub returns a new Store subordinate to the receiver (a "substore").
@@ -146,9 +172,9 @@ type KVCore interface {
 //
 // Implementations of this interface must be safe for concurrent use by
 // multiple goroutines.  Moreover, any sequence of operations on a KV that does
-// not overlap with any Delete executions must be linearizable.[1]
+// not overlap with any Delete executions must be [linearizable].
 //
-// [1]: https://en.wikipedia.org/wiki/Linearizability
+// [linearizable]: https://en.wikipedia.org/wiki/Linearizability
 type KV interface {
 	KVCore
 
@@ -184,6 +210,8 @@ type PutOptions struct {
 
 // CASFromKV converts a [KV] into a [CAS]. This is intended for use by storage
 // implementations to support the CAS method of the [Store] interface.
+//
+// Content addresses computed by this implementation use SHA3-256 of the content.
 func CASFromKV(kv KV) CAS {
 	if cas, ok := kv.(CAS); ok {
 		return cas
