@@ -114,7 +114,7 @@ func NewKV(s blob.KV, maxBytes int) *KV {
 	return &KV{
 		base:   s,
 		keymap: stree.New[string](300, strings.Compare),
-		cache: cache.New(int64(maxBytes), cache.LRU[string, []byte]().
+		cache: cache.New(cache.LRU[string, []byte](int64(maxBytes)).
 			WithSize(cache.Length),
 		),
 	}
