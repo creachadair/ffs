@@ -91,7 +91,7 @@ func (w *writer) Close(ctx context.Context) error {
 		}
 	}
 	var buferr error
-	if c, ok := w.buf.(interface{ Close(context.Context) error }); ok {
+	if c, ok := w.buf.(blob.Closer); ok {
 		buferr = c.Close(ctx)
 	}
 	return errors.Join(wberr, buferr)
