@@ -8,13 +8,13 @@ require (
 	github.com/creachadair/taskgroup v0.13.2
 	github.com/golang/snappy v0.0.4
 	github.com/google/go-cmp v0.6.0
-	google.golang.org/protobuf v1.36.1
+	google.golang.org/protobuf v1.36.3
 )
 
 require (
 	github.com/creachadair/mds v0.23.0
-	github.com/creachadair/msync v0.5.0
-	golang.org/x/crypto v0.31.0
+	github.com/creachadair/msync v0.5.1
+	golang.org/x/crypto v0.32.0
 	honnef.co/go/tools v0.5.1
 )
 
