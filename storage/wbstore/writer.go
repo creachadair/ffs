@@ -169,6 +169,8 @@ func (w *writer) run(ctx context.Context) error {
 				} else if err != nil {
 					return err
 				}
+
+				const maxTries = 3
 				for try := 1; ; try++ {
 					// An individual write should not be allowed to stall for too long.
 					rtctx, cancel := context.WithTimeoutCause(ctx, 10*time.Second, errSlowWriteRetry)
@@ -180,8 +182,10 @@ func (w *writer) run(ctx context.Context) error {
 					cancel()
 					if err == nil || blob.IsKeyExists(err) {
 						break // OK, keep going
-					} else if (isRetryableError(err) || context.Cause(rtctx) == errSlowWriteRetry) && try <= 3 {
-						log.Printf("DEBUG :: error in writeback %x (try %d): %v (retrying)", key, try, err)
+					} else if (isRetryableError(err) || context.Cause(rtctx) == errSlowWriteRetry) && try <= maxTries {
+						if try > 1 {
+							log.Printf("DEBUG :: error in writeback %x (try %d): %v (retrying)", key, try, err)
+						}
 					} else if ctx.Err() != nil {
 						return ctx.Err() // give up, the writeback thread is closing
 					} else {
