@@ -174,7 +174,7 @@ type Entry struct {
 // the walk continues but skips the descendant files of the current entry.
 func Walk(ctx context.Context, root *file.File, visit func(Entry) error) error {
 	q := []string{""}
-	for len(q) != 0 {
+	for ctx.Err() == nil && len(q) != 0 {
 		next := q[len(q)-1]
 		q = q[:len(q)-1]
 
@@ -201,7 +201,7 @@ func Walk(ctx context.Context, root *file.File, visit func(Entry) error) error {
 			return err
 		}
 	}
-	return nil
+	return ctx.Err()
 }
 
 type errFilter = func(*foundPath, error) error
