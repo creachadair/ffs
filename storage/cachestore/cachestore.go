@@ -244,7 +244,7 @@ func (s *KV) initKeyMap(ctx context.Context) error {
 		s.keymap.Add(key)
 	})
 
-	for i := 0; i < 256; i++ {
+	for i := range 256 {
 		pfx := string([]byte{byte(i)})
 		coll.Report(func(report func(string)) error {
 			for key, err := range s.base.List(ictx, pfx) {
