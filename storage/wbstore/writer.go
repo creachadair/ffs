@@ -174,9 +174,10 @@ func (w *writer) run(ctx context.Context) error {
 				}
 
 				const maxTries = 3
+				const tryTimeout = 30 * time.Second
 				for try := 1; ; try++ {
 					// An individual write should not be allowed to stall for too long.
-					rtctx, cancel := context.WithTimeoutCause(ctx, 10*time.Second, errSlowWriteRetry)
+					rtctx, cancel := context.WithTimeoutCause(ctx, tryTimeout, errSlowWriteRetry)
 					err := kv.Put(rtctx, blob.PutOptions{
 						Key:     key,
 						Data:    data,
@@ -186,9 +187,7 @@ func (w *writer) run(ctx context.Context) error {
 					if err == nil || blob.IsKeyExists(err) {
 						break // OK, keep going
 					} else if (isRetryableError(err) || context.Cause(rtctx) == errSlowWriteRetry) && try <= maxTries {
-						if try > 1 {
-							log.Printf("DEBUG :: error in writeback %x (try %d): %v (retrying)", key, try, err)
-						}
+						// try again
 					} else if ctx.Err() != nil {
 						return ctx.Err() // give up, the writeback thread is closing
 					} else {
