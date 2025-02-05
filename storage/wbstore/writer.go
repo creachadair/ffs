@@ -152,7 +152,10 @@ func (w *writer) run(ctx context.Context) error {
 
 			key, kv := w.findKV(tagged)
 			if kv == nil {
-				log.Printf("DEBUG :: no KV found for id %x", tagged[:2])
+				// This key does not belong to a currently known keyspace.  That
+				// may be because the keyspace hasn't been reloaded since the store
+				// was started up. Keep calm and carry on, and try it again on a
+				// subsequent pass.
 				continue
 			}
 
