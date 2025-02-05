@@ -183,19 +183,18 @@ func (w *writer) run(ctx context.Context) error {
 						Data:    data,
 						Replace: false,
 					})
+					cause := context.Cause(rtctx)
+					cancel()
 					if err == nil || blob.IsKeyExists(err) {
-						cancel()
 						break // OK, keep going
-					} else if (isRetryableError(err) || context.Cause(rtctx) == errSlowWriteRetry) && try <= maxTries {
+					} else if (isRetryableError(err) || cause == errSlowWriteRetry) && try <= maxTries {
 						// try again
 					} else if ctx.Err() != nil {
-						cancel()
 						return ctx.Err() // give up, the writeback thread is closing
 					} else {
-						cancel()
 						return fmt.Errorf("put %x failed after %d tries: %w", key, try, err)
 					}
-					time.Sleep(50 * time.Millisecond)
+					time.Sleep(100 * time.Millisecond)
 				}
 				if err := w.buf.Delete(ctx, tagged); err != nil && !blob.IsKeyNotFound(err) {
 					return err
