@@ -21,7 +21,7 @@ import (
 
 	"github.com/creachadair/ffs/blob"
 	"github.com/creachadair/ffs/blob/memstore"
-	"github.com/creachadair/ffs/storage/dbkey"
+	"github.com/creachadair/ffs/blob/storetest"
 	"github.com/creachadair/ffs/storage/wbstore"
 	"github.com/google/go-cmp/cmp"
 )
@@ -61,8 +61,9 @@ func TestStore(t *testing.T) {
 		return slowKV{KV: phys, next: next}
 	})
 
-	buf := memstore.NewKV()
-	st := wbstore.New(ctx, base, buf)
+	bufStore := memstore.New(nil)
+	buf := storetest.SubKV(t, ctx, bufStore, "test")
+	st := wbstore.New(ctx, base, bufStore)
 	kv, err := st.KV(ctx, "test")
 	if err != nil {
 		t.Fatalf("Create test KV: %v", err)
@@ -71,9 +72,6 @@ func TestStore(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Create test CAS: %v", err)
 	}
-
-	bufKey := dbkey.Prefix("").Keyspace("test")
-	t.Logf("Buffer prefix for test: %q", bufKey)
 
 	mustWrite := func(val string) string {
 		t.Helper()
@@ -143,13 +141,13 @@ func TestStore(t *testing.T) {
 	// The test cases write a value, verify it lands in the cache, then unblock
 	// the writer and verify it lands in the base store.
 	k1 := mustWrite("foo")
-	checkVal(buf, bufKey.Add(k1), "foo") // the write should have hit the buffer
-	checkVal(phys, k1, "")               // it should not have hit the base
+	checkVal(buf, k1, "foo") // the write should have hit the buffer
+	checkVal(phys, k1, "")   // it should not have hit the base
 	<-push()
 	checkVal(phys, k1, "foo")
 
 	k2 := mustWrite("bar")
-	checkVal(buf, bufKey.Add(k2), "bar")
+	checkVal(buf, k2, "bar")
 	checkVal(phys, k2, "")
 	<-push()
 	checkVal(phys, k2, "bar")
@@ -157,28 +155,31 @@ func TestStore(t *testing.T) {
 	// A replacement Put should go directly to base, and not hit the buffer.
 	p := push()
 	mustPut("baz", "quux", true)
-	checkVal(buf, bufKey.Add("baz"), "")
+	checkVal(buf, "baz", "")
 	<-p
 	checkVal(phys, "baz", "quux")
 
 	// A non-replacement Put should hit the buffer, and not go to base.
 	mustPut("frob", "argh", false)
-	checkVal(buf, bufKey.Add("frob"), "argh")
+	checkVal(buf, "frob", "argh")
 	checkVal(phys, "frob", "")
+
+	// Verify that the buffer size reflects what we've stored.
+	if n, err := st.BufferLen(ctx); err != nil {
+		t.Errorf("BufferLen: unexpected error: %v", err)
+	} else if n != 1 {
+		t.Errorf("BufferLen = %d, want 1", n)
+	}
 
 	// The top-level store should see all the keys, even though they are not all
 	// settled yet.
-	checkList(buf, bufKey.Add("frob"))
+	checkList(buf, "frob")
 	checkList(phys, k1, k2, "baz")
 	checkList(kv, k1, k2, "baz", "frob")
 	checkLen(kv, 4)
 	<-push()
 
-	if err := st.Sync(ctx); err != nil {
-		t.Errorf("Sync: unexpected error: %v", err)
-	}
-
-	// After synchronization, everything should be in the base.
+	// After settlement, everything should be in the base.
 	checkList(phys, k1, k2, "baz", "frob")
 	checkList(cas, k1, k2, "baz", "frob")
 	checkLen(cas, 4)
@@ -192,9 +193,10 @@ func TestStore(t *testing.T) {
 	checkVal(phys, "frob", "argh")
 	checkVal(cas, "frob", "argh")
 
-	// Sync should still succeed after no further changes.
-	if err := st.Sync(ctx); err != nil {
-		t.Errorf("Sync: unexpected error: %v", err)
+	if n, err := st.BufferLen(ctx); err != nil {
+		t.Errorf("BufferLen: unexpected error: %v", err)
+	} else if n != 0 {
+		t.Errorf("BufferLen = %d, want 0", n)
 	}
 
 	if err := st.Close(ctx); err != nil {

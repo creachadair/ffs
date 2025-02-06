@@ -20,12 +20,12 @@ package wbstore
 import (
 	"context"
 	"errors"
+	"fmt"
 
 	"github.com/creachadair/ffs/blob"
 	"github.com/creachadair/ffs/storage/dbkey"
 	"github.com/creachadair/ffs/storage/monitor"
 	"github.com/creachadair/msync"
-	"github.com/creachadair/msync/trigger"
 	"github.com/creachadair/taskgroup"
 )
 
@@ -34,74 +34,94 @@ import (
 // are buffered and written back to the underlying store by a background worker
 // that runs concurrently with the store.
 type Store struct {
-	*monitor.M[wbState, kvWrapper]
+	*monitor.M[wbState, *kvWrapper]
+
+	writers *taskgroup.Group
+	stop    context.CancelFunc
 }
 
 type wbState struct {
-	wb   *writer
 	base blob.Store
-}
-
-// Close implements part of the [blob.StoreCloser] interface.
-func (s Store) Close(ctx context.Context) error {
-	var berr error
-	if c, ok := s.M.DB.base.(blob.Closer); ok {
-		berr = c.Close(ctx)
-	}
-	return errors.Join(berr, s.M.DB.wb.Close(ctx))
+	buf  blob.Store
 }
 
 // New constructs a [blob.Store] wrapper that delegates to base and uses buf as
 // a local buffer store. New will panic if base == nil or buf == nil. The ctx
 // value governs the operation of the background writer, which will run until
 // the store is closed or ctx terminates.
-func New(ctx context.Context, base blob.Store, buf blob.KV) Store {
+func New(ctx context.Context, base, buf blob.Store) Store {
 	if base == nil {
 		panic("base is nil")
 	} else if buf == nil {
 		panic("buffer is nil")
 	}
 
-	ctx, cancel := context.WithCancel(ctx)
-	w := &writer{
-		buf:      buf,
-		exited:   make(chan struct{}),
-		stop:     cancel,
-		nempty:   msync.NewFlag[any](),
-		bufClean: trigger.New(),
-		kvs:      make(map[dbkey.Prefix]blob.KV),
-	}
-	w.nempty.Set(nil) // prime
-	g := taskgroup.Go(func() error { return w.run(ctx) })
+	wctx, cancel := context.WithCancel(ctx)
+	g := taskgroup.New(nil)
+	return Store{
+		writers: g,
+		stop:    cancel,
+		M: monitor.New(monitor.Config[wbState, *kvWrapper]{
+			DB: wbState{base: base, buf: buf},
+			NewKV: func(ctx context.Context, db wbState, pfx dbkey.Prefix, name string) (*kvWrapper, error) {
+				baseKV, err := db.base.KV(ctx, name)
+				if err != nil {
+					return nil, err
+				}
+				bufKV, err := db.buf.KV(ctx, name)
+				if err != nil {
+					return nil, err
+				}
 
-	// When the background writer exits, record the error it reported.
-	// A goroutine observing s.exited as closed may safely read s.err.
-	go func() {
-		w.err = g.Wait()
-		close(w.exited)
-	}()
-	return Store{M: monitor.New(monitor.Config[wbState, kvWrapper]{
-		DB: wbState{wb: w, base: base},
-		NewKV: func(ctx context.Context, db wbState, pfx dbkey.Prefix, name string) (kvWrapper, error) {
-			kv, err := db.base.KV(ctx, name)
-			if err != nil {
-				return kvWrapper{}, err
-			}
-			db.wb.addKV(pfx, kv)
-			return kvWrapper{wb: db.wb, pfx: pfx, kv: kv}, nil
-		},
-		NewSub: func(ctx context.Context, db wbState, pfx dbkey.Prefix, name string) (wbState, error) {
-			sub, err := db.base.Sub(ctx, name)
-			if err != nil {
-				return wbState{}, err
-			}
-			return wbState{wb: db.wb, base: sub}, nil
-		},
-	})}
+				// Each KV gets its own writeback worker.
+				w := &kvWrapper{base: baseKV, buf: bufKV, nempty: msync.NewFlag[any]()}
+				g.Run(func() { w.run(wctx) })
+				return w, nil
+			},
+			NewSub: func(ctx context.Context, db wbState, pfx dbkey.Prefix, name string) (wbState, error) {
+				baseSub, err := db.base.Sub(ctx, name)
+				if err != nil {
+					return wbState{}, err
+				}
+				bufSub, err := db.buf.Sub(ctx, name)
+				if err != nil {
+					return wbState{}, err
+				}
+				return wbState{base: baseSub, buf: bufSub}, nil
+			},
+		})}
 }
 
-// Buffer returns the buffer store used by s.
-func (s Store) Buffer() blob.KV { return s.M.DB.wb.buffer() }
+// Close implements the [blob.Closer] interface for s.
+func (s Store) Close(ctx context.Context) error {
+	s.stop()
+	s.writers.Wait()
 
-// Sync blocks until the buffer is empty or ctx ends.
-func (s Store) Sync(ctx context.Context) error { return s.M.DB.wb.Sync(ctx) }
+	// N.B. Close the buffer first, since writes back depend on the base.
+	var bufErr, baseErr error
+	if c, ok := s.M.DB.buf.(blob.Closer); ok {
+		bufErr = c.Close(ctx)
+	}
+	if c, ok := s.M.DB.base.(blob.Closer); ok {
+		baseErr = c.Close(ctx)
+	}
+	return errors.Join(baseErr, bufErr)
+}
+
+// BufferLen reports the total number of keys buffered for writeback in the
+// buffer storage of s.
+func (s Store) BufferLen(ctx context.Context) (int64, error) {
+	var count int64
+	for kv := range s.M.AllKV() {
+		w, ok := kv.(*kvWrapper)
+		if !ok {
+			panic(fmt.Sprintf("unexpected KV type %T", kv))
+		}
+		n, err := w.buf.Len(ctx)
+		if err != nil {
+			return 0, err
+		}
+		count += n
+	}
+	return count, nil
+}
