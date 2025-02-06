@@ -21,106 +21,31 @@ import (
 	"log"
 	"math/rand"
 	"net"
-	"sync"
 	"syscall"
 	"time"
 
 	"github.com/creachadair/ffs/blob"
-	"github.com/creachadair/ffs/storage/dbkey"
 	"github.com/creachadair/msync"
-	"github.com/creachadair/msync/trigger"
 	"github.com/creachadair/taskgroup"
 )
 
 var errWriterStopped = errors.New("background writer stopped")
 
-// A writer manages the forwarding of cached Put requests to underlying KVs.
-type writer struct {
-	buf blob.KV
-
-	exited chan struct{}      // closed when background writer is done
-	stop   context.CancelFunc // signals the background writer to exit
-	err    error              // error that caused shutdown
+// A kvWrapper implements the [blob.KV] interface, and manages the forwarding
+// of cached Put requests to an underlying KV.
+type kvWrapper struct {
+	base blob.KV
+	buf  blob.KV
 
 	// The background writer waits on nempty when it finds no blobs to push.
 	nempty *msync.Flag[any]
-
-	// Callers of Sync wait on this condition.
-	bufClean *trigger.Cond
-
-	μ   sync.Mutex // protects the fields below
-	kvs map[dbkey.Prefix]blob.KV
 }
 
-func (w *writer) buffer() blob.KV { return w.buf }
-
-func (w *writer) signal() { w.nempty.Set(nil) }
-
-func (w *writer) addKV(pfx dbkey.Prefix, kv blob.KV) {
-	w.μ.Lock()
-	defer w.μ.Unlock()
-	w.kvs[pfx] = kv
-}
-
-func (w *writer) findKV(taggedKey string) (string, blob.KV) {
-	w.μ.Lock()
-	defer w.μ.Unlock()
-	id := dbkey.Prefix(taggedKey[:dbkey.PrefixLen])
-	key := taggedKey[dbkey.PrefixLen:]
-	return key, w.kvs[id]
-}
-
-func (w *writer) checkExited() (bool, error) {
-	select {
-	case <-w.exited:
-		return true, w.err
-	default:
-		return false, nil
-	}
-}
-
-func (w *writer) Close(ctx context.Context) error {
-	w.stop()
-	var wberr error
-	select {
-	case <-ctx.Done():
-		wberr = ctx.Err()
-	case <-w.exited:
-		if w.err != errWriterStopped && w.err != context.Canceled {
-			wberr = w.err
-		}
-	}
-	var buferr error
-	if c, ok := w.buf.(blob.Closer); ok {
-		buferr = c.Close(ctx)
-	}
-	return errors.Join(wberr, buferr)
-}
-
-// Sync blocks until the buffer is empty or ctx ends.
-func (w *writer) Sync(ctx context.Context) error {
-	for {
-		// Check whether the buffer is empty. If not, wait for the writeback
-		// thread to signal that it is done with another pass, then try again.
-		ready := w.bufClean.Ready()
-		n, err := w.buf.Len(ctx)
-		if err != nil {
-			return err
-		} else if n == 0 {
-			return nil
-		}
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-ready:
-			// try again
-		}
-	}
-}
+func (w *kvWrapper) signal() { w.nempty.Set(nil) }
 
 // run implements the backround writer. It runs until ctx terminates or until
 // it receives an unrecoverable error.
-func (w *writer) run(ctx context.Context) error {
+func (w *kvWrapper) run(ctx context.Context) error {
 	errSlowWriteRetry := errors.New("slow write retry")
 
 	g, run := taskgroup.New(nil).Limit(64)
@@ -145,20 +70,10 @@ func (w *writer) run(ctx context.Context) error {
 		}
 		rand.Shuffle(len(work), func(i, j int) { work[i], work[j] = work[j], work[i] })
 
-		for _, tagged := range work {
+		for _, key := range work {
 			if ctx.Err() != nil {
 				return errWriterStopped
 			}
-
-			key, kv := w.findKV(tagged)
-			if kv == nil {
-				// This key does not belong to a currently known keyspace.  That
-				// may be because the keyspace hasn't been reloaded since the store
-				// was started up. Keep calm and carry on, and try it again on a
-				// subsequent pass.
-				continue
-			}
-
 			run(func() error {
 				// Read the blob and forward it to the base store, then delete it.
 				// Because the buffer contains only non-replacement blobs, it is
@@ -166,7 +81,7 @@ func (w *writer) run(ctx context.Context) error {
 				// we worked, since the content will be the same.  If Get or Delete
 				// fails, it means someone deleted the key before us. That's fine.
 
-				data, err := w.buf.Get(ctx, tagged) // N.B. tagged in the buffer
+				data, err := w.buf.Get(ctx, key)
 				if blob.IsKeyNotFound(err) {
 					return nil
 				} else if err != nil {
@@ -178,7 +93,7 @@ func (w *writer) run(ctx context.Context) error {
 				for try := 1; ; try++ {
 					// An individual write should not be allowed to stall for too long.
 					rtctx, cancel := context.WithTimeoutCause(ctx, tryTimeout, errSlowWriteRetry)
-					err := kv.Put(rtctx, blob.PutOptions{
+					err := w.base.Put(rtctx, blob.PutOptions{
 						Key:     key,
 						Data:    data,
 						Replace: false,
@@ -196,7 +111,7 @@ func (w *writer) run(ctx context.Context) error {
 					}
 					time.Sleep(100 * time.Millisecond)
 				}
-				if err := w.buf.Delete(ctx, tagged); err != nil && !blob.IsKeyNotFound(err) {
+				if err := w.buf.Delete(ctx, key); err != nil && !blob.IsKeyNotFound(err) {
 					return err
 				}
 				return nil
@@ -205,10 +120,6 @@ func (w *writer) run(ctx context.Context) error {
 		if err := g.Wait(); err != nil {
 			log.Printf("DEBUG :: error in writeback: %v", err)
 		}
-
-		// Signal any pending sync that the buffer may be clean.
-		// Sync must check whether it really is empty.
-		w.bufClean.Signal()
 	}
 }
 

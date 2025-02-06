@@ -21,31 +21,19 @@ import (
 	"strings"
 
 	"github.com/creachadair/ffs/blob"
-	"github.com/creachadair/ffs/storage/dbkey"
 	"github.com/creachadair/mds/stree"
 )
 
-// kvWrapper implements [blob.KV] but not [blob.CAS].
-type kvWrapper struct {
-	wb  *writer
-	pfx dbkey.Prefix // the key prefix for this KV instance (used by the writer)
-	kv  blob.KV      // the underlying KV to which writes are forwarded
-}
-
 // Get implements part of [blob.KV]. If key is in the write-behind store, its
 // value there is returned; otherwise it is fetched from the base store.
-func (s kvWrapper) Get(ctx context.Context, key string) ([]byte, error) {
-	if ok, err := s.wb.checkExited(); ok {
-		return nil, err
-	}
-
+func (w *kvWrapper) Get(ctx context.Context, key string) ([]byte, error) {
 	// Fetch from the buffer and the base store concurrently.
 	// A hit in the buffer takes precedence, but if that fails we want the base
 	// result to be available quickly.
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	bufc := fetch(ctx, s.wb.buffer(), s.pfx.Add(key))
-	base := fetch(ctx, s.kv, key)
+	bufc := fetch(ctx, w.buf, key)
+	base := fetch(ctx, w.base, key)
 	r := <-bufc
 	if r.err == nil {
 		return r.bits, nil
@@ -57,44 +45,35 @@ func (s kvWrapper) Get(ctx context.Context, key string) ([]byte, error) {
 }
 
 // Has implements part of [blob.KV].
-func (s kvWrapper) Has(ctx context.Context, keys ...string) (blob.KeySet, error) {
+func (w *kvWrapper) Has(ctx context.Context, keys ...string) (blob.KeySet, error) {
 	// Look up keys in the buffer first. It is possible we may have some there
 	// that are not yet written back. Do this first so that if a writeback
 	// completes while we're checking the base store, we will still have a
 	// coherent value.
-	statKeys := make([]string, len(keys))
-	for i, key := range keys {
-		statKeys[i] = s.pfx.Add(key)
-	}
-	out, err := s.wb.buffer().Has(ctx, statKeys...)
+	have, err := w.buf.Has(ctx, keys...)
 	if err != nil {
 		return nil, fmt.Errorf("buffer stat: %w", err)
 	}
-	if len(out) == len(statKeys) {
-		return out, nil // we found everything
+	if len(have) == len(keys) {
+		return have, nil // we found everything
 	}
 
-	// Collect the keys that we did not find in the buffer (the "absent").
-	statKeys = statKeys[:0] // reuse
-	for _, key := range keys {
-		if !out.Has(key) {
-			statKeys = append(statKeys, key) // N.B. no need to decorate base keys
-		}
-	}
-	base, err := s.kv.Has(ctx, statKeys...)
+	// Check for any keys we did not find in the buffer, in the base.
+	missing := have.Clone().Remove(keys...)
+	base, err := w.base.Has(ctx, missing.Slice()...)
 	if err != nil {
 		return nil, fmt.Errorf("base stat: %w", err)
 	}
-	out.AddAll(base)
-	return out, nil
+	have.AddAll(base)
+	return have, nil
 }
 
 // Delete implements part of [blob.KV]. The key is deleted from both the buffer
 // and the base store, and succeeds as long as either of those operations
 // succeeds.
-func (s kvWrapper) Delete(ctx context.Context, key string) error {
-	cerr := s.wb.buffer().Delete(ctx, s.pfx.Add(key))
-	berr := s.kv.Delete(ctx, key)
+func (w *kvWrapper) Delete(ctx context.Context, key string) error {
+	cerr := w.buf.Delete(ctx, key)
+	berr := w.base.Delete(ctx, key)
 	if cerr != nil && berr != nil {
 		return berr
 	}
@@ -104,42 +83,34 @@ func (s kvWrapper) Delete(ctx context.Context, key string) error {
 // Put implements part of [blob.KV]. It delegates to the base store directly
 // for writes that request replacement; otherwise it stores the blob into the
 // buffer for writeback.
-func (s kvWrapper) Put(ctx context.Context, opts blob.PutOptions) error {
-	if ok, err := s.wb.checkExited(); ok {
-		return err
-	}
+func (w *kvWrapper) Put(ctx context.Context, opts blob.PutOptions) error {
 	if opts.Replace {
 		// Don't buffer writes that request replacement.
-		return s.kv.Put(ctx, opts)
+		return w.base.Put(ctx, opts)
 	}
 
 	// Preflight check: If the underlying store already has the key, we do not
 	// need to put it in the buffer. Treat an error in this check as the key not
 	// being present (the write-behind will handle that case).
-	if got, _ := s.kv.Has(ctx, opts.Key); got.Has(opts.Key) {
+	if got, _ := w.base.Has(ctx, opts.Key); got.Has(opts.Key) {
 		return blob.KeyExists(opts.Key)
 	}
-	opts.Key = s.pfx.Add(opts.Key)
-	if err := s.wb.buffer().Put(ctx, opts); err != nil {
+	if err := w.buf.Put(ctx, opts); err != nil {
 		return err
 	}
-	s.wb.signal()
+	w.signal()
 	return nil
 }
 
 // bufferKeys returns a tree of the keys currently stored in the buffer that
 // are greater than or equal to start.
-func (s kvWrapper) bufferKeys(ctx context.Context, start string) (*stree.Tree[string], error) {
+func (w *kvWrapper) bufferKeys(ctx context.Context, start string) (*stree.Tree[string], error) {
 	buf := stree.New(300, strings.Compare)
-	for key, err := range s.wb.buffer().List(ctx, string(s.pfx)) {
+	for key, err := range w.buf.List(ctx, start) {
 		if err != nil {
 			return nil, err
 		}
-		rkey, ok := s.pfx.Cut(key)
-		if !ok {
-			break // no more for us
-		}
-		buf.Add(rkey)
+		buf.Add(key)
 	}
 	return buf, nil
 }
@@ -147,46 +118,45 @@ func (s kvWrapper) bufferKeys(ctx context.Context, start string) (*stree.Tree[st
 // Len implements part of [blob.KV]. It merges contents from the buffer that
 // are not listed in the underlying store, so that the reported length reflects
 // the total number of unique keys across both the buffer and the base store.
-func (s kvWrapper) Len(ctx context.Context) (int64, error) {
-	buf, err := s.bufferKeys(ctx, "")
+func (w *kvWrapper) Len(ctx context.Context) (int64, error) {
+	buf, err := w.bufferKeys(ctx, "")
 	if err != nil {
 		return 0, err
 	}
 
-	var baseKeys int64
-	for key, err := range s.kv.List(ctx, "") {
+	numKeys := int64(buf.Len())
+	for key, err := range w.base.List(ctx, "") {
 		if err != nil {
 			return 0, err
 		}
-		baseKeys++
-		buf.Remove(key)
+		_, ok := buf.Get(key)
+		if !ok {
+			numKeys++
+		}
 	}
-
-	// Now any keys remaining in buf are ONLY in buf, so we can add their number
-	// to the total to get the effective length.
-	return baseKeys + int64(buf.Len()), nil
+	return numKeys, nil
 }
 
 // List implements part of [blob.KV]. It merges contents from the buffer that
 // are not listed in the underlying store, so that the keys reported include
 // those that have not yet been written back.
-func (s kvWrapper) List(ctx context.Context, start string) iter.Seq2[string, error] {
+func (w *kvWrapper) List(ctx context.Context, start string) iter.Seq2[string, error] {
 	return func(yield func(string, error) bool) {
-		buf, err := s.bufferKeys(ctx, start)
+		buf, err := w.bufferKeys(ctx, start)
 		if err != nil {
 			yield("", err)
 			return
 		}
 
 		prev := start
-		for key, err := range s.kv.List(ctx, start) {
+		for key, err := range w.base.List(ctx, start) {
 			if err != nil {
 				yield("", err)
 				return
 			}
 			// Pull out keys from the buffer that are between prev and key, and
 			// report them to the caller before sending key itself.
-			for _, p := range keysBetween(buf, prev, key) {
+			for p := range keysBetween(buf, prev, key) {
 				if !yield(p, nil) {
 					return
 				}
@@ -198,7 +168,7 @@ func (s kvWrapper) List(ctx context.Context, start string) iter.Seq2[string, err
 		}
 
 		// Now ship any keys left in the buffer after the last key we sent.
-		for _, p := range keysBetween(buf, prev, buf.Max()+"x") {
+		for p := range keysBetween(buf, prev, buf.Max()+"x") {
 			if !yield(p, nil) {
 				return
 			}
@@ -207,12 +177,15 @@ func (s kvWrapper) List(ctx context.Context, start string) iter.Seq2[string, err
 }
 
 // keysBetween returns the keys in t strictly between lo and hi.
-func keysBetween(t *stree.Tree[string], lo, hi string) (between []string) {
-	for key := range t.InorderAfter(lo) {
-		if key >= hi {
-			break
+func keysBetween(t *stree.Tree[string], lo, hi string) iter.Seq[string] {
+	return func(yield func(string) bool) {
+		for key := range t.InorderAfter(lo) {
+			if key >= hi {
+				return
+			}
+			if !yield(key) {
+				return
+			}
 		}
-		between = append(between, key)
 	}
-	return
 }
