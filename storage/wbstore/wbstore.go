@@ -75,6 +75,7 @@ func New(ctx context.Context, base, buf blob.Store) Store {
 
 				// Each KV gets its own writeback worker.
 				w := &kvWrapper{base: baseKV, buf: bufKV, nempty: msync.NewFlag[any]()}
+				w.nempty.Set(nil) // prime
 				g.Run(func() { w.run(wctx) })
 				return w, nil
 			},
