@@ -100,12 +100,13 @@ func (s Store) Close(ctx context.Context) error {
 	s.stop()
 	s.writers.Wait()
 
-	var baseErr, bufErr error
-	if c, ok := s.M.DB.base.(blob.Closer); ok {
-		baseErr = c.Close(ctx)
-	}
+	// N.B. Close the buffer first, since writes back depend on the base.
+	var bufErr, baseErr error
 	if c, ok := s.M.DB.buf.(blob.Closer); ok {
 		bufErr = c.Close(ctx)
+	}
+	if c, ok := s.M.DB.base.(blob.Closer); ok {
+		baseErr = c.Close(ctx)
 	}
 	return errors.Join(baseErr, bufErr)
 }
