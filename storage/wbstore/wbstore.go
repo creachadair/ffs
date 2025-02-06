@@ -75,7 +75,7 @@ func New(ctx context.Context, base, buf blob.Store) Store {
 
 				// Each KV gets its own writeback worker.
 				w := &kvWrapper{base: baseKV, buf: bufKV, nempty: msync.NewFlag[any]()}
-				g.Go(func() error { return w.run(wctx) })
+				g.Run(func() { w.run(wctx) })
 				return w, nil
 			},
 			NewSub: func(ctx context.Context, db wbState, pfx dbkey.Prefix, name string) (wbState, error) {
