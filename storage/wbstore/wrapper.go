@@ -214,13 +214,6 @@ func (w *kvWrapper) Put(ctx context.Context, opts blob.PutOptions) error {
 		// Don't buffer writes that request replacement.
 		return w.base.Put(ctx, opts)
 	}
-
-	// Preflight check: If the underlying store already has the key, we do not
-	// need to put it in the buffer. Treat an error in this check as the key not
-	// being present (the write-behind will handle that case).
-	if got, _ := w.base.Has(ctx, opts.Key); got.Has(opts.Key) {
-		return blob.KeyExists(opts.Key)
-	}
 	if err := w.buf.Put(ctx, opts); err != nil {
 		return err
 	}
