@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/creachadair/ffs/blob"
+	"github.com/creachadair/mds/mapset"
 	"github.com/creachadair/mds/stree"
 	"github.com/creachadair/msync"
 	"github.com/creachadair/taskgroup"
@@ -185,7 +186,7 @@ func (w *kvWrapper) Has(ctx context.Context, keys ...string) (blob.KeySet, error
 	}
 
 	// Check for any keys we did not find in the buffer, in the base.
-	missing := have.Clone().Remove(keys...)
+	missing := mapset.New(keys...).RemoveAll(have)
 	base, err := w.base.Has(ctx, missing.Slice()...)
 	if err != nil {
 		return nil, fmt.Errorf("base stat: %w", err)
