@@ -37,7 +37,6 @@ type Store struct {
 	*monitor.M[wbState, *kvWrapper]
 
 	writers *taskgroup.Group
-	wctx    context.Context
 	stop    context.CancelFunc
 }
 
@@ -61,7 +60,6 @@ func New(ctx context.Context, base, buf blob.Store) Store {
 	g := taskgroup.New(nil)
 	return Store{
 		writers: g,
-		wctx:    wctx,
 		stop:    cancel,
 		M: monitor.New(monitor.Config[wbState, *kvWrapper]{
 			DB: wbState{base: base, buf: buf},
