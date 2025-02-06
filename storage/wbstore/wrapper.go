@@ -33,10 +33,7 @@ import (
 	"github.com/creachadair/taskgroup"
 )
 
-var (
-	errWriterStopped  = errors.New("background writer stopped")
-	errSlowWriteRetry = errors.New("slow write retry")
-)
+var errSlowWriteRetry = errors.New("slow write retry")
 
 // A kvWrapper implements the [blob.KV] interface, and manages the forwarding
 // of cached Put requests to an underlying KV.
@@ -52,14 +49,14 @@ func (w *kvWrapper) signal() { w.nempty.Set(nil) }
 
 // run implements the backround writer. It runs until ctx terminates or until
 // it receives an unrecoverable error.
-func (w *kvWrapper) run(ctx context.Context) error {
+func (w *kvWrapper) run(ctx context.Context) {
 	g, run := taskgroup.New(nil).Limit(64)
 	var work []string // reusable buffer
 	for {
 		// Check for cancellation.
 		select {
 		case <-ctx.Done():
-			return errWriterStopped // normal shutdown
+			return // normal shutdown
 		case <-w.nempty.Ready():
 		}
 
@@ -77,7 +74,7 @@ func (w *kvWrapper) run(ctx context.Context) error {
 
 		for _, key := range work {
 			if ctx.Err() != nil {
-				return errWriterStopped
+				return
 			}
 			run(func() error {
 				// Read the blob and forward it to the base store, then delete it.
@@ -136,21 +133,6 @@ func isRetryableError(err error) bool {
 	return errors.Is(err, syscall.ECONNRESET) || errors.Is(err, syscall.ECONNABORTED)
 }
 
-type getResult struct {
-	bits []byte
-	err  error
-}
-
-func fetch(ctx context.Context, s blob.KV, key string) <-chan getResult {
-	ch := make(chan getResult, 1)
-	go func() {
-		defer close(ch)
-		bits, err := s.Get(ctx, key)
-		ch <- getResult{bits: bits, err: err}
-	}()
-	return ch
-}
-
 // Get implements part of [blob.KV]. If key is in the write-behind store, its
 // value there is returned; otherwise it is fetched from the base store.
 func (w *kvWrapper) Get(ctx context.Context, key string) ([]byte, error) {
@@ -159,16 +141,18 @@ func (w *kvWrapper) Get(ctx context.Context, key string) ([]byte, error) {
 	// result to be available quickly.
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
-	bufc := fetch(ctx, w.buf, key)
-	base := fetch(ctx, w.base, key)
-	r := <-bufc
-	if r.err == nil {
-		return r.bits, nil
-	} else if !blob.IsKeyNotFound(r.err) {
-		return nil, r.err
+	buf := taskgroup.Call(func() ([]byte, error) {
+		return w.buf.Get(ctx, key)
+	})
+	base := taskgroup.Call(func() ([]byte, error) {
+		return w.base.Get(ctx, key)
+	})
+	if data, err := buf.Wait().Get(); err == nil {
+		return data, nil
+	} else if !blob.IsKeyNotFound(err) {
+		return nil, err
 	}
-	r = <-base
-	return r.bits, r.err
+	return base.Wait().Get()
 }
 
 // Has implements part of [blob.KV].
@@ -177,17 +161,18 @@ func (w *kvWrapper) Has(ctx context.Context, keys ...string) (blob.KeySet, error
 	// that are not yet written back. Do this first so that if a writeback
 	// completes while we're checking the base store, we will still have a
 	// coherent value.
-	have, err := w.buf.Has(ctx, keys...)
+	want := mapset.New(keys...)
+	have, err := w.buf.Has(ctx, want.Slice()...)
 	if err != nil {
 		return nil, fmt.Errorf("buffer stat: %w", err)
 	}
-	if len(have) == len(keys) {
+	if have.Equals(want) {
 		return have, nil // we found everything
 	}
 
 	// Check for any keys we did not find in the buffer, in the base.
-	missing := mapset.New(keys...).RemoveAll(have)
-	base, err := w.base.Has(ctx, missing.Slice()...)
+	want.RemoveAll(have)
+	base, err := w.base.Has(ctx, want.Slice()...)
 	if err != nil {
 		return nil, fmt.Errorf("base stat: %w", err)
 	}
