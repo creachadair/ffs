@@ -28,7 +28,6 @@ import (
 	"github.com/creachadair/ffs/storage/dbkey"
 	"github.com/creachadair/ffs/storage/monitor"
 	"github.com/creachadair/mds/cache"
-	"github.com/creachadair/mds/mapset"
 	"github.com/creachadair/mds/stree"
 	"github.com/creachadair/taskgroup"
 )
@@ -93,17 +92,6 @@ type KV struct {
 	μ      sync.RWMutex        // protects the keymap
 	keymap *stree.Tree[string] // known keys
 
-	// When fetching blobs, we may discover that some keys in the keymap have
-	// become invalid, i.e., we saw them but now the underlying store reports
-	// them gone. This is not expected -- it means something else is modifying
-	// the underlying store separately, but we want to deal with it gracefully.
-	// However, we discover this while holding a shared lock on the keymap, so
-	// we cannot update it directly. This set collects those keys, which are
-	// updated by operations that lock the keymap exclusively. List operations
-	// filter them out.
-	vμ      sync.RWMutex
-	invalid mapset.Set[string]
-
 	// The keymap is initialized to the keyspace of the underlying store.
 	// Additional keys are added by store queries.
 }
@@ -154,13 +142,8 @@ func (s *KV) getLocked(ctx context.Context, key string) ([]byte, bool, error) {
 	// Reaching here, the key is in the key map but not in the cache.
 	data, err := s.base.Get(ctx, key)
 	if err != nil {
-		// N.B. If the base store reports the key as not found, it means our
-		// keymap is out of sync. But we can'tmodify the keymap here, as we do
-		// not have it exclusively. Record the offender so that the next call to
-		// List can process it out (since that's where it would be visible).
-		s.vμ.Lock()
-		s.invalid.Add(key)
-		s.vμ.Unlock()
+		// This shouldn't happen, it means the underlying store was probably
+		// modified out of band. Treat it as a missing key.
 		return nil, false, err
 	}
 
@@ -192,7 +175,6 @@ func (s *KV) Put(ctx context.Context, opts blob.PutOptions) error {
 	}
 	s.μ.Lock()
 	defer s.μ.Unlock()
-	s.checkInvalidLocked()
 
 	if !opts.Replace {
 		if s.cache.Has(opts.Key) {
@@ -214,7 +196,6 @@ func (s *KV) Delete(ctx context.Context, key string) error {
 	}
 	s.μ.Lock()
 	defer s.μ.Unlock()
-	s.checkInvalidLocked()
 
 	// Even if we fail to delete the key from the underlying store, take this as
 	// a signal that we should forget about its data.
@@ -263,39 +244,23 @@ func (s *KV) initKeyMap(ctx context.Context) error {
 	return err
 }
 
-// checkInvalidLocked updates the keymap to remove any keys found to be
-// invalid, that is found to be missing from the base store during a Get.
-// The caller must hold s.μ exclusively.
-func (s *KV) checkInvalidLocked() {
-	s.vμ.Lock()
-	defer s.vμ.Unlock()
-	if !s.invalid.IsEmpty() {
-		for key := range s.invalid {
-			s.keymap.Remove(key)
-		}
-		s.invalid.Clear()
-	}
-}
-
-func (s *KV) isValid(key string) bool {
-	s.vμ.RLock()
-	defer s.vμ.RUnlock()
-	return !s.invalid.Has(key)
-}
-
-func (s *KV) nextKey(start string, done bool) (string, bool) {
+func (s *KV) firstKey(start string) (string, bool) {
 	s.μ.RLock()
 	defer s.μ.RUnlock()
 	cur := s.keymap.Find(start)
-	if cur == nil {
-		return "", false
+	return cur.Key(), cur.Valid()
+}
+
+func (s *KV) nextKey(prev string) (string, bool) {
+	s.μ.RLock()
+	defer s.μ.RUnlock()
+	cur := s.keymap.Find(prev)
+	if cur.Key() > prev {
+		return cur.Key(), true
+	} else if next := cur.Next(); next.Valid() {
+		return next.Key(), true
 	}
-	if done && cur.Key() == start {
-		if !cur.Next().Valid() {
-			return "", false
-		}
-	}
-	return cur.Key(), true
+	return "", false
 }
 
 // List implements a method of [blob.KV].
@@ -305,21 +270,12 @@ func (s *KV) List(ctx context.Context, start string) iter.Seq2[string, error] {
 			yield("", err)
 			return
 		}
-		cur, ok := s.nextKey(start, false)
-		if !ok {
-			return // nothing to send
-		}
-		for {
-			if s.isValid(cur) {
-				if !yield(cur, nil) {
-					return
-				}
+		cur, ok := s.firstKey(start)
+		for ok {
+			if !yield(cur, nil) {
+				return
 			}
-			next, ok := s.nextKey(cur, true)
-			if !ok {
-				return // no more
-			}
-			cur = next
+			cur, ok = s.nextKey(cur)
 		}
 	}
 }
