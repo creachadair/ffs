@@ -40,6 +40,7 @@ package monitor
 
 import (
 	"context"
+	"iter"
 	"sync"
 
 	"github.com/creachadair/ffs/blob"
@@ -152,4 +153,25 @@ func (d *M[DB, KV]) Sub(ctx context.Context, name string) (blob.Store, error) {
 		d.subs[name] = sub
 	}
 	return sub, nil
+}
+
+// AllKV implements an iterator over all the KV values defined by d.
+func (d *M[DB, KV]) AllKV() iter.Seq[blob.KV] {
+	return func(yield func(blob.KV) bool) {
+		d.μ.Lock()
+		defer d.μ.Unlock()
+
+		for _, sub := range d.subs {
+			for kv := range sub.AllKV() {
+				if !yield(kv) {
+					return
+				}
+			}
+		}
+		for _, kv := range d.kvs {
+			if !yield(kv) {
+				return
+			}
+		}
+	}
 }
