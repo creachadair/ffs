@@ -94,7 +94,7 @@ func (w *kvWrapper) run(ctx context.Context) error {
 				}
 
 				const maxTries = 3
-				const tryTimeout = 30 * time.Second
+				const tryTimeout = 10 * time.Second
 				for try := 1; ; try++ {
 					// An individual write should not be allowed to stall for too long.
 					rtctx, cancel := context.WithTimeoutCause(ctx, tryTimeout, errSlowWriteRetry)
