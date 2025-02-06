@@ -32,7 +32,10 @@ import (
 	"github.com/creachadair/taskgroup"
 )
 
-var errWriterStopped = errors.New("background writer stopped")
+var (
+	errWriterStopped  = errors.New("background writer stopped")
+	errSlowWriteRetry = errors.New("slow write retry")
+)
 
 // A kvWrapper implements the [blob.KV] interface, and manages the forwarding
 // of cached Put requests to an underlying KV.
@@ -49,8 +52,6 @@ func (w *kvWrapper) signal() { w.nempty.Set(nil) }
 // run implements the backround writer. It runs until ctx terminates or until
 // it receives an unrecoverable error.
 func (w *kvWrapper) run(ctx context.Context) error {
-	errSlowWriteRetry := errors.New("slow write retry")
-
 	g, run := taskgroup.New(nil).Limit(64)
 	var work []string // reusable buffer
 	for {
