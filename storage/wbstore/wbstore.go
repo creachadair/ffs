@@ -92,9 +92,6 @@ func New(ctx context.Context, base, buf blob.Store) Store {
 		})}
 }
 
-// Buffer returns the buffer store used by s.
-func (s Store) Buffer() blob.Store { return s.M.DB.buf }
-
 // Close implements the [blob.Closer] interface for s.
 func (s Store) Close(ctx context.Context) error {
 	s.stop()
