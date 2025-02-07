@@ -50,7 +50,7 @@ func (w *kvWrapper) signal() { w.nempty.Set(nil) }
 // run implements the backround writer. It runs until ctx terminates or until
 // it receives an unrecoverable error.
 func (w *kvWrapper) run(ctx context.Context) {
-	g, run := taskgroup.New(nil).Limit(64)
+	g, run := taskgroup.New(nil).Limit(128)
 	var work []string // reusable buffer
 	for {
 		// Check for cancellation.
