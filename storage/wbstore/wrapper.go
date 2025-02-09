@@ -121,6 +121,7 @@ func (w *kvWrapper) run(ctx context.Context) {
 		}
 		if err := g.Wait(); err != nil {
 			log.Printf("DEBUG :: error in writeback: %v", err)
+			w.signal()
 		}
 	}
 }
