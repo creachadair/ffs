@@ -177,7 +177,7 @@ func (s *KV) Put(ctx context.Context, opts blob.PutOptions) error {
 	defer s.μ.Unlock()
 
 	if !opts.Replace {
-		if s.cache.Has(opts.Key) {
+		if _, ok := s.keymap.Get(opts.Key); ok {
 			return blob.KeyExists(opts.Key)
 		}
 	}
