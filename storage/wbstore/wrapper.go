@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"iter"
 	"log"
-	"math/rand"
 	"net"
 	"strings"
 	"syscall"
@@ -50,8 +49,7 @@ func (w *kvWrapper) signal() { w.nempty.Set(nil) }
 // run implements the backround writer. It runs until ctx terminates or until
 // it receives an unrecoverable error.
 func (w *kvWrapper) run(ctx context.Context) {
-	g, run := taskgroup.New(nil).Limit(128)
-	var work []string // reusable buffer
+	g, run := taskgroup.New(nil).Limit(64)
 	for {
 		// Check for cancellation.
 		select {
@@ -60,21 +58,13 @@ func (w *kvWrapper) run(ctx context.Context) {
 		case <-w.nempty.Ready():
 		}
 
-		// List all the buffered keys and shuffle them so that we don't hammer
-		// the same shards of the underlying store in cases where that matters.
-		work = work[:0]
 		for key, err := range w.buf.List(ctx, "") {
 			if err != nil {
 				log.Printf("DEBUG :: error scanning buffer: %v", err)
-				continue
+				break
 			}
-			work = append(work, key)
-		}
-		rand.Shuffle(len(work), func(i, j int) { work[i], work[j] = work[j], work[i] })
-
-		for _, key := range work {
 			if ctx.Err() != nil {
-				return
+				break
 			}
 			run(func() error {
 				// Read the blob and forward it to the base store, then delete it.
@@ -103,9 +93,9 @@ func (w *kvWrapper) run(ctx context.Context) {
 					cause := context.Cause(rtctx)
 					cancel()
 					if err == nil || blob.IsKeyExists(err) {
-						break // OK, keep going
-					} else if (isRetryableError(err) || cause == errSlowWriteRetry) && try <= maxTries {
-						// try again
+						break // OK, drop this blob from the buffer and keep going
+					} else if try <= maxTries && (isRetryableError(err) || errors.Is(cause, errSlowWriteRetry)) {
+						// failed in a retryable way, and we have attempts left
 					} else if ctx.Err() != nil {
 						return ctx.Err() // give up, the writeback thread is closing
 					} else {
