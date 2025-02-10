@@ -21,13 +21,11 @@ import (
 	"iter"
 	"log"
 	"net"
-	"strings"
 	"syscall"
 	"time"
 
 	"github.com/creachadair/ffs/blob"
 	"github.com/creachadair/mds/mapset"
-	"github.com/creachadair/mds/stree"
 	"github.com/creachadair/msync"
 	"github.com/creachadair/taskgroup"
 )
@@ -193,17 +191,23 @@ func (w *kvWrapper) Put(ctx context.Context, opts blob.PutOptions) error {
 	return nil
 }
 
-// bufferKeys returns a tree of the keys currently stored in the buffer that
-// are greater than or equal to start.
-func (w *kvWrapper) bufferKeys(ctx context.Context, start string) (*stree.Tree[string], error) {
-	buf := stree.New(300, strings.Compare)
-	for key, err := range w.buf.List(ctx, start) {
-		if err != nil {
-			return nil, err
+// bufferKeysBetween iterates the keys in the buffer that are greater than or
+// equal to notBefore and less than notAfter.
+func (w *kvWrapper) bufferKeysBetween(ctx context.Context, notBefore, notAfter string) iter.Seq2[string, error] {
+	return func(yield func(string, error) bool) {
+		for key, err := range w.buf.List(ctx, notBefore) {
+			if err != nil {
+				yield("", err)
+				return
+			}
+			if key >= notAfter {
+				return
+			}
+			if !yield(key, nil) {
+				return
+			}
 		}
-		buf.Add(key)
 	}
-	return buf, nil
 }
 
 // Len implements part of [blob.KV]. It merges contents from the buffer that
@@ -235,48 +239,37 @@ func (w *kvWrapper) Len(ctx context.Context) (int64, error) {
 // those that have not yet been written back.
 func (w *kvWrapper) List(ctx context.Context, start string) iter.Seq2[string, error] {
 	return func(yield func(string, error) bool) {
-		buf, err := w.bufferKeys(ctx, start)
-		if err != nil {
-			yield("", err)
-			return
-		}
-
 		prev := start
 		for key, err := range w.base.List(ctx, start) {
 			if err != nil {
 				yield("", err)
 				return
 			}
-			// Pull out keys from the buffer that are between prev and key, and
-			// report them to the caller before sending key itself.
-			for p := range keysBetween(buf, prev, key) {
-				if !yield(p, nil) {
+			for fill, err := range w.bufferKeysBetween(ctx, prev, key) {
+				if err != nil {
+					yield("", err)
+					return
+				}
+				if !yield(fill, nil) {
 					return
 				}
 			}
-			prev = key // save
 			if !yield(key, nil) {
-				return // deliver key itself
+				return
 			}
+			prev = key
 		}
 
 		// Now ship any keys left in the buffer after the last key we sent.
-		for p := range keysBetween(buf, prev, buf.Max()+"x") {
-			if !yield(p, nil) {
+		for key, err := range w.buf.List(ctx, prev) {
+			if err != nil {
+				yield("", err)
 				return
 			}
-		}
-	}
-}
-
-// keysBetween returns the keys in t strictly between lo and hi.
-func keysBetween(t *stree.Tree[string], lo, hi string) iter.Seq[string] {
-	return func(yield func(string) bool) {
-		for key := range t.InorderAfter(lo) {
-			if key >= hi {
-				return
+			if prev == key {
+				continue // we already shipped this key
 			}
-			if !yield(key) {
+			if !yield(key, nil) {
 				return
 			}
 		}
