@@ -210,18 +210,20 @@ func (w *kvWrapper) bufferKeys(ctx context.Context, start string) (*stree.Tree[s
 // are not listed in the underlying store, so that the reported length reflects
 // the total number of unique keys across both the buffer and the base store.
 func (w *kvWrapper) Len(ctx context.Context) (int64, error) {
-	buf, err := w.bufferKeys(ctx, "")
-	if err != nil {
-		return 0, err
+	var bufKeys mapset.Set[string]
+	for key, err := range w.buf.List(ctx, "") {
+		if err != nil {
+			return 0, err
+		}
+		bufKeys.Add(key)
 	}
 
-	numKeys := int64(buf.Len())
+	numKeys := int64(bufKeys.Len())
 	for key, err := range w.base.List(ctx, "") {
 		if err != nil {
 			return 0, err
 		}
-		_, ok := buf.Get(key)
-		if !ok {
+		if !bufKeys.Has(key) {
 			numKeys++
 		}
 	}
