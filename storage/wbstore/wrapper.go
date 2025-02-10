@@ -185,10 +185,7 @@ func (w *kvWrapper) Has(ctx context.Context, keys ...string) (blob.KeySet, error
 func (w *kvWrapper) Delete(ctx context.Context, key string) error {
 	cerr := w.buf.Delete(ctx, key)
 	berr := w.base.Delete(ctx, key)
-	if cerr != nil && berr != nil {
-		return berr
-	}
-	return nil
+	return errors.Join(berr, cerr)
 }
 
 // Put implements part of [blob.KV]. It delegates to the base store directly
