@@ -150,8 +150,6 @@ func (w *kvWrapper) Get(ctx context.Context, key string) ([]byte, error) {
 	})
 	if data, err := buf.Wait().Get(); err == nil {
 		return data, nil
-	} else if !blob.IsKeyNotFound(err) {
-		return nil, err
 	}
 	return base.Wait().Get()
 }
