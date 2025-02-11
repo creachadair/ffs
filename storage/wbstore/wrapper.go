@@ -125,21 +125,19 @@ func isRetryableError(err error) bool {
 // Get implements part of [blob.KV]. If key is in the write-behind store, its
 // value there is returned; otherwise it is fetched from the base store.
 func (w *kvWrapper) Get(ctx context.Context, key string) ([]byte, error) {
-	// Fetch from the buffer and the base store concurrently.
-	// A hit in the buffer takes precedence, but if that fails we want the base
-	// result to be available quickly.
+	// Fetch from the buffer and the base store concurrently.  A hit in the base
+	// store takes precedence, since that reflects ground truth; but if that
+	// fails we will fall back to the buffered value.
 	ctx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	buf := taskgroup.Call(func() ([]byte, error) {
 		return w.buf.Get(ctx, key)
 	})
-	base := taskgroup.Call(func() ([]byte, error) {
-		return w.base.Get(ctx, key)
-	})
-	if data, err := buf.Wait().Get(); err == nil {
-		return data, nil
+	base, err := w.base.Get(ctx, key)
+	if err != nil {
+		return buf.Wait().Get()
 	}
-	return base.Wait().Get()
+	return base, nil
 }
 
 // Has implements part of [blob.KV].
@@ -186,6 +184,9 @@ func (w *kvWrapper) Put(ctx context.Context, opts blob.PutOptions) error {
 	if opts.Replace {
 		// Don't buffer writes that request replacement.
 		return w.base.Put(ctx, opts)
+	}
+	if p, _ := w.base.Has(ctx, opts.Key); p.Has(opts.Key) {
+		return blob.KeyExists(opts.Key)
 	}
 	if err := w.buf.Put(ctx, opts); err != nil {
 		return err
@@ -252,6 +253,9 @@ func (w *kvWrapper) List(ctx context.Context, start string) iter.Seq2[string, er
 				if err != nil {
 					yield("", err)
 					return
+				}
+				if fill == prev {
+					continue
 				}
 				if !yield(fill, nil) {
 					return
