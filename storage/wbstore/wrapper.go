@@ -110,6 +110,8 @@ func (w *kvWrapper) run(ctx context.Context) {
 		if err := g.Wait(); err != nil {
 			log.Printf("DEBUG :: error in writeback: %v", err)
 			w.signal()
+		} else if n, err := w.buf.Len(ctx); err == nil && n > 0 {
+			w.signal()
 		}
 	}
 }
