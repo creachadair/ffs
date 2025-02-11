@@ -185,9 +185,14 @@ func (w *kvWrapper) Put(ctx context.Context, opts blob.PutOptions) error {
 		// Don't buffer writes that request replacement.
 		return w.base.Put(ctx, opts)
 	}
-	if p, _ := w.base.Has(ctx, opts.Key); p.Has(opts.Key) {
-		return blob.KeyExists(opts.Key)
-	}
+
+	// To guarantee correct semantics we should do an occurs check here for the
+	// key in the base store. However, that is also expensive and reduces the
+	// value of the write-behind quite a bit. So we optimistically queue the
+	// write and report success (even though maybe we shouldn't). This will not
+	// write invalid data -- if the write-behind fails it means there is already
+	// a value in the base that we can linearize before this write. The only
+	// consequence is that this Put will not report that to the caller.
 	if err := w.buf.Put(ctx, opts); err != nil {
 		return err
 	}
