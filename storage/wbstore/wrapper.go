@@ -80,7 +80,7 @@ func (w *kvWrapper) run(ctx context.Context) {
 
 				const maxTries = 3
 				const tryTimeout = 10 * time.Second
-				for try := 1; ; try++ {
+				for try := 1; try <= maxTries; try++ {
 					// An individual write should not be allowed to stall for too long.
 					rtctx, cancel := context.WithTimeoutCause(ctx, tryTimeout, errSlowWriteRetry)
 					err := w.base.Put(rtctx, blob.PutOptions{
@@ -91,20 +91,22 @@ func (w *kvWrapper) run(ctx context.Context) {
 					cause := context.Cause(rtctx)
 					cancel()
 					if err == nil || blob.IsKeyExists(err) {
-						break // OK, drop this blob from the buffer and keep going
-					} else if try <= maxTries && (isRetryableError(err) || errors.Is(cause, errSlowWriteRetry)) {
-						// failed in a retryable way, and we have attempts left
-					} else if ctx.Err() != nil {
-						return ctx.Err() // give up, the writeback thread is closing
-					} else {
-						return fmt.Errorf("put %x failed after %d tries: %w", key, try, err)
+						// OK, drop this blob from the buffer and keep going
+						if err := w.buf.Delete(ctx, key); err != nil && !blob.IsKeyNotFound(err) {
+							return err
+						}
+						return nil
 					}
-					time.Sleep(100 * time.Millisecond)
+					if isRetryableError(err) || errors.Is(cause, errSlowWriteRetry) {
+						// failed in a retryable way, and we have attempts left
+						time.Sleep(100 * time.Millisecond)
+						continue
+					}
+					if ctx.Err() != nil {
+						return ctx.Err() // give up, the writeback thread is closing
+					}
 				}
-				if err := w.buf.Delete(ctx, key); err != nil && !blob.IsKeyNotFound(err) {
-					return err
-				}
-				return nil
+				return fmt.Errorf("put %x failed after %d tries", key, maxTries)
 			})
 		}
 		if err := g.Wait(); err != nil {
