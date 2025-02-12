@@ -16,12 +16,9 @@ package wbstore
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"iter"
 	"log"
-	"net"
-	"syscall"
 	"time"
 
 	"github.com/creachadair/ffs/blob"
@@ -29,8 +26,6 @@ import (
 	"github.com/creachadair/msync"
 	"github.com/creachadair/taskgroup"
 )
-
-var errSlowWriteRetry = errors.New("slow write retry")
 
 // A kvWrapper implements the [blob.KV] interface, and manages the forwarding
 // of cached Put requests to an underlying KV.
@@ -78,35 +73,22 @@ func (w *kvWrapper) run(ctx context.Context) {
 					return err
 				}
 
-				const maxTries = 3
-				const tryTimeout = 10 * time.Second
-				for try := 1; try <= maxTries; try++ {
-					// An individual write should not be allowed to stall for too long.
-					rtctx, cancel := context.WithTimeoutCause(ctx, tryTimeout, errSlowWriteRetry)
-					err := w.base.Put(rtctx, blob.PutOptions{
-						Key:     key,
-						Data:    data,
-						Replace: false,
-					})
-					cause := context.Cause(rtctx)
-					cancel()
-					if err == nil || blob.IsKeyExists(err) {
-						// OK, drop this blob from the buffer and keep going
-						if err := w.buf.Delete(ctx, key); err != nil && !blob.IsKeyNotFound(err) {
-							return err
-						}
-						return nil
+				// An individual write should not be allowed to stall for too long.
+				rtctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+				defer cancel()
+				perr := w.base.Put(rtctx, blob.PutOptions{
+					Key:     key,
+					Data:    data,
+					Replace: false,
+				})
+				if perr == nil || blob.IsKeyExists(perr) {
+					// OK writeback succeeded, drop this blob from the buffer.
+					if err := w.buf.Delete(ctx, key); err != nil && !blob.IsKeyNotFound(err) {
+						return err
 					}
-					if isRetryableError(err) || errors.Is(cause, errSlowWriteRetry) {
-						// failed in a retryable way, and we have attempts left
-						time.Sleep(100 * time.Millisecond)
-						continue
-					}
-					if ctx.Err() != nil {
-						return ctx.Err() // give up, the writeback thread is closing
-					}
+					return nil
 				}
-				return fmt.Errorf("put %x failed after %d tries", key, maxTries)
+				return perr
 			})
 		}
 		if err := g.Wait(); err != nil {
@@ -116,14 +98,6 @@ func (w *kvWrapper) run(ctx context.Context) {
 			w.signal()
 		}
 	}
-}
-
-func isRetryableError(err error) bool {
-	var derr *net.DNSError
-	if errors.As(err, &derr) {
-		return derr.Temporary() || derr.IsNotFound
-	}
-	return errors.Is(err, syscall.ECONNRESET) || errors.Is(err, syscall.ECONNABORTED)
 }
 
 // Get implements part of [blob.KV]. If key is in the write-behind store, its
