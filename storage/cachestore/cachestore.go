@@ -198,10 +198,14 @@ func (s *KV) Delete(ctx context.Context, key string) error {
 	defer s.μ.Unlock()
 
 	// Even if we fail to delete the key from the underlying store, take this as
-	// a signal that we should forget about its data.
+	// a signal that we should forget about its data. Don't remove it from the
+	// keymap, however, unless the deletion actually succeeds.
 	s.cache.Remove(key)
-	s.keymap.Remove(key)
-	return s.base.Delete(ctx, key)
+	err := s.base.Delete(ctx, key)
+	if err == nil {
+		s.keymap.Remove(key)
+	}
+	return err
 }
 
 // initKeyMap initializes the key map from the base store.
