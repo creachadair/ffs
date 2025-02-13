@@ -74,7 +74,7 @@ func (w *kvWrapper) run(ctx context.Context) {
 				}
 
 				// An individual write should not be allowed to stall for too long.
-				rtctx, cancel := context.WithTimeout(ctx, 30*time.Second)
+				rtctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 				defer cancel()
 				perr := w.base.Put(rtctx, blob.PutOptions{
 					Key:     key,
