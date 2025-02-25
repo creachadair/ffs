@@ -20,7 +20,6 @@ package wbstore
 import (
 	"context"
 	"errors"
-	"fmt"
 
 	"github.com/creachadair/ffs/blob"
 	"github.com/creachadair/ffs/storage/dbkey"
@@ -114,11 +113,7 @@ func (s Store) Close(ctx context.Context) error {
 func (s Store) BufferLen(ctx context.Context) (int64, error) {
 	var count int64
 	for kv := range s.M.AllKV() {
-		w, ok := kv.(*kvWrapper)
-		if !ok {
-			panic(fmt.Sprintf("unexpected KV type %T", kv))
-		}
-		n, err := w.buf.Len(ctx)
+		n, err := kv.buf.Len(ctx)
 		if err != nil {
 			return 0, err
 		}

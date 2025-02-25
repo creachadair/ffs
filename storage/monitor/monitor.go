@@ -156,8 +156,8 @@ func (d *M[DB, KV]) Sub(ctx context.Context, name string) (blob.Store, error) {
 }
 
 // AllKV implements an iterator over all the KV values defined by d.
-func (d *M[DB, KV]) AllKV() iter.Seq[blob.KV] {
-	return func(yield func(blob.KV) bool) {
+func (d *M[DB, KV]) AllKV() iter.Seq[KV] {
+	return func(yield func(KV) bool) {
 		d.μ.Lock()
 		defer d.μ.Unlock()
 
