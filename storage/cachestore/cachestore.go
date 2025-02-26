@@ -19,6 +19,7 @@ package cachestore
 import (
 	"bytes"
 	"context"
+	"errors"
 	"iter"
 	"strings"
 	"sync"
@@ -202,7 +203,7 @@ func (s *KV) Delete(ctx context.Context, key string) error {
 	// keymap, however, unless the deletion actually succeeds.
 	s.cache.Remove(key)
 	err := s.base.Delete(ctx, key)
-	if err == nil {
+	if err == nil || errors.Is(err, blob.ErrKeyNotFound) {
 		s.keymap.Remove(key)
 	}
 	return err
