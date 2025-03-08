@@ -15,7 +15,6 @@
 package filestore_test
 
 import (
-	"context"
 	"flag"
 	"os"
 	"testing"
@@ -52,7 +51,7 @@ func TestNesting(t *testing.T) {
 		t.Fatalf("Creating store in %q: %v", dir, err)
 	}
 
-	ctx := context.Background()
+	ctx := t.Context()
 	k1 := storetest.SubKV(t, ctx, s, "foo", "bar")
 	k2 := storetest.SubKV(t, ctx, s, "foo/_bar")
 

@@ -15,7 +15,6 @@
 package cachestore_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/creachadair/ffs/blob"
@@ -37,12 +36,12 @@ func TestStore(t *testing.T) {
 func TestRegression_keyMap(t *testing.T) {
 	const data = "stuff"
 	m := memstore.NewKV()
-	m.Put(context.Background(), blob.PutOptions{
+	m.Put(t.Context(), blob.PutOptions{
 		Key:  "init",
 		Data: []byte(data),
 	})
 	c := cachestore.NewKV(m, 100)
-	got, err := c.Get(context.Background(), "init")
+	got, err := c.Get(t.Context(), "init")
 	if err != nil {
 		t.Fatalf("Get failed: %v", err)
 	} else if s := string(got); s != data {
@@ -51,7 +50,7 @@ func TestRegression_keyMap(t *testing.T) {
 }
 
 func TestRecurrentList(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	want := map[string]string{
 		"1": "one",

@@ -15,7 +15,6 @@
 package root_test
 
 import (
-	"context"
 	"io/fs"
 	"testing"
 
@@ -28,7 +27,7 @@ import (
 func TestRoot(t *testing.T) {
 	kv := memstore.NewKV()
 	cas := blob.CASFromKV(kv)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	r := root.New(kv, &root.Options{
 		Description: "Test root",

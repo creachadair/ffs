@@ -15,7 +15,6 @@
 package encoded_test
 
 import (
-	"context"
 	"io"
 	"testing"
 
@@ -41,7 +40,7 @@ func (identity) Encode(w io.Writer, src []byte) error { _, err := w.Write(src); 
 func (identity) Decode(w io.Writer, src []byte) error { _, err := w.Write(src); return err }
 
 func TestRegression(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	t.Run("DoubleEncode", func(t *testing.T) {
 		// Verify that a given Put or Get only encodes/decodes once.

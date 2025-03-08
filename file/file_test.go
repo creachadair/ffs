@@ -15,7 +15,6 @@
 package file_test
 
 import (
-	"context"
 	"fmt"
 	"io"
 	"io/fs"
@@ -61,7 +60,7 @@ func TestRoundTrip(t *testing.T) {
 	if key := f.Key(); key != "" {
 		t.Errorf("Key: got %q, want empty", key)
 	}
-	ctx := context.Background()
+	ctx := t.Context()
 
 	wantx := map[string]string{
 		"fruit": "apple",
@@ -143,7 +142,7 @@ func TestRoundTrip(t *testing.T) {
 
 func TestScan(t *testing.T) {
 	cas := blob.CASFromKV(memstore.NewKV())
-	ctx := context.Background()
+	ctx := t.Context()
 
 	root := file.New(cas, nil)
 	setFile := func(ss ...string) {
@@ -194,7 +193,7 @@ func TestScan(t *testing.T) {
 
 func TestChild(t *testing.T) {
 	cas := blob.CASFromKV(memstore.NewKV())
-	ctx := context.Background()
+	ctx := t.Context()
 	root := file.New(cas, nil)
 
 	names := []string{"all.txt", "your.go", "base.exe"}
@@ -233,7 +232,7 @@ func TestChild(t *testing.T) {
 
 func TestCycleCheck(t *testing.T) {
 	cas := blob.CASFromKV(memstore.NewKV())
-	ctx := context.Background()
+	ctx := t.Context()
 	root := file.New(cas, nil)
 
 	kid := file.New(cas, nil)
@@ -250,7 +249,7 @@ func TestCycleCheck(t *testing.T) {
 
 func TestSetData(t *testing.T) {
 	cas := blob.CASFromKV(memstore.NewKV())
-	ctx := context.Background()
+	ctx := t.Context()
 	root := file.New(cas, &file.NewOptions{
 		Split: &block.SplitConfig{
 			Hasher: lineHash{},
@@ -322,7 +321,7 @@ and despair!`
 
 func TestConcurrentFile(t *testing.T) {
 	cas := blob.CASFromKV(memstore.NewKV())
-	ctx := context.Background()
+	ctx := t.Context()
 	root := file.New(cas, nil)
 	root.Child().Set("foo", file.New(cas, nil))
 

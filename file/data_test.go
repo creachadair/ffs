@@ -445,7 +445,7 @@ type dataTester struct {
 func newDataTester(t *testing.T, sc *block.SplitConfig) *dataTester {
 	return &dataTester{
 		t:   t,
-		ctx: context.Background(),
+		ctx: t.Context(),
 		cas: blob.CASFromKV(memstore.NewKV()),
 		fd:  &fileData{sc: sc},
 	}

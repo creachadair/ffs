@@ -52,7 +52,7 @@ func (s slowKV) CASPut(ctx context.Context, data []byte) (string, error) {
 }
 
 func TestStore(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	phys := memstore.NewKV() // represents the "physical" storage at the far end
 

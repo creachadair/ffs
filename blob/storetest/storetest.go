@@ -183,7 +183,7 @@ func errorOK(err, werr error) bool {
 // Run applies the test script to empty store s, then closes s.  Any errors are
 // reported to t.  After Run returns, the contents of s are garbage.
 func Run(t *testing.T, s blob.StoreCloser) {
-	ctx := context.Background()
+	ctx := t.Context()
 	k1, err := s.KV(ctx, "one")
 	if err != nil {
 		t.Fatalf("Create keyspace 1: %v", err)

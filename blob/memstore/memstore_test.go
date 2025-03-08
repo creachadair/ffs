@@ -15,7 +15,6 @@
 package memstore_test
 
 import (
-	"context"
 	"testing"
 
 	"github.com/creachadair/ffs/blob"
@@ -31,15 +30,15 @@ func TestStore(t *testing.T) {
 
 func TestSnapshot(t *testing.T) {
 	kv := memstore.NewKV()
-	kv.Put(context.Background(), blob.PutOptions{
+	kv.Put(t.Context(), blob.PutOptions{
 		Key:  "foo",
 		Data: []byte("bar"),
 	})
-	kv.Put(context.Background(), blob.PutOptions{
+	kv.Put(t.Context(), blob.PutOptions{
 		Key:  "baz",
 		Data: []byte("quux"),
 	})
-	kv.Delete(context.Background(), "baz")
+	kv.Delete(t.Context(), "baz")
 
 	if diff := cmp.Diff(kv.Snapshot(nil), map[string]string{
 		"foo": "bar",
@@ -49,7 +48,7 @@ func TestSnapshot(t *testing.T) {
 }
 
 func TestConsistency(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 	data := map[string]string{
 		"natha":  "striped",
 		"zuulie": "roumnd",
@@ -79,7 +78,7 @@ func TestConsistency(t *testing.T) {
 }
 
 func TestReadWhileListing(t *testing.T) {
-	ctx := context.Background()
+	ctx := t.Context()
 
 	want := map[string]string{
 		"cheddar": "ham",

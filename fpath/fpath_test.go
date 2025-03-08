@@ -15,7 +15,6 @@
 package fpath_test
 
 import (
-	"context"
 	"crypto/sha1"
 	"errors"
 	"flag"
@@ -51,7 +50,7 @@ func mustNewCAS(t *testing.T, h func() hash.Hash) blob.CAS {
 	if err != nil {
 		t.Fatalf("Opening filestore %q: %v", *saveStore, err)
 	}
-	ks, err := fs.KV(context.Background(), "")
+	ks, err := fs.KV(t.Context(), "")
 	if err != nil {
 		t.Fatalf("Opening keyspace: %v", err)
 	}
@@ -62,7 +61,7 @@ func mustNewCAS(t *testing.T, h func() hash.Hash) blob.CAS {
 func TestPaths(t *testing.T) {
 	cas := mustNewCAS(t, sha1.New)
 
-	ctx := context.Background()
+	ctx := t.Context()
 	root := file.New(cas, nil)
 	setDir := func(s *file.Stat) { s.Mode = fs.ModeDir | 0755 }
 	openPath := func(path string, werr error) *file.File {
@@ -242,7 +241,7 @@ func TestPaths(t *testing.T) {
 
 func TestFS(t *testing.T) {
 	cas := mustNewCAS(t, sha1.New)
-	ctx := context.Background()
+	ctx := t.Context()
 
 	root := file.New(cas, &file.NewOptions{
 		Stat: &file.Stat{Mode: fs.ModeDir | 0755},
