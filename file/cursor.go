@@ -32,11 +32,12 @@ import (
 type Cursor struct {
 	ctx    context.Context // the captured context
 	offset int64           // the current seek position (≥ 0)
+	kids   []string        // the directory contents (names only)
 	file   *File
 }
 
 // Read reads up to len(data) bytes into data from the current offset, and
-// reports the number of bytes successfully read, as io.Reader.
+// reports the number of bytes successfully read, as [io.Reader].
 func (c *Cursor) Read(data []byte) (int, error) {
 	nr, err := c.file.ReadAt(c.ctx, data, c.offset)
 	c.offset += int64(nr)
@@ -44,21 +45,50 @@ func (c *Cursor) Read(data []byte) (int, error) {
 }
 
 // Write writes len(data) bytes from data to the current offset, and reports
-// the number of bytes successfully written, as io.Writer.
+// the number of bytes successfully written, as [io.Writer].
 func (c *Cursor) Write(data []byte) (int, error) {
 	nw, err := c.file.WriteAt(c.ctx, data, c.offset)
 	c.offset += int64(nw)
 	return nw, err
 }
 
-// ReadAt implements the io.ReaderAt interface.
+// ReadAt implements the [io.ReaderAt] interface.
 func (c *Cursor) ReadAt(data []byte, offset int64) (int, error) {
 	return c.file.ReadAt(c.ctx, data, offset)
 }
 
-// WriteAt implments the io.WriterAt interface.
+// WriteAt implments the [io.WriterAt] interface.
 func (c *Cursor) WriteAt(data []byte, offset int64) (int, error) {
 	return c.file.WriteAt(c.ctx, data, offset)
+}
+
+// ReadDir implements the [fs.ReadDirFile] interface.
+func (c *Cursor) ReadDir(n int) ([]fs.DirEntry, error) {
+	if !c.file.Stat().Mode.IsDir() {
+		return nil, fmt.Errorf("%w: not a directory", fs.ErrInvalid)
+	}
+	if c.kids == nil {
+		c.kids = c.file.Child().Names()
+	}
+	out := c.kids
+	if n > 0 && n < len(out) {
+		out = out[:n]
+		c.kids = c.kids[n:]
+	} else {
+		c.kids = nil
+	}
+	if len(out) == 0 {
+		if n > 0 {
+			return nil, io.EOF
+		}
+		return nil, nil
+	}
+
+	de := make([]fs.DirEntry, len(out))
+	for i, name := range out {
+		de[i] = DirEntry{ctx: c.ctx, parent: c.file, name: name}
+	}
+	return de, nil
 }
 
 // Seek sets the starting offset for the next Read or Write, as io.Seeker.
@@ -100,3 +130,52 @@ func (n FileInfo) IsDir() bool        { return n.file.stat.Mode.IsDir() }
 
 // Sys returns the the *file.File whose stat record n carries.
 func (n FileInfo) Sys() any { return n.file }
+
+// DirEntry implements the fs.DirEntry interface.
+type DirEntry struct {
+	ctx    context.Context
+	parent *File
+	name   string
+	file   *File
+}
+
+func (d DirEntry) getFile() (*File, error) {
+	if d.file == nil {
+		f, err := d.parent.Open(d.ctx, d.name)
+		if err != nil {
+			return nil, err
+		}
+		d.file = f
+	}
+	return d.file, nil
+}
+
+// Name implements part of the [fs.DirEntry] interface.
+func (d DirEntry) Name() string { return d.name }
+
+func (d DirEntry) IsDir() bool {
+	f, err := d.getFile()
+	if err == nil {
+		return f.Stat().Mode.IsDir()
+	}
+	return false
+}
+
+// Type implements part of the [fs.DirEntry] interface.
+func (d DirEntry) Type() fs.FileMode {
+	f, err := d.getFile()
+	if err == nil {
+		return f.Stat().Mode.Type()
+	}
+	return 0
+}
+
+// Info implements part of the [fs.DirEntry] interface.
+// The concrete type of a successful result is [FileInfo].
+func (d DirEntry) Info() (fs.FileInfo, error) {
+	f, err := d.getFile()
+	if err != nil {
+		return nil, err
+	}
+	return FileInfo{f}, nil
+}
