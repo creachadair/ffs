@@ -6,16 +6,16 @@ toolchain go1.24.0
 
 require (
 	github.com/cespare/xxhash/v2 v2.3.0
-	github.com/creachadair/atomicfile v0.3.7
+	github.com/creachadair/atomicfile v0.3.8
 	github.com/creachadair/taskgroup v0.13.2
 	github.com/golang/snappy v1.0.0
 	github.com/google/go-cmp v0.7.0
-	google.golang.org/protobuf v1.36.5
+	google.golang.org/protobuf v1.36.6
 )
 
 require (
-	github.com/creachadair/mds v0.24.0
-	github.com/creachadair/msync v0.5.1
+	github.com/creachadair/mds v0.24.1
+	github.com/creachadair/msync v0.5.2
 	golang.org/x/crypto v0.36.0
 	honnef.co/go/tools v0.5.1
 )
