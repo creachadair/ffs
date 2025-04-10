@@ -211,7 +211,9 @@ type PutOptions struct {
 // CASFromKV converts a [KV] into a [CAS]. This is intended for use by storage
 // implementations to support the CAS method of the [Store] interface.
 //
-// Content addresses computed by this implementation use SHA3-256 of the content.
+// If the concrete type of kv already implements [CAS], it is returned as-is;
+// otherwise it is wrapped in an implementation that computes content addresses
+// using a SHA3-256 digest of the content.
 func CASFromKV(kv KV) CAS {
 	if cas, ok := kv.(CAS); ok {
 		return cas
