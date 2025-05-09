@@ -18,9 +18,9 @@
 package memstore
 
 import (
+	"cmp"
 	"context"
 	"iter"
-	"strings"
 	"sync"
 
 	"github.com/creachadair/ffs/blob"
@@ -102,11 +102,7 @@ type KV struct {
 
 // An entry is a pair of a string key and value.  The value is not part of the
 // comparison key.
-type entry struct {
-	key, val string
-}
-
-func compareEntries(a, b entry) int { return strings.Compare(a.key, b.key) }
+type entry = stree.KV[string, string]
 
 // Opener constructs a [blob.StoreCloser] for use with the [store] package.
 // The concrete type of the result is [memstore.Store]. The address is ignored,
@@ -116,7 +112,7 @@ func compareEntries(a, b entry) int { return strings.Compare(a.key, b.key) }
 func Opener(_ context.Context, _ string) (blob.StoreCloser, error) { return New(nil), nil }
 
 // NewKV constructs a new, empty key-value namespace.
-func NewKV() *KV { return &KV{m: stree.New(300, compareEntries)} }
+func NewKV() *KV { return &KV{m: stree.New(300, entry{}.Compare(cmp.Compare))} }
 
 // Clear removes all keys and values from s.
 func (s *KV) Clear() {
@@ -135,7 +131,7 @@ func (s *KV) Snapshot(m map[string]string) map[string]string {
 	s.μ.RLock()
 	defer s.μ.RUnlock()
 	for e := range s.m.Inorder {
-		m[e.key] = e.val
+		m[e.Key] = e.Value
 	}
 	return m
 }
@@ -147,7 +143,7 @@ func (s *KV) Init(m map[string]string) *KV {
 	defer s.μ.Unlock()
 	s.m.Clear()
 	for key, val := range m {
-		s.m.Add(entry{key, val})
+		s.m.Add(entry{Key: key, Value: val})
 	}
 	return s
 }
@@ -157,8 +153,8 @@ func (s *KV) Get(_ context.Context, key string) ([]byte, error) {
 	s.μ.RLock()
 	defer s.μ.RUnlock()
 
-	if e, ok := s.m.Get(entry{key: key}); ok {
-		return []byte(e.val), nil
+	if e, ok := s.m.Get(entry{Key: key}); ok {
+		return []byte(e.Value), nil
 	}
 	return nil, blob.KeyNotFound(key)
 }
@@ -169,7 +165,7 @@ func (s *KV) Has(_ context.Context, keys ...string) (blob.KeySet, error) {
 	defer s.μ.RUnlock()
 	out := make(blob.KeySet)
 	for _, key := range keys {
-		if _, ok := s.m.Get(entry{key: key}); ok {
+		if _, ok := s.m.Get(entry{Key: key}); ok {
 			out.Add(key)
 		}
 	}
@@ -181,7 +177,7 @@ func (s *KV) Put(_ context.Context, opts blob.PutOptions) error {
 	s.μ.Lock()
 	defer s.μ.Unlock()
 
-	ent := entry{opts.Key, string(opts.Data)}
+	ent := entry{Key: opts.Key, Value: string(opts.Data)}
 	if opts.Replace {
 		s.m.Replace(ent)
 	} else if !s.m.Add(ent) {
@@ -195,7 +191,7 @@ func (s *KV) Delete(_ context.Context, key string) error {
 	s.μ.Lock()
 	defer s.μ.Unlock()
 
-	if !s.m.Remove(entry{key: key}) {
+	if !s.m.Remove(entry{Key: key}) {
 		return blob.KeyNotFound(key)
 	}
 	return nil
@@ -207,8 +203,8 @@ func (s *KV) List(_ context.Context, start string) iter.Seq2[string, error] {
 		s.μ.RLock()
 		defer s.μ.RUnlock()
 
-		for e := range s.m.InorderAfter(entry{key: start}) {
-			if !yield(e.key, nil) {
+		for e := range s.m.InorderAfter(entry{Key: start}) {
+			if !yield(e.Key, nil) {
 				return
 			}
 		}
