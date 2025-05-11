@@ -168,7 +168,7 @@ type KVCore interface {
 // identified by a unique, opaque string key.  An implementation of KV is
 // permitted (but not required) to report an error from Put when given an empty
 // key.  If the implementation cannot store empty keys, it must report
-// ErrKeyNotFound when operating on an empty key.
+// [ErrKeyNotFound] when operating on an empty key (see [KeyNotFound]).
 //
 // Implementations of this interface must be safe for concurrent use by
 // multiple goroutines.  Moreover, any sequence of operations on a KV that does
@@ -253,7 +253,7 @@ func IsKeyExists(err error) bool {
 }
 
 // KeyError is the concrete type of errors involving a blob key.
-// The caller may type-assert to *blob.KeyError to recover the key.
+// The caller may type-assert to [*KeyError] to recover the key.
 type KeyError struct {
 	Err error  // the underlying error
 	Key string // the key implicated by the error
@@ -268,11 +268,11 @@ func (k *KeyError) Error() string { return k.Err.Error() }
 func (k *KeyError) Unwrap() error { return k.Err }
 
 // KeyNotFound returns an ErrKeyNotFound error reporting that key was not found.
-// The concrete type is *blob.KeyError.
+// The concrete type is [*KeyError].
 func KeyNotFound(key string) error { return &KeyError{Key: key, Err: ErrKeyNotFound} }
 
 // KeyExists returns an ErrKeyExists error reporting that key exists in the store.
-// The concrete type is *blob.KeyError.
+// The concrete type is [*KeyError].
 func KeyExists(key string) error { return &KeyError{Key: key, Err: ErrKeyExists} }
 
 // KeySet represents a set of keys. It is aliased here so the caller does not
