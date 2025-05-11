@@ -263,7 +263,7 @@ func Run(t *testing.T, s blob.StoreCloser) {
 		}
 		t.Run("Basic", runCheck(k3, k1))
 		t.Run("Cleanup", cleanup(k3))
-		t.Run("CAS", casTest(s))
+		t.Run("CAS", casTest(sub))
 	})
 
 	// Exercise concurrency.
