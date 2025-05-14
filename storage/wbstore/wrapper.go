@@ -23,7 +23,7 @@ import (
 
 	"github.com/creachadair/ffs/blob"
 	"github.com/creachadair/mds/mapset"
-	"github.com/creachadair/msync"
+	"github.com/creachadair/msync/trigger"
 	"github.com/creachadair/taskgroup"
 )
 
@@ -34,10 +34,10 @@ type kvWrapper struct {
 	buf  blob.KV
 
 	// The background writer waits on nempty when it finds no blobs to push.
-	nempty *msync.Flag[any]
+	nempty trigger.Cond
 }
 
-func (w *kvWrapper) signal() { w.nempty.Set(nil) }
+func (w *kvWrapper) signal() { w.nempty.Set() }
 
 // run implements the backround writer. It runs until ctx terminates or until
 // it receives an unrecoverable error.
@@ -49,6 +49,7 @@ func (w *kvWrapper) run(ctx context.Context) {
 		case <-ctx.Done():
 			return // normal shutdown
 		case <-w.nempty.Ready():
+			w.nempty.Reset()
 		}
 
 		for key, err := range w.buf.List(ctx, "") {
