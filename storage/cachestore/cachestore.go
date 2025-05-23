@@ -30,6 +30,7 @@ import (
 	"github.com/creachadair/ffs/storage/monitor"
 	"github.com/creachadair/mds/cache"
 	"github.com/creachadair/mds/stree"
+	"github.com/creachadair/msync/throttle"
 	"github.com/creachadair/taskgroup"
 )
 
@@ -89,6 +90,10 @@ type KV struct {
 	listed atomic.Bool // keymap has been fully populated
 
 	cache *cache.Cache[string, []byte] // blob cache
+	init  *throttle.Throttle[any]      // populate key map
+	get   throttle.Set[string, []byte] // get key (data)
+	put   throttle.Set[string, any]    // put key (error only)
+	del   throttle.Set[string, any]    // delete key (error only)
 
 	μ      sync.RWMutex        // protects the keymap
 	keymap *stree.Tree[string] // known keys
@@ -100,13 +105,14 @@ type KV struct {
 // NewKV constructs a new cached [KV] with the specified capacity in bytes,
 // delegating storage operations to s.  It will panic if maxBytes < 0.
 func NewKV(s blob.KV, maxBytes int) *KV {
-	return &KV{
-		base:   s,
-		keymap: stree.New[string](300, strings.Compare),
+	kv := &KV{
+		base: s,
 		cache: cache.New(cache.LRU[string, []byte](int64(maxBytes)).
 			WithSize(cache.Length),
 		),
 	}
+	kv.init = throttle.New(kv.loadKeyMap)
+	return kv
 }
 
 // Get implements a method of [blob.KV].
@@ -114,43 +120,47 @@ func (s *KV) Get(ctx context.Context, key string) ([]byte, error) {
 	if err := s.initKeyMap(ctx); err != nil {
 		return nil, err
 	}
-	s.μ.RLock()
-	defer s.μ.RUnlock()
-	data, cached, err := s.getLocked(ctx, key)
+
+	data, cached, err := s.getLocal(ctx, key)
 	if err != nil {
 		return nil, err
 	} else if cached {
 		return bytes.Clone(data), nil
 	}
-	return data, nil
+
+	// Reaching here, the key is in the keymap but not in the cache, so we have
+	// to fetch it from the underlying store.
+	return s.get.Call(ctx, key, func(ctx context.Context) ([]byte, error) {
+		data, err := s.base.Get(ctx, key)
+		if err != nil {
+			return nil, err
+
+			// This shouldn't be able to fail, but it is possible the store was
+			// modified out of band, so in that case just don't cache the key.
+		}
+		s.cache.Put(key, data)
+		return data, nil
+	})
 }
 
-// getLocked implements the lookup of a key in the store.  On success, it also
-// reports whether the result is shared with the cache.  If so, the caller must
-// copy the bytes before returning them, though it is safe to read the contents
-// without a copy or a lock.
+// getLocal reports whether key is present in the store, and if so whether
+// its contents are cached locally.
 //
-// Precondition: initKeyMap must have previously succeeded. The caller may hold
-// s.μ either exclusively or shared.
-func (s *KV) getLocked(ctx context.Context, key string) ([]byte, bool, error) {
+// If key is not present, it returns nil, false, ErrKeyNotFound.
+// IF key is present but not cached, it returns nil, false, nil.
+// If key is present and cached, it returns data, true, nil.
+//
+// Precondition: initKeyMap must have previously succeeded.
+func (s *KV) getLocal(ctx context.Context, key string) ([]byte, bool, error) {
+	s.μ.Lock()
+	defer s.μ.Unlock()
 	if _, ok := s.keymap.Get(key); !ok {
 		return nil, false, blob.KeyNotFound(key)
 	}
 	if data, ok := s.cache.Get(key); ok {
 		return data, true, nil
 	}
-
-	// Reaching here, the key is in the key map but not in the cache.
-	data, err := s.base.Get(ctx, key)
-	if err != nil {
-		// This shouldn't happen, it means the underlying store was probably
-		// modified out of band. Treat it as a missing key.
-		return nil, false, err
-	}
-
-	// Update the cache before returning the value.
-	cached := s.cache.Put(key, data)
-	return data, cached, nil
+	return nil, false, nil
 }
 
 // Has implements a method of [blob.KV].
@@ -174,25 +184,25 @@ func (s *KV) Put(ctx context.Context, opts blob.PutOptions) error {
 	if err := s.initKeyMap(ctx); err != nil {
 		return err
 	}
-	s.μ.Lock()
-	defer s.μ.Unlock()
-
 	if !opts.Replace {
-		if _, ok := s.keymap.Get(opts.Key); ok {
+		s.μ.RLock()
+		_, ok := s.keymap.Get(opts.Key)
+		s.μ.RUnlock()
+		if ok {
 			return blob.KeyExists(opts.Key)
 		}
 	}
-	err := func() error {
+	_, err := s.put.Call(ctx, opts.Key, func(ctx context.Context) (any, error) {
+		if err := s.base.Put(ctx, opts); err != nil {
+			return nil, err
+		}
+		s.μ.Lock()
+		s.keymap.Replace(opts.Key)
 		s.μ.Unlock()
-		defer s.μ.Lock()
-		return s.base.Put(ctx, opts)
-	}()
-	if err != nil {
-		return err
-	}
-	s.cache.Put(opts.Key, opts.Data)
-	s.keymap.Replace(opts.Key)
-	return nil
+		s.cache.Put(opts.Key, opts.Data)
+		return nil, nil
+	})
+	return err
 }
 
 // Delete implements a method of [blob.KV].
@@ -200,19 +210,20 @@ func (s *KV) Delete(ctx context.Context, key string) error {
 	if err := s.initKeyMap(ctx); err != nil {
 		return err
 	}
+	_, err := s.del.Call(ctx, key, func(ctx context.Context) (any, error) {
+		// Even if we fail to delete the key from the underlying store, take this as
+		// a signal that we should forget about its data. Don't remove it from the
+		// keymap, however, unless the deletion actually succeeds.
+		s.cache.Remove(key)
+		err := s.base.Delete(ctx, key)
 
-	err := s.base.Delete(ctx, key)
-
-	s.μ.Lock()
-	defer s.μ.Unlock()
-
-	// Even if we fail to delete the key from the underlying store, take this as
-	// a signal that we should forget about its data. Don't remove it from the
-	// keymap, however, unless the deletion actually succeeds.
-	s.cache.Remove(key)
-	if err == nil || errors.Is(err, blob.ErrKeyNotFound) {
-		s.keymap.Remove(key)
-	}
+		if err == nil || errors.Is(err, blob.ErrKeyNotFound) {
+			s.μ.Lock()
+			defer s.μ.Unlock()
+			s.keymap.Remove(key)
+		}
+		return nil, err
+	})
 	return err
 }
 
@@ -221,20 +232,20 @@ func (s *KV) initKeyMap(ctx context.Context) error {
 	if s.listed.Load() {
 		return nil // affirmatively already done
 	}
-	s.μ.Lock()
-	defer s.μ.Unlock()
-	if s.listed.Load() {
-		return nil // someone else did it, OK
-	}
+	_, err := s.init.Call(ctx)
+	return err
+}
 
+func (s *KV) loadKeyMap(ctx context.Context) (any, error) {
 	ictx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	g := taskgroup.New(cancel)
 
 	// The keymap is not safe for concurrent use by multiple goroutines, so
 	// serialize insertions through a collector.
+	keymap := stree.New[string](300, strings.Compare)
 	coll := taskgroup.Gather(g.Go, func(key string) {
-		s.keymap.Add(key)
+		keymap.Add(key)
 	})
 
 	for i := range 256 {
@@ -252,8 +263,13 @@ func (s *KV) initKeyMap(ctx context.Context) error {
 		})
 	}
 	err := g.Wait()
-	s.listed.Store(err == nil)
-	return err
+	if err == nil {
+		s.μ.Lock()
+		s.keymap = keymap
+		s.μ.Unlock()
+		s.listed.Store(true)
+	}
+	return nil, err
 }
 
 func (s *KV) firstKey(start string) (string, bool) {
