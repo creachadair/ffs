@@ -182,7 +182,12 @@ func (s *KV) Put(ctx context.Context, opts blob.PutOptions) error {
 			return blob.KeyExists(opts.Key)
 		}
 	}
-	if err := s.base.Put(ctx, opts); err != nil {
+	err := func() error {
+		s.μ.Unlock()
+		defer s.μ.Lock()
+		return s.base.Put(ctx, opts)
+	}()
+	if err != nil {
 		return err
 	}
 	s.cache.Put(opts.Key, opts.Data)
@@ -195,6 +200,9 @@ func (s *KV) Delete(ctx context.Context, key string) error {
 	if err := s.initKeyMap(ctx); err != nil {
 		return err
 	}
+
+	err := s.base.Delete(ctx, key)
+
 	s.μ.Lock()
 	defer s.μ.Unlock()
 
@@ -202,7 +210,6 @@ func (s *KV) Delete(ctx context.Context, key string) error {
 	// a signal that we should forget about its data. Don't remove it from the
 	// keymap, however, unless the deletion actually succeeds.
 	s.cache.Remove(key)
-	err := s.base.Delete(ctx, key)
 	if err == nil || errors.Is(err, blob.ErrKeyNotFound) {
 		s.keymap.Remove(key)
 	}
