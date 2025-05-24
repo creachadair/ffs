@@ -15,7 +15,7 @@ require (
 
 require (
 	github.com/creachadair/mds v0.24.3
-	github.com/creachadair/msync v0.5.4
+	github.com/creachadair/msync v0.5.5
 	golang.org/x/crypto v0.38.0
 )
 

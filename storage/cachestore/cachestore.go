@@ -111,7 +111,7 @@ func NewKV(s blob.KV, maxBytes int) *KV {
 			WithSize(cache.Length),
 		),
 	}
-	kv.init = throttle.New(kv.loadKeyMap)
+	kv.init = throttle.New(throttle.Adapt[any](kv.loadKeyMap))
 	return kv
 }
 
@@ -236,7 +236,7 @@ func (s *KV) initKeyMap(ctx context.Context) error {
 	return err
 }
 
-func (s *KV) loadKeyMap(ctx context.Context) (any, error) {
+func (s *KV) loadKeyMap(ctx context.Context) error {
 	ictx, cancel := context.WithCancel(ctx)
 	defer cancel()
 	g := taskgroup.New(cancel)
@@ -262,14 +262,14 @@ func (s *KV) loadKeyMap(ctx context.Context) (any, error) {
 			return nil
 		})
 	}
-	err := g.Wait()
-	if err == nil {
-		s.μ.Lock()
-		s.keymap = keymap
-		s.μ.Unlock()
-		s.listed.Store(true)
+	if err := g.Wait(); err != nil {
+		return err
 	}
-	return nil, err
+	s.μ.Lock()
+	s.keymap = keymap
+	s.μ.Unlock()
+	s.listed.Store(true)
+	return nil
 }
 
 func (s *KV) firstKey(start string) (string, bool) {
