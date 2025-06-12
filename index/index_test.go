@@ -15,9 +15,10 @@
 package index_test
 
 import (
-	"os"
 	"strings"
 	"testing"
+
+	_ "embed"
 
 	"github.com/creachadair/ffs/index"
 	"github.com/creachadair/ffs/index/indexpb"
@@ -26,13 +27,12 @@ import (
 	"google.golang.org/protobuf/proto"
 )
 
+//go:embed testdata/keys.txt
+var keyData string
+
 func TestIndex(t *testing.T) {
-	keyData, err := os.ReadFile("testdata/keys.txt")
-	if err != nil {
-		t.Fatalf("Reading keys: %v", err)
-	}
-	keys := strings.Split(strings.TrimSpace(string(keyData)), "\n")
-	t.Logf("Read %d bytes (%d keys) from keys.txt", len(keyData), len(keys))
+	keys := strings.Split(strings.TrimSpace(keyData), "\n")
+	t.Logf("Test key data: %d bytes (%d keys)", len(keyData), len(keys))
 
 	idx := index.New(len(keys), &index.Options{
 		FalsePositiveRate: 0.01,
