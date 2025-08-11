@@ -111,6 +111,9 @@ func (c *Cursor) Seek(offset int64, whence int) (int64, error) {
 	return c.offset, nil
 }
 
+// Tell reports the current offset of the cursor.
+func (c *Cursor) Tell() int64 { return c.offset }
+
 // Close implements the io.Closer interface. A File does not have a system
 // descriptor, so "closing" performs a flush but does not invalidate the file.
 func (c *Cursor) Close() error { _, err := c.file.Flush(c.ctx); return err }
