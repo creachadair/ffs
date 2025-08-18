@@ -95,7 +95,7 @@ type Putter interface {
 func Load(ctx context.Context, s Getter, key string, msg proto.Message) error {
 	bits, err := s.Get(ctx, key)
 	if err != nil {
-		return fmt.Errorf("loading message: %w", err)
+		return err
 	}
 	return proto.Unmarshal(bits, msg)
 }
@@ -104,7 +104,7 @@ func Load(ctx context.Context, s Getter, key string, msg proto.Message) error {
 func Save(ctx context.Context, s Putter, msg proto.Message) (string, error) {
 	bits, err := proto.Marshal(msg)
 	if err != nil {
-		return "", fmt.Errorf("encoding message: %w", err)
+		return "", fmt.Errorf("encode: %w", err)
 	}
 	return s.CASPut(ctx, bits)
 }

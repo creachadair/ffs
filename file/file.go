@@ -128,11 +128,11 @@ type NewOptions struct {
 func Open(ctx context.Context, s blob.CAS, key string) (*File, error) {
 	var obj wiretype.Object
 	if err := wiretype.Load(ctx, s, key, &obj); err != nil {
-		return nil, fmt.Errorf("loading file %x: %w", key, err)
+		return nil, fmt.Errorf("load %x: %w", key, err)
 	}
 	f := &File{s: s, key: key}
 	if err := f.fromWireType(&obj); err != nil {
-		return nil, fmt.Errorf("decoding file %x: %w", key, err)
+		return nil, fmt.Errorf("decode file %x: %w", key, err)
 	}
 	return f, nil
 }
