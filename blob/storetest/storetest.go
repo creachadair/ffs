@@ -308,8 +308,8 @@ func Run(t *testing.T, s blob.StoreCloser) {
 					}
 				}
 
-				for k := 1; k <= numKeys; k++ {
-					key := taskKey(i, k)
+				for k := range numKeys {
+					key := taskKey(i, k+1)
 					if val, err := k1.Get(ctx, key); err == nil {
 						t.Errorf("Task %d: k1.Get(%q) got %q, want error", i, key, val)
 					}
@@ -323,8 +323,8 @@ func Run(t *testing.T, s blob.StoreCloser) {
 					}
 				}
 
-				for k := 1; k <= numKeys; k++ {
-					key := taskKey(i, k)
+				for k := range numKeys {
+					key := taskKey(i, k+1)
 					if err := k2.Delete(ctx, key); err != nil {
 						t.Errorf("Task %d: s.Delete(%q) failed: %v", i, key, err)
 					}
