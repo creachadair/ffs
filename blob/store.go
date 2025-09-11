@@ -180,7 +180,8 @@ type KV interface {
 
 	// Put writes a blob to the store. If the store already contains the
 	// specified key and opts.Replace is true, the existing value is replaced
-	// without error; otherwise Put must report an ErrKeyExists error.
+	// without error; otherwise Put must report an ErrKeyExists error without
+	// modifying the previous value..
 	Put(ctx context.Context, opts PutOptions) error
 }
 
