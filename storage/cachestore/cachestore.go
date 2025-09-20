@@ -90,7 +90,7 @@ type KV struct {
 	listed atomic.Bool // keymap has been fully populated
 
 	cache *cache.Cache[string, []byte] // blob cache
-	init  *throttle.Throttle[any]      // populate key map
+	init  throttle.Throttle[any]       // populate key map
 	get   throttle.Set[string, []byte] // get key (data)
 	put   throttle.Set[string, any]    // put key (error only)
 	del   throttle.Set[string, any]    // delete key (error only)
@@ -105,14 +105,12 @@ type KV struct {
 // NewKV constructs a new cached [KV] with the specified capacity in bytes,
 // delegating storage operations to s.  It will panic if maxBytes < 0.
 func NewKV(s blob.KV, maxBytes int) *KV {
-	kv := &KV{
+	return &KV{
 		base: s,
 		cache: cache.New(cache.LRU[string, []byte](int64(maxBytes)).
 			WithSize(cache.Length),
 		),
 	}
-	kv.init = throttle.New(throttle.Adapt[any](kv.loadKeyMap))
-	return kv
 }
 
 // Get implements a method of [blob.KV].
@@ -232,14 +230,12 @@ func (s *KV) initKeyMap(ctx context.Context) error {
 	if s.listed.Load() {
 		return nil // affirmatively already done
 	}
-	_, err := s.init.Call(ctx)
+	_, err := s.init.Call(ctx, s.loadKeyMap)
 	return err
 }
 
-func (s *KV) loadKeyMap(ctx context.Context) error {
-	ictx, cancel := context.WithCancel(ctx)
-	defer cancel()
-	g := taskgroup.New(cancel)
+func (s *KV) loadKeyMap(ctx context.Context) (any, error) {
+	var g taskgroup.Group
 
 	// The keymap is not safe for concurrent use by multiple goroutines, so
 	// serialize insertions through a collector.
@@ -251,7 +247,7 @@ func (s *KV) loadKeyMap(ctx context.Context) error {
 	for i := range 256 {
 		pfx := string([]byte{byte(i)})
 		coll.Report(func(report func(string)) error {
-			for key, err := range s.base.List(ictx, pfx) {
+			for key, err := range s.base.List(ctx, pfx) {
 				if err != nil {
 					return err
 				} else if !strings.HasPrefix(key, pfx) {
@@ -263,13 +259,13 @@ func (s *KV) loadKeyMap(ctx context.Context) error {
 		})
 	}
 	if err := g.Wait(); err != nil {
-		return err
+		return nil, err
 	}
 	s.μ.Lock()
 	s.keymap = keymap
 	s.μ.Unlock()
 	s.listed.Store(true)
-	return nil
+	return nil, nil
 }
 
 func (s *KV) firstKey(start string) (string, bool) {

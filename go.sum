@@ -6,8 +6,8 @@ github.com/creachadair/atomicfile v0.3.8 h1:PyMIBZHZunTF+2+OSJCUg4XWO9nh6NwIacUB
 github.com/creachadair/atomicfile v0.3.8/go.mod h1:oZrfNyYdwMjCD+eKNqsnPmdnQ54z4ujOoYvNTZyuJ2A=
 github.com/creachadair/mds v0.25.4 h1:rUQqf9ihePG8fhppXohLSY+AdOljU4oYyWVDhWiWhyE=
 github.com/creachadair/mds v0.25.4/go.mod h1:4hatI3hRM+qhzuAmqPRFvaBM8mONkS7nsLxkcuTYUIs=
-github.com/creachadair/msync v0.5.6 h1:nRvdyfVNNeMndcYDb+Ui8tSeefYXTUI1G7zPzosld6Q=
-github.com/creachadair/msync v0.5.6/go.mod h1:cHf8G0YBAfVk619K3RT7UARb8n6HAOCj0SZf4oUNkyM=
+github.com/creachadair/msync v0.6.0 h1:6Tk/MoEgDFedtrv0fg3nF1rioECHmvSFga/NL4yyVYk=
+github.com/creachadair/msync v0.6.0/go.mod h1:uho9VrgiCfqaphvtJkYZbdeEpNcm7dyukMg+1LL2c7Q=
 github.com/creachadair/taskgroup v0.14.0 h1:qInsb1fYzsWR4CRDzmFj4tquBJqt3W+gNr/svOIHjCs=
 github.com/creachadair/taskgroup v0.14.0/go.mod h1:MaMD1JcizKLm2c6vqovMrROslgu/oFAiS5INgr89pk8=
 github.com/fortytw2/leaktest v1.3.0 h1:u8491cBMTQ8ft8aeV+adlcytMZylmA5nnwwkRZjI8vw=
