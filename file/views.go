@@ -14,7 +14,13 @@
 
 package file
 
-import "sort"
+import (
+	"crypto/sha3"
+	"encoding/binary"
+	"io"
+	"slices"
+	"sort"
+)
 
 // Child provides access to the children of a file.
 type Child struct{ f *File }
@@ -125,7 +131,34 @@ func (d Data) Keys() []string {
 			keys = append(keys, blk.key)
 		}
 	}
-	return keys
+	slices.Sort(keys)
+	return slices.Compact(keys)
+}
+
+// Hash returns a cryptographic digest of binary content of the file.
+// The digest is computed over the storage keys of the data blocks, in the
+// exact order of their occurrence in the file index.
+//
+// The resulting digest is a valid fingerprint of the stored data, but is not
+// equal to a direct hash of the raw data.
+func (d Data) Hash() []byte {
+	h := sha3.New256()
+
+	d.f.mu.RLock()
+	defer d.f.mu.RUnlock()
+	for _, e := range d.f.data.extents {
+		var buf [8]byte
+
+		// Mix in the base and size of each extent so that zero ranges are covered.
+		h.Write(binary.BigEndian.AppendUint64(buf[:], uint64(e.base)))
+		h.Write(binary.BigEndian.AppendUint64(buf[:], uint64(e.bytes)))
+
+		// Within each extent, mix in the block storage keys.
+		for _, blk := range e.blocks {
+			io.WriteString(h, blk.key)
+		}
+	}
+	return h.Sum(make([]byte, 0, h.Size()))
 }
 
 // XAttr provides access to the extended attributes of a file.
