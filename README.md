@@ -76,3 +76,8 @@ To install the CLI:
 ```sh
 go install github.com/creachadair/ffstools/ffs@latest
 ```
+
+Note, however, that for any "interesting" use you will probably want to build
+the tool with additional storage engine aupport, beyond just the file and memory
+stores it has out of the box. See the docs on that repo for more details of what
+build tags are available.
