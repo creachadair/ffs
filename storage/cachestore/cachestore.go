@@ -245,6 +245,9 @@ func (s *KV) loadKeyMap(ctx context.Context) (any, error) {
 	})
 
 	for i := range 256 {
+		if ctx.Err() != nil {
+			break
+		}
 		pfx := string([]byte{byte(i)})
 		coll.Report(func(report func(string)) error {
 			for key, err := range s.base.List(ctx, pfx) {
