@@ -91,7 +91,7 @@ func (c Child) Release() int {
 	defer c.f.mu.Unlock()
 	var n int
 	for i, kid := range c.f.kids {
-		if kid.File != nil && kid.Key != "" && kid.Key == kid.File.key {
+		if kid.File != nil && kid.Key != "" && kid.Key == kid.File.Key() {
 			c.f.kids[i].File = nil
 			n++
 		}
