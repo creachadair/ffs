@@ -381,6 +381,8 @@ func (f *File) SetData(ctx context.Context, r io.Reader) error {
 // file and was not assigned a name at creation.
 func (f *File) Name() string { f.mu.RLock(); defer f.mu.RUnlock(); return f.name }
 
+func (f *File) setName(name string) { f.mu.Lock(); defer f.mu.Unlock(); f.name = name }
+
 // A ScanItem is the argument to the Scan callback.
 type ScanItem struct {
 	*File // the current file being visited

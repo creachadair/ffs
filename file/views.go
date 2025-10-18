@@ -40,8 +40,8 @@ func (c Child) Set(name string, kid *File) {
 	}
 	c.f.mu.Lock()
 	defer c.f.mu.Unlock()
-	defer c.f.modifyLocked()
-	kid.name = name
+	kid.setName(name)
+	c.f.modifyLocked()
 	if i, ok := c.f.findChildLocked(name); ok {
 		c.f.kids[i].File = kid // replace an existing child
 		return
@@ -65,7 +65,7 @@ func (c Child) Remove(name string) bool {
 	c.f.mu.Lock()
 	defer c.f.mu.Unlock()
 	if i, ok := c.f.findChildLocked(name); ok {
-		defer c.f.modifyLocked()
+		c.f.modifyLocked()
 		c.f.kids = append(c.f.kids[:i], c.f.kids[i+1:]...)
 		return true
 	}
