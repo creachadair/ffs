@@ -114,24 +114,29 @@ func (c *Cursor) Seek(offset int64, whence int) (int64, error) {
 // Tell reports the current offset of the cursor.
 func (c *Cursor) Tell() int64 { return c.offset }
 
-// Close implements the io.Closer interface. A File does not have a system
+// Close implements the [io.Closer] interface. A File does not have a system
 // descriptor, so "closing" performs a flush but does not invalidate the file.
 func (c *Cursor) Close() error { _, err := c.file.Flush(c.ctx); return err }
 
-// Stat implements part of the fs.File interface.
-func (c *Cursor) Stat() (fs.FileInfo, error) { return FileInfo{file: c.file}, nil }
+// Stat implements part of the [fs.File] interface.
+func (c *Cursor) Stat() (fs.FileInfo, error) { return c.file.fileInfo(), nil }
 
-// FileInfo implements the fs.FileInfo interface. The underlying data source
-// has concrete type *File.
-type FileInfo struct{ file *File }
+// FileInfo implements the fs.FileInfo interface for a [File].
+type FileInfo struct {
+	name    string
+	size    int64
+	mode    fs.FileMode
+	modTime time.Time
+	file    *File
+}
 
-func (n FileInfo) Name() string       { return n.file.name }
-func (n FileInfo) Size() int64        { return n.file.Data().Size() }
-func (n FileInfo) Mode() fs.FileMode  { return n.file.stat.Mode }
-func (n FileInfo) ModTime() time.Time { return n.file.stat.ModTime }
-func (n FileInfo) IsDir() bool        { return n.file.stat.Mode.IsDir() }
+func (n FileInfo) Name() string       { return n.name }
+func (n FileInfo) Size() int64        { return n.size }
+func (n FileInfo) Mode() fs.FileMode  { return n.mode }
+func (n FileInfo) ModTime() time.Time { return n.modTime }
+func (n FileInfo) IsDir() bool        { return n.mode.IsDir() }
 
-// Sys returns the the *file.File whose stat record n carries.
+// Sys returns the the [*file.File] whose stat record n carries.
 func (n FileInfo) Sys() any { return n.file }
 
 // DirEntry implements the fs.DirEntry interface.
@@ -180,5 +185,5 @@ func (d DirEntry) Info() (fs.FileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	return FileInfo{f}, nil
+	return f.fileInfo(), nil
 }
