@@ -43,13 +43,29 @@ type Stat struct {
 	// methods to encode and decode the value.
 }
 
-// Clear clears the current stat metadata for the file associated with s.
-// Calling this method does not change whether stat is persisted, nor does it
-// modify the current contents of s, so calling Update on the same s will
-// restore the cleared values. Clear returns s.
-func (s Stat) Clear() Stat { s.f.mu.Lock(); defer s.f.mu.Unlock(); s.f.setStatLocked(Stat{}); return s }
+// WithMode returns a copy of s with its Mode set to m.
+func (s Stat) WithMode(m fs.FileMode) Stat { s.Mode = m; return s }
 
-// Update updates the stat metadata for the file associated with s to the
+// WithModTime returns a copy of s with its ModTime set to ts.
+func (s Stat) WithModTime(ts time.Time) Stat { s.ModTime = ts; return s }
+
+// WithOwnerID returns a copy of s with its OwnerID set to id.
+func (s Stat) WithOwnerID(id int) Stat { s.OwnerID = id; return s }
+
+// WithOwnerName returns a copy of s with its OwnerName set to name.
+func (s Stat) WithOwnerName(name string) Stat { s.OwnerName = name; return s }
+
+// WithGroupID returns a copy of s with its GroupID set to id.
+func (s Stat) WithGroupID(id int) Stat { s.GroupID = id; return s }
+
+// WithGroupName returns a copy of s with its GroupName set to name.
+func (s Stat) WithGroupName(name string) Stat { s.GroupName = name; return s }
+
+// Clear returns a copy of s with the same file but all other fields set to
+// their zero values.
+func (s Stat) Clear() Stat { return Stat{f: s.f} }
+
+// Update replaces the stat metadata for the file associated with s with the
 // current contents of s. Calling this method does not change whether stat is
 // persisted. Update returns s.
 func (s Stat) Update() Stat { s.f.mu.Lock(); defer s.f.mu.Unlock(); s.f.setStatLocked(s); return s }
@@ -59,8 +75,10 @@ func (s Stat) Update() Stat { s.f.mu.Lock(); defer s.f.mu.Unlock(); s.f.setStatL
 func (s Stat) Persist(ok bool) Stat {
 	s.f.mu.Lock()
 	defer s.f.mu.Unlock()
-	s.f.saveStat = ok
-	s.f.invalLocked()
+	if ok != s.f.saveStat {
+		s.f.saveStat = ok
+		s.f.invalLocked()
+	}
 	return s
 }
 

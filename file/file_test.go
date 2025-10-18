@@ -358,7 +358,7 @@ func TestConcurrentFile(t *testing.T) {
 			go func() { defer wg.Done(); _ = root.FileInfo() }()
 		case 3:
 			// Modify stat metadata.
-			go func() { defer wg.Done(); s := root.Stat(); s.ModTime = time.Now(); s.Update() }()
+			go func() { defer wg.Done(); root.Stat().WithModTime(time.Now()).Update() }()
 		case 4:
 			// Read data stats.
 			go func() { defer wg.Done(); _ = root.Data().Size() }()
