@@ -67,9 +67,6 @@ func (s Stat) Persist(ok bool) Stat {
 // Persistent reports whether the file associated with s persists stat.
 func (s Stat) Persistent() bool { s.f.mu.RLock(); defer s.f.mu.RUnlock(); return s.f.saveStat }
 
-// FileInfo returns a fs.FileInfo wrapper for s.
-func (s Stat) FileInfo() FileInfo { return s.f.fileInfo() }
-
 const (
 	bitSetuid = 04000
 	bitSetgid = 02000
@@ -178,23 +175,5 @@ func (s *Stat) fromWireType(pb *wiretype.Stat) {
 	}
 	if t := pb.ModTime; t != nil {
 		s.ModTime = time.Unix(int64(t.Seconds), int64(t.Nanos))
-	}
-}
-
-// fileInfo returns a FileInfo record for f. The resulting value is a snapshot
-// at the moment of construction, and does not track changes to the file after
-// the value was constructed.
-func (f *File) fileInfo() FileInfo {
-	if f == nil {
-		return FileInfo{}
-	}
-	f.mu.Lock()
-	defer f.mu.Unlock()
-	return FileInfo{
-		name:    f.name,
-		size:    f.data.totalBytes,
-		mode:    f.stat.Mode,
-		modTime: f.stat.ModTime,
-		file:    f,
 	}
 }

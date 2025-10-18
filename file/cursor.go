@@ -119,7 +119,7 @@ func (c *Cursor) Tell() int64 { return c.offset }
 func (c *Cursor) Close() error { _, err := c.file.Flush(c.ctx); return err }
 
 // Stat implements part of the [fs.File] interface.
-func (c *Cursor) Stat() (fs.FileInfo, error) { return c.file.fileInfo(), nil }
+func (c *Cursor) Stat() (fs.FileInfo, error) { return c.file.FileInfo(), nil }
 
 // FileInfo implements the fs.FileInfo interface for a [File].
 type FileInfo struct {
@@ -185,5 +185,5 @@ func (d DirEntry) Info() (fs.FileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	return f.fileInfo(), nil
+	return f.FileInfo(), nil
 }

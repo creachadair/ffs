@@ -217,6 +217,24 @@ func (f *File) Stat() Stat {
 	return cp
 }
 
+// FileInfo returns a [FileInfo] record for f. The resulting value is a
+// snapshot at the moment of construction, and does not track changes to the
+// file after the value was constructed.
+func (f *File) FileInfo() FileInfo {
+	if f == nil {
+		return FileInfo{}
+	}
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	return FileInfo{
+		name:    f.name,
+		size:    f.data.totalBytes,
+		mode:    f.stat.Mode,
+		modTime: f.stat.ModTime,
+		file:    f,
+	}
+}
+
 // Data returns a view of the file content for f.
 func (f *File) Data() Data { return Data{f: f} }
 

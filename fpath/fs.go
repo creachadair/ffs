@@ -58,7 +58,7 @@ func (fp FS) Stat(path string) (fs.FileInfo, error) {
 	if err != nil {
 		return nil, err
 	}
-	return target.Stat().FileInfo(), nil
+	return target.FileInfo(), nil
 }
 
 // Sub implements the fs.SubFS interface.
@@ -83,7 +83,7 @@ func (fp FS) ReadDir(path string) ([]fs.DirEntry, error) {
 		if err != nil {
 			return nil, pathErr("readdir", slashpath.Join(path, name), err)
 		}
-		out[i] = fs.FileInfoToDirEntry(kid.Stat().FileInfo())
+		out[i] = fs.FileInfoToDirEntry(kid.FileInfo())
 	}
 	return out, nil
 }
