@@ -33,7 +33,7 @@ func TestRoundTrip(t *testing.T) {
 		t.Fatalf("Creating AES-GCM instance: %v", err)
 	}
 
-	e := encrypted.New(gcm, nil)
+	e := encrypted.New(gcm)
 
 	const value = "some of what a fool thinks often remains"
 	t.Logf("Input (%d bytes): %q", len(value), value)

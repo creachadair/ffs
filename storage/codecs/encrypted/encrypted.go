@@ -33,16 +33,11 @@ type Codec struct {
 	aead cipher.AEAD // the encryption context
 }
 
-// Options control the construction of a *Codec.
-type Options struct {
-}
-
 // New constructs an encryption codec that uses the given encryption context.
-// If opts == nil, default options are used.  New will panic if aead == nil.
 //
 // For AES-GCM, you can use the cipher.NewGCM constructor.
 // For ChaCha20-Poly1305 (RFC 8439) see golang.org/x/crypto/chacha20poly1305.
-func New(aead cipher.AEAD, opts *Options) *Codec {
+func New(aead cipher.AEAD) *Codec {
 	if aead == nil {
 		panic("aead == nil")
 	}
