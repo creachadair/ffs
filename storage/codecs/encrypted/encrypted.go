@@ -19,6 +19,7 @@ package encrypted
 import (
 	"crypto/cipher"
 	"crypto/rand"
+	"encoding/binary"
 	"errors"
 	"fmt"
 	"io"
@@ -127,6 +128,7 @@ func (c *Codec) decrypt(blk block, w io.Writer) error {
 }
 
 type block struct {
+	KeyID int
 	Nonce []byte
 	Data  []byte
 }
@@ -134,13 +136,23 @@ type block struct {
 // parseBlock parses the binary encoding of a block, reporting an error if the
 // structure of the block is invalid.
 func parseBlock(from []byte) (block, error) {
-	if len(from) == 0 || len(from) < int(from[0])+1 {
+	if len(from) == 0 {
 		return block{}, errors.New("parse: invalid block format")
 	}
-	nonceLen := int(from[0])
-
-	// Copy the input data so that we do not clobber the caller's data.
+	hasKeyID := from[0]&0x80 != 0
+	nonceLen := int(from[0] & 0x7f)
+	if hasKeyID {
+		if len(from) < 5+nonceLen {
+			return block{}, errors.New("parse: truncated block")
+		}
+		return block{
+			KeyID: int(binary.BigEndian.Uint32(from[1:])),
+			Nonce: from[5 : 5+nonceLen],
+			Data:  from[5+nonceLen:],
+		}, nil
+	}
 	return block{
+		KeyID: 1,
 		Nonce: from[1 : 1+nonceLen],
 		Data:  from[1+nonceLen:],
 	}, nil
@@ -149,12 +161,27 @@ func parseBlock(from []byte) (block, error) {
 /*
 Implementation notes
 
-An encrypted blob is stored as a buffer with the following structure:
+The original format of the encrypted block was:
 
-   nlen  byte    : nonce length       | plaintext
-   nonce []byte  : nonce (nlen bytes) | plaintext
-   data  []byte  : block data         | compressed, encrypted
+   Pos | Len  | Description
+   ----|------|------------------------------
+   0   | 1    | nonce length in bytes (= n)
+   1   | n    | AEAD nonce
+   n+1 | rest | encrypted compressed data
 
-Block data are compressed with https://github.com/google/snappy.
-Authenticated encryption is managed by a cipher.AEAD instance.
+The current format of the encrypted block is:
+
+   Pos | Len  | Description
+   ----|------|------------------------------
+   0   | 1    | nonce length in byte (= n+128)
+   1   | 4    | key ID (BE uint32 = id)
+   5   | n    | AEAD nonce
+   n+5 | rest | encrypted compressed data
+
+The two can be distinguished by checking the high-order bit of the first byte
+of the stored data. This requires that the actual nonce length is < 128, which
+it will be in all practical use.
+
+Block data are compressed before encryption (decompressed after decryption)
+with https://github.com/google/snappy.
 */
