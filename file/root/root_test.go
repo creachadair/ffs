@@ -44,13 +44,13 @@ func TestRoot(t *testing.T) {
 	}
 
 	// Saving the root blob to storage should fail if there is no file key set.
-	if err := r.Save(ctx, "test-root", true); err == nil {
+	if err := r.Save(ctx, "test-root"); err == nil {
 		t.Error("Save should not have succeeded with an empty FileKey")
 	}
 
 	// Saving the root should succeed once the file key is present.
 	r.FileKey = rfKey
-	if err := r.Save(ctx, "test-root", true); err != nil {
+	if err := r.Save(ctx, "test-root"); err != nil {
 		t.Fatalf("Save failed: %v", err)
 	}
 

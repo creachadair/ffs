@@ -120,7 +120,7 @@ func (p *PathInfo) Flush(ctx context.Context) (string, error) {
 			p.Root.IndexKey = ""
 		}
 		p.Root.FileKey = key
-		if err := p.Root.Save(ctx, p.RootKey, true); err != nil {
+		if err := p.Root.Save(ctx, p.RootKey); err != nil {
 			return "", err
 		}
 	}

@@ -75,8 +75,8 @@ func (r *Root) File(ctx context.Context, s blob.CAS) (*file.File, error) {
 	return file.Open(ctx, s, r.FileKey)
 }
 
-// Save writes r in wire format to the given storage key in s.
-func (r *Root) Save(ctx context.Context, key string, replace bool) error {
+// Save writes r in wire format to the given storage key.
+func (r *Root) Save(ctx context.Context, key string) error {
 	if r.FileKey == "" {
 		return errors.New("missing file key")
 	}
@@ -87,7 +87,7 @@ func (r *Root) Save(ctx context.Context, key string, replace bool) error {
 	return r.kv.Put(ctx, blob.PutOptions{
 		Key:     key,
 		Data:    bits,
-		Replace: replace,
+		Replace: true,
 	})
 }
 
