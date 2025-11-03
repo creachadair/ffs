@@ -18,7 +18,7 @@ package encrypted
 
 import (
 	"crypto/cipher"
-	"crypto/rand"
+	crand "crypto/rand"
 	"encoding/binary"
 	"errors"
 	"fmt"
@@ -30,25 +30,11 @@ import (
 // A Codec implements the encoded.Codec interface and encrypts and
 // authenticates data using a cipher.AEAD instance.
 type Codec struct {
-	aead   cipher.AEAD        // the encryption context
-	random func([]byte) error // used to generate nonce values
+	aead cipher.AEAD // the encryption context
 }
 
 // Options control the construction of a *Codec.
 type Options struct {
-	// Replace the contents of buf with cryptographically-secure random bytes.
-	// If nil, the store uses the crypto/rand package to generate bytes.
-	Random func(buf []byte) error
-}
-
-func (o *Options) random() func([]byte) error {
-	if o != nil && o.Random != nil {
-		return o.Random
-	}
-	return func(buf []byte) error {
-		_, err := rand.Read(buf)
-		return err
-	}
 }
 
 // New constructs an encryption codec that uses the given encryption context.
@@ -60,7 +46,7 @@ func New(aead cipher.AEAD, opts *Options) *Codec {
 	if aead == nil {
 		panic("aead == nil")
 	}
-	return &Codec{aead: aead, random: opts.random()}
+	return &Codec{aead: aead}
 }
 
 // Encode implements part of the codec interface. It encrypts src with the
@@ -100,9 +86,7 @@ func (c *Codec) encrypt(data []byte) ([]byte, error) {
 	buf := make([]byte, 1+nlen+snappy.MaxEncodedLen(len(data))+c.aead.Overhead())
 	buf[0] = byte(nlen)
 	nonce := buf[1 : 1+nlen]
-	if err := c.random(nonce); err != nil {
-		return nil, fmt.Errorf("encrypt: generating nonce: %w", err)
-	}
+	crand.Read(nonce) // panics on error
 
 	// Compress the plaintext into the buffer after the nonce, then encrypt the
 	// compressed data in-place. Both of these will change the length of the

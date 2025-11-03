@@ -33,16 +33,7 @@ func TestRoundTrip(t *testing.T) {
 		t.Fatalf("Creating AES-GCM instance: %v", err)
 	}
 
-	var randomCalled bool
-	e := encrypted.New(gcm, &encrypted.Options{
-		Random: func(buf []byte) error {
-			randomCalled = true // verify that our hook is used
-			for i := range buf {
-				buf[i] = 1 // dummy value for testing
-			}
-			return nil
-		},
-	})
+	e := encrypted.New(gcm, nil)
 
 	const value = "some of what a fool thinks often remains"
 	t.Logf("Input (%d bytes): %q", len(value), value)
@@ -51,10 +42,6 @@ func TestRoundTrip(t *testing.T) {
 	var encoded bytes.Buffer
 	if err := e.Encode(&encoded, []byte(value)); err != nil {
 		t.Fatalf("Encode %q failed: %v", value, err)
-	}
-
-	if !randomCalled {
-		t.Error("Encode did not invoke the random generation hook")
 	}
 
 	// Log the stored block for debugging purposes.
