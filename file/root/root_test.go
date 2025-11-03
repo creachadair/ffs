@@ -22,6 +22,8 @@ import (
 	"github.com/creachadair/ffs/blob/memstore"
 	"github.com/creachadair/ffs/file"
 	"github.com/creachadair/ffs/file/root"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 )
 
 func TestRoot(t *testing.T) {
@@ -32,6 +34,7 @@ func TestRoot(t *testing.T) {
 	r := root.New(kv, &root.Options{
 		Description: "Test root",
 		IndexKey:    "hey you get off of my cloud",
+		ChainKey:    "->>",
 	})
 
 	// Create a new empty file to use as the root file.
@@ -60,20 +63,24 @@ func TestRoot(t *testing.T) {
 		t.Fatalf("Open failed: %v", err)
 	}
 
-	// Check the root file.
-	if rfc, err := rc.File(ctx, nil); err != nil {
-		t.Errorf("Loading root file: %v", err)
-	} else if rfcKey, err := rfc.Flush(ctx); err != nil {
-		t.Errorf("Flush failed: %v", err)
-	} else if rfcKey != rfKey {
-		t.Errorf("Loaded root file key: got %q, want %q", rfcKey, rfKey)
+	// Check the reloaded contents match.
+	if diff := cmp.Diff(rc, r, cmpopts.IgnoreUnexported(root.Root{})); diff != "" {
+		t.Errorf("Loaded root (-got, +want):\n%s", diff)
 	}
 
-	// Check exported fields.
-	if rc.Description != r.Description {
-		t.Errorf("Loaded desc: got %q, want %q", rc.Description, r.Description)
+	// Verify that we can save and reload a chained root.
+	ckey, err := r.SaveChain(ctx, cas)
+	if err != nil {
+		t.Fatalf("SaveChain failed: %v", err)
 	}
-	if rc.IndexKey != r.IndexKey {
-		t.Errorf("Loaded index key: got %q, want %q", rc.IndexKey, r.IndexKey)
+	rc.ChainKey = ckey
+
+	// Verify that we got the expected root back from this.
+	rcc, err := rc.Chain(ctx, cas)
+	if err != nil {
+		t.Fatalf("Load chain failed: %v", err)
+	}
+	if diff := cmp.Diff(rcc, r, cmpopts.IgnoreUnexported(root.Root{})); diff != "" {
+		t.Errorf("Loaded chained root (-got, +want):\n%s", diff)
 	}
 }

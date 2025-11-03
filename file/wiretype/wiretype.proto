@@ -49,7 +49,12 @@ message Root {
   // The blob contains a Object holding an ffs.index.Index message.
   bytes index_key = 4;
 
-  // next id: 6
+  // The storage key of a previous version of this root.  The file_key and
+  // index_key of the chained root, if any, are considered reachable from this
+  // root.
+  bytes chain_key = 6;
+
+  // next id: 7
 
   reserved 3;  // was: owner_key
   reserved 5;  // was: predecessor

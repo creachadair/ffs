@@ -37,6 +37,7 @@ type Root struct {
 	Description string // a human-readable description
 	FileKey     string // the storage key of the file node
 	IndexKey    string // the storage key of the blob index
+	ChainKey    string // the storage key of a predecessor root
 }
 
 // New constructs a new empty Root associated with the given store.
@@ -64,13 +65,12 @@ func Open(ctx context.Context, s blob.KV, key string) (*Root, error) {
 }
 
 // File loads and returns the root file of r from s, if one exists.  If no file
-// exists, it returns ErrNoData. If s == nil, it uses the same store as r.
+// exists, it returns [ErrNoData].
 func (r *Root) File(ctx context.Context, s blob.CAS) (*file.File, error) {
 	if r.FileKey == "" {
 		return nil, ErrNoData
-	}
-	if s == nil {
-		s = blob.CASFromKV(r.kv)
+	} else if s == nil {
+		return nil, errors.New("no store provided")
 	}
 	return file.Open(ctx, s, r.FileKey)
 }
@@ -91,6 +91,36 @@ func (r *Root) Save(ctx context.Context, key string) error {
 	})
 }
 
+// Chain loads and returns the chained root of r from s, if one exists.
+// If no chained root exists, it returns [ErrNoData].
+func (r *Root) Chain(ctx context.Context, s wiretype.Getter) (*Root, error) {
+	if r.ChainKey == "" {
+		return nil, ErrNoData
+	} else if s == nil {
+		return nil, errors.New("no store provided")
+	}
+	var obj wiretype.Object
+	if err := wiretype.Load(ctx, s, r.ChainKey, &obj); err != nil {
+		return nil, fmt.Errorf("loading chained root: %w", err)
+	}
+	// Note when we construct a new root, we need to give it our KV, not the CAS
+	// we loaded from.
+	return Decode(r.kv, &obj)
+}
+
+// SaveChain writes r in wire format to the specified [blob.CAS], and returns
+// its storage key.
+func (r *Root) SaveChain(ctx context.Context, s blob.CAS) (string, error) {
+	if s == nil {
+		return "", errors.New("no store provided")
+	}
+	bits, err := proto.Marshal(Encode(r))
+	if err != nil {
+		return "", err
+	}
+	return s.CASPut(ctx, bits)
+}
+
 // Encode encodes r as a protobuf message for storage.
 func Encode(r *Root) *wiretype.Object {
 	return &wiretype.Object{
@@ -99,6 +129,7 @@ func Encode(r *Root) *wiretype.Object {
 				FileKey:     []byte(r.FileKey),
 				Description: r.Description,
 				IndexKey:    []byte(r.IndexKey),
+				ChainKey:    []byte(r.ChainKey),
 			},
 		},
 	}
@@ -117,6 +148,7 @@ func Decode(s blob.KV, obj *wiretype.Object) (*Root, error) {
 		Description: pb.Root.Description,
 		FileKey:     string(pb.Root.FileKey),
 		IndexKey:    string(pb.Root.IndexKey),
+		ChainKey:    string(pb.Root.ChainKey),
 	}, nil
 }
 
@@ -126,4 +158,5 @@ type Options struct {
 	FileKey     string
 	Description string
 	IndexKey    string
+	ChainKey    string
 }
