@@ -18,41 +18,91 @@ import (
 	"bytes"
 	"crypto/aes"
 	"crypto/cipher"
+	"encoding/binary"
 	"testing"
 
 	"github.com/creachadair/ffs/storage/codecs/encrypted"
+	"github.com/creachadair/ffs/storage/encoded"
 )
 
-func TestRoundTrip(t *testing.T) {
-	aes, err := aes.NewCipher([]byte("0123456789abcdef"))
-	if err != nil {
-		t.Fatalf("Creating AES cipher: %v", err)
-	}
-	gcm, err := cipher.NewGCM(aes)
-	if err != nil {
-		t.Fatalf("Creating AES-GCM instance: %v", err)
-	}
+var _ encoded.Codec = (*encrypted.Codec)(nil)
 
-	e := encrypted.New(gcm)
+// A fake Keyring implementation with static keys.
+type keyring []string
+
+func (k *keyring) Has(id int) bool { return id > 0 && id-1 < len(*k) }
+
+func (k *keyring) Append(id int, buf []byte) []byte { return append(buf, (*k)[id-1]...) }
+
+func (k *keyring) AppendActive(buf []byte) (int, []byte) {
+	return len(*k), append(buf, (*k)[len(*k)-1]...)
+}
+
+func (k *keyring) addKey(s string) { *k = append(*k, s) }
+
+func TestCodec(t *testing.T) {
+	newCipher := func(key []byte) (cipher.AEAD, error) {
+		blk, err := aes.NewCipher(key)
+		if err != nil {
+			return nil, err
+		}
+		return cipher.NewGCM(blk)
+	}
+	kr := &keyring{"00000000000000000000000000000000"}
+	e := encrypted.New(newCipher, kr)
+
+	checkEncrypt := func(ptext string) []byte {
+		t.Helper()
+		var buf bytes.Buffer
+		if err := e.Encode(&buf, []byte(ptext)); err != nil {
+			t.Fatalf("Encode failed: %v", err)
+		}
+		return buf.Bytes()
+	}
+	checkDecrypt := func(ctext []byte, want string) {
+		t.Helper()
+		var buf bytes.Buffer
+		if err := e.Decode(&buf, ctext); err != nil {
+			t.Fatalf("Decode failed: %v", err)
+		}
+		if buf.String() != want {
+			t.Errorf("Decode:\ngot:  %s\nwant: %s", buf.String(), want)
+		}
+	}
 
 	const value = "some of what a fool thinks often remains"
 	t.Logf("Input (%d bytes): %q", len(value), value)
 
 	// Encode the test value through the encrypted codec.
-	var encoded bytes.Buffer
-	if err := e.Encode(&encoded, []byte(value)); err != nil {
-		t.Fatalf("Encode %q failed: %v", value, err)
-	}
-
 	// Log the stored block for debugging purposes.
-	t.Logf("Stored block (%d bytes):\n%+v", encoded.Len(), encoded.Bytes())
-
-	// Verify that we can decode the blob to recover the original value.
-	var verify bytes.Buffer
-	src := encoded.String()
-	if err := e.Decode(&verify, []byte(src)); err != nil {
-		t.Fatalf("Decode [%d bytes] failed: %v", encoded.Len(), err)
-	} else if got := verify.String(); got != value {
-		t.Errorf("Decode: got %q, want %q", got, value)
+	enc := checkEncrypt(value)
+	t.Logf("Stored block 1 (%d bytes):\n%#q", len(enc), enc)
+	if id := int(binary.BigEndian.Uint32(enc[1:5])); id != 1 {
+		t.Errorf("Key ID is %d, want 1", id)
 	}
+
+	checkDecrypt(enc, value)
+
+	// Add a new key and verify that we can still decrypt the old block.
+	kr.addKey("11111111111111111111111111111111")
+	checkDecrypt(enc, value)
+
+	// Encrypt a new block, which should use the new key.
+	enc2 := checkEncrypt(value)
+	t.Logf("Stored block 2 (%d bytes):\n%#q", len(enc2), enc2)
+	if id := int(binary.BigEndian.Uint32(enc2[1:5])); id != 2 {
+		t.Errorf("Key ID is %d, want 2", id)
+	}
+
+	checkDecrypt(enc, value)
+	checkDecrypt(enc2, value)
+
+	// Verify that we can also handle the legacy block format without a key ID.
+	// This format always uses the first key version in the ring.
+	legacy := make([]byte, 0, len(enc)-4)
+	legacy = append(legacy, enc[0]&0x7f)
+	legacy = append(legacy, enc[5:]...)
+	t.Logf("Legacy block (%d bytes):\n%#q", len(legacy), legacy)
+
+	checkDecrypt(legacy, value)
 }

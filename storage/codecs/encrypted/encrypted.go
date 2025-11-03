@@ -13,7 +13,7 @@
 // limitations under the License.
 
 // Package encrypted implements an encryption codec which encodes data by
-// encrypting and authenticating with a cipher.AEAD instance.
+// encrypting and authenticating with a [cipher.AEAD] instance.
 package encrypted
 
 import (
@@ -27,80 +27,106 @@ import (
 	"github.com/golang/snappy"
 )
 
-// A Codec implements the encoded.Codec interface and encrypts and
-// authenticates data using a cipher.AEAD instance.
+// A Codec implements the [encoded.Codec] interface and encrypts and
+// authenticates data using a [cipher.AEAD] instance.
+//
+// [encoded.Codec]: https://godoc.org/github.com/creachadair/ffs/storage/encoded#Codec
 type Codec struct {
-	aead cipher.AEAD // the encryption context
+	newCipher func([]byte) (cipher.AEAD, error)
+	keys      Keyring
 }
 
 // New constructs an encryption codec that uses the given encryption context.
-//
-// For AES-GCM, you can use the cipher.NewGCM constructor.
-// For ChaCha20-Poly1305 (RFC 8439) see golang.org/x/crypto/chacha20poly1305.
-func New(aead cipher.AEAD) *Codec {
-	if aead == nil {
-		panic("aead == nil")
+// The newCipher function constructs a [cipher.AEAD] from an encryption key.
+// The keys argument is a collection of encryption keys.
+// Both newCipher and keys must be non-nil.
+func New(newCipher func([]byte) (cipher.AEAD, error), keys Keyring) *Codec {
+	switch {
+	case newCipher == nil:
+		panic("cipher constructor is nil")
+	case keys == nil:
+		panic("keyring is nil")
 	}
-	return &Codec{aead: aead}
+	return &Codec{newCipher: newCipher, keys: keys}
 }
 
-// Encode implements part of the codec interface. It encrypts src with the
-// provided cipher in CTR mode and writes it out as an encoded block to w.
-func (c *Codec) Encode(w io.Writer, src []byte) error {
-	bits, err := c.encrypt(src)
-	if err != nil {
-		return fmt.Errorf("encryption failed: %v", err)
-	}
-	_, err = w.Write(bits)
-	return err
-}
+// Encode encrypts src with the current active key in the provided keyring,
+// and writes the result to w.
+func (c *Codec) Encode(w io.Writer, src []byte) error { return c.encrypt(w, src) }
 
-// Decode implements part of the codec interface.  It decodes src from a
-// wrapper block, decrypts the message, and writes the result to w.  If
-// decryption fails, an error is reported without writing any data to w.
+// Decode decrypts src with the key ID used to encrypt it, and writes the
+// result to w.
 func (c *Codec) Decode(w io.Writer, src []byte) error {
 	blk, err := parseBlock(src)
 	if err != nil {
 		return err
 	}
-	return c.decrypt(blk, w)
+	return c.decrypt(w, blk)
 }
 
-// encrypt compresses and encrypts the given data and returns its encoded block.
-func (c *Codec) encrypt(data []byte) ([]byte, error) {
-	nlen := c.aead.NonceSize()
+// encrypt compresses and encrypts the given data and writes it to w.
+func (c *Codec) encrypt(w io.Writer, data []byte) error {
+	var kbuf [64]byte
+	id, key := c.keys.AppendActive(kbuf[:0])
+
+	aead, err := c.newCipher(key)
+	if err != nil {
+		return err
+	}
+	nlen := aead.NonceSize()
 
 	// Preallocate a buffer for the result:
+	//   size: [   1   |    4    |     nlen     | data ...        ]
+	//   desc:    tag     keyID       nonce       payload ...
 	//
-	//         [ nlen ][ nonce ... ][ payload ... ]
-	//  bytes:  1       nlen         (see below)
+	// Where tag == 128+nlen.
 	//
-	// The payload is compressed, which may expand the plaintext. In addition,
-	// the AEAD adds a tag which we need room for. The preallocation takes both
-	// overheads into account so we only have to allocate once.
-	buf := make([]byte, 1+nlen+snappy.MaxEncodedLen(len(data))+c.aead.Overhead())
-	buf[0] = byte(nlen)
-	nonce := buf[1 : 1+nlen]
+	// The plaintext is compressed, which may expand it.
+	// In addition, the AEAD adds additional data for extra data and message authentication.
+	// The buffer must be large enough to hold all of these.
+	bufSize := 1 + 4 + nlen + snappy.MaxEncodedLen(len(data)) + aead.Overhead()
+
+	buf := make([]byte, bufSize)
+	keyID, nonce, payload := buf[1:5], buf[5:5+nlen], buf[5+nlen:]
+
+	buf[0] = byte(nlen) | 0x80 // tag
+	binary.BigEndian.PutUint32(keyID, uint32(id))
 	crand.Read(nonce) // panics on error
 
 	// Compress the plaintext into the buffer after the nonce, then encrypt the
 	// compressed data in-place. Both of these will change the length of the
 	// afflicted buffer segment, so we then have to reslice the buffer to get
 	// the final packet.
-	compressed := snappy.Encode(buf[1+nlen:], data)
-	encrypted := c.aead.Seal(compressed[:0], nonce, compressed, nil)
-	return buf[:1+nlen+len(encrypted)], nil
+	compressed := snappy.Encode(payload, data)
+	encrypted := aead.Seal(compressed[:0], nonce, compressed, nil)
+	outLen := 1 + 4 + nlen + len(encrypted)
+	_, err = w.Write(buf[:outLen])
+	return err
 }
 
 // decrypt decrypts and decompresses the data from a storage wrapper.
-func (c *Codec) decrypt(blk block, w io.Writer) error {
-	plain, err := c.aead.Open(blk.Data[:0], blk.Nonce, blk.Data, nil)
+func (c *Codec) decrypt(w io.Writer, blk block) error {
+	if !c.keys.Has(blk.KeyID) {
+		return fmt.Errorf("key id %d not found", blk.KeyID)
+	}
+	var kbuf [64]byte
+	key := c.keys.Append(blk.KeyID, kbuf[:0])
+	aead, err := c.newCipher(key)
 	if err != nil {
 		return err
 	}
-	decompressed, err := snappy.Decode(nil, plain)
+
+	plain, err := aead.Open(make([]byte, 0, len(blk.Data)), blk.Nonce, blk.Data, nil)
 	if err != nil {
-		return fmt.Errorf("decrypt: decompressing: %w", err)
+		return err
+	}
+	dlen, err := snappy.DecodedLen(plain)
+	if err != nil {
+		return err
+	}
+	decompressed, err := snappy.Decode(make([]byte, dlen), plain)
+	if err != nil {
+		return fmt.Errorf("decompress: %w", err)
 	}
 	_, err = w.Write(decompressed)
 	return err
@@ -164,3 +190,17 @@ it will be in all practical use.
 Block data are compressed before encryption (decompressed after decryption)
 with https://github.com/google/snappy.
 */
+
+// Keyring is the interface used to fetch encryption keys.
+type Keyring interface {
+	// Has reports whether the keyring contains a key with the given ID.
+	Has(id int) bool
+
+	// Append appends the contents of the specified key to buf, and returns the
+	// resulting slice.
+	Append(id int, buf []byte) []byte
+
+	// AppendActive appends the contents of the active key to buf, and returns
+	// active ID and the updated slice.
+	AppendActive(buf []byte) (int, []byte)
+}
