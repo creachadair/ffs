@@ -67,7 +67,7 @@ func (c *Codec) Decode(w io.Writer, src []byte) error {
 // encrypt compresses and encrypts the given data and writes it to w.
 func (c *Codec) encrypt(w io.Writer, data []byte) error {
 	var kbuf [64]byte
-	id, key := c.keys.AppendActive(kbuf[:0])
+	id, key := c.keys.GetActive(kbuf[:0])
 
 	aead, err := c.newCipher(key)
 	if err != nil {
@@ -110,7 +110,7 @@ func (c *Codec) decrypt(w io.Writer, blk block) error {
 		return fmt.Errorf("key id %d not found", blk.KeyID)
 	}
 	var kbuf [64]byte
-	key := c.keys.Append(blk.KeyID, kbuf[:0])
+	key := c.keys.Get(blk.KeyID, kbuf[:0])
 	aead, err := c.newCipher(key)
 	if err != nil {
 		return err
@@ -196,11 +196,11 @@ type Keyring interface {
 	// Has reports whether the keyring contains a key with the given ID.
 	Has(id int) bool
 
-	// Append appends the contents of the specified key to buf, and returns the
+	// Get appends the contents of the specified key to buf, and returns the
 	// resulting slice.
-	Append(id int, buf []byte) []byte
+	Get(id int, buf []byte) []byte
 
-	// AppendActive appends the contents of the active key to buf, and returns
+	// GetActive appends the contents of the active key to buf, and returns
 	// active ID and the updated slice.
-	AppendActive(buf []byte) (int, []byte)
+	GetActive(buf []byte) (int, []byte)
 }

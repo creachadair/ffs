@@ -32,9 +32,9 @@ type keyring []string
 
 func (k *keyring) Has(id int) bool { return id > 0 && id-1 < len(*k) }
 
-func (k *keyring) Append(id int, buf []byte) []byte { return append(buf, (*k)[id-1]...) }
+func (k *keyring) Get(id int, buf []byte) []byte { return append(buf, (*k)[id-1]...) }
 
-func (k *keyring) AppendActive(buf []byte) (int, []byte) {
+func (k *keyring) GetActive(buf []byte) (int, []byte) {
 	return len(*k), append(buf, (*k)[len(*k)-1]...)
 }
 
