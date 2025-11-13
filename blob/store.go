@@ -61,7 +61,7 @@ import (
 	"iter"
 
 	"github.com/creachadair/mds/mapset"
-	"golang.org/x/crypto/sha3"
+	"golang.org/x/crypto/blake2b"
 )
 
 // A Store represents a collection of key-value namespaces ("keyspaces")
@@ -285,7 +285,7 @@ type KeySet = mapset.Set[string]
 type hashCAS struct{ KV }
 
 // hash is the digest function used to compute content addresses for hashCAS.
-var hash = sha3.Sum256
+var hash = blake2b.Sum256
 
 // key computes the content key for data using the provided hash.
 func (c hashCAS) key(data []byte) string {

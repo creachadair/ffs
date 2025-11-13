@@ -15,11 +15,12 @@
 package file
 
 import (
-	"crypto/sha3"
 	"encoding/binary"
 	"io"
 	"slices"
 	"sort"
+
+	"golang.org/x/crypto/blake2b"
 )
 
 // Child provides access to the children of a file.
@@ -142,7 +143,7 @@ func (d Data) Keys() []string {
 // The resulting digest is a valid fingerprint of the stored data, but is not
 // equal to a direct hash of the raw data.
 func (d Data) Hash() []byte {
-	h := sha3.New256()
+	h, _ := blake2b.New256(nil) // error condition is unreachable here
 
 	d.f.mu.RLock()
 	defer d.f.mu.RUnlock()

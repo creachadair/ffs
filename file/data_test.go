@@ -31,7 +31,7 @@ import (
 	"github.com/creachadair/mds/mapset"
 	"github.com/google/go-cmp/cmp"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"golang.org/x/crypto/sha3"
+	"golang.org/x/crypto/blake2b"
 )
 
 var cmpFileDataOpts = []cmp.Option{
@@ -431,7 +431,7 @@ func TestBlockReader(t *testing.T) {
 }
 
 func hashOf(s string) string {
-	h := sha3.Sum256([]byte(s))
+	h := blake2b.Sum256([]byte(s))
 	return string(h[:])
 }
 
