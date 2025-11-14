@@ -235,6 +235,9 @@ func (s *KV) initKeyMap(ctx context.Context) error {
 }
 
 func (s *KV) loadKeyMap(ctx context.Context) (any, error) {
+	if s.listed.Load() {
+		return nil, nil
+	}
 	var g taskgroup.Group
 
 	// The keymap is not safe for concurrent use by multiple goroutines, so
