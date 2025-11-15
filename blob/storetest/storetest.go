@@ -183,12 +183,11 @@ func errorOK(err, werr error) bool {
 // Run applies the test script to empty store s, then closes s.  Any errors are
 // reported to t.  After Run returns, the contents of s are garbage.
 func Run(t *testing.T, s blob.StoreCloser) {
-	ctx := t.Context()
-	k1, err := s.KV(ctx, "one")
+	k1, err := s.KV(t.Context(), "one")
 	if err != nil {
 		t.Fatalf("Create keyspace 1: %v", err)
 	}
-	k2, err := s.KV(ctx, "two")
+	k2, err := s.KV(t.Context(), "two")
 	if err != nil {
 		t.Fatalf("Create keyspace 2: %v", err)
 	}
@@ -198,26 +197,26 @@ func Run(t *testing.T, s blob.StoreCloser) {
 	runCheck := func(k1, k2 blob.KV) func(t *testing.T) {
 		return func(t *testing.T) {
 			for _, op := range script {
-				op(ctx, t, k1)
+				op(t.Context(), t, k1)
 			}
 
 			// Verify that the edits to k1 gave the expected result.
-			st, err := k1.Has(ctx, "fruit", "animal", "beverage", "nut", "nonesuch", "0")
+			st, err := k1.Has(t.Context(), "fruit", "animal", "beverage", "nut", "nonesuch", "0")
 			if err != nil {
 				t.Errorf("KV 1 stat: unexpected error: %v", err)
 			} else if diff := gocmp.Diff(st, mapset.New("0", "animal", "fruit", "nut", "beverage")); diff != "" {
 				t.Errorf("KV 1 stat (-got, +want):\n%s", diff)
 			}
 
-			// Check that calling List inside List works.
+			// Check that calling Has, Get, and List inside List works.
 			var got []string
-			for key1, err := range k1.List(ctx, "fruit") {
+			for key1, err := range k1.List(t.Context(), "fruit") {
 				if err != nil {
 					t.Errorf("List 1: unexpected error: %v", err)
 					break
 				}
 				got = append(got, strings.ToUpper(key1))
-				for key2, err := range k1.List(ctx, "beverage") {
+				for key2, err := range k1.List(t.Context(), "beverage") {
 					if err != nil {
 						t.Errorf("List 2: unexpected error: %v", err)
 						break
@@ -233,7 +232,7 @@ func Run(t *testing.T, s blob.StoreCloser) {
 			}
 
 			// Verify that the edits to k1 did not impart mass to k2.
-			if n, err := k2.Len(ctx); err != nil || n != 0 {
+			if n, err := k2.Len(t.Context()); err != nil || n != 0 {
 				t.Errorf("KV 2 len: got (%v, %v), want (0, nil)", n, err)
 			}
 		}
@@ -243,11 +242,11 @@ func Run(t *testing.T, s blob.StoreCloser) {
 	cleanup := func(k blob.KV) func(t *testing.T) {
 		return func(t *testing.T) {
 			for _, op := range delScript {
-				op(ctx, t, k)
+				op(t.Context(), t, k)
 			}
 
 			// Verify that k is empty after cleanup.
-			if n, err := k.Len(ctx); err != nil || n != 0 {
+			if n, err := k.Len(t.Context()); err != nil || n != 0 {
 				t.Errorf("k1.Len: got (%v, %v), want (0, nil)", n, err)
 			}
 		}
@@ -255,15 +254,15 @@ func Run(t *testing.T, s blob.StoreCloser) {
 
 	casTest := func(s blob.Store) func(t *testing.T) {
 		return func(t *testing.T) {
-			cas, err := s.CAS(ctx, "testcas")
+			cas, err := s.CAS(t.Context(), "testcas")
 			if err != nil {
 				t.Fatalf("Create CAS substore: %v", err)
 			}
 			const testData = "abcde"
-			key, err := cas.CASPut(ctx, []byte(testData))
+			key, err := cas.CASPut(t.Context(), []byte(testData))
 			if err != nil {
 				t.Errorf("CASPut %q: unexpected error: %v", testData, err)
-			} else if err := cas.Delete(ctx, key); err != nil {
+			} else if err := cas.Delete(t.Context(), key); err != nil {
 				t.Errorf("Delete(%x): unexpected error: %v", key, err)
 			}
 		}
@@ -276,11 +275,11 @@ func Run(t *testing.T, s blob.StoreCloser) {
 	})
 
 	t.Run("Sub", func(t *testing.T) {
-		sub, err := s.Sub(ctx, "testsub")
+		sub, err := s.Sub(t.Context(), "testsub")
 		if err != nil {
 			t.Fatalf("Create test substore: %v", err)
 		}
-		k3, err := sub.KV(ctx, "three")
+		k3, err := sub.KV(t.Context(), "three")
 		if err != nil {
 			t.Fatalf("Create keyspace 3: %v", err)
 		}
@@ -308,7 +307,7 @@ func Run(t *testing.T, s blob.StoreCloser) {
 				for k := range numKeys {
 					key := taskKey(i, k+1)
 					value := strconv.Itoa(k)
-					if err := k2.Put(ctx, blob.PutOptions{
+					if err := k2.Put(t.Context(), blob.PutOptions{
 						Key:     key,
 						Data:    []byte(value),
 						Replace: true,
@@ -321,7 +320,7 @@ func Run(t *testing.T, s blob.StoreCloser) {
 				// that belong to this task.
 				mine := fmt.Sprintf("task-%d-", i)
 				got := mapset.New[string]()
-				for key, err := range k2.List(ctx, "") {
+				for key, err := range k2.List(t.Context(), "") {
 					if err != nil {
 						t.Errorf("Task %d: s.List failed: %v", i, err)
 						break
@@ -333,10 +332,10 @@ func Run(t *testing.T, s blob.StoreCloser) {
 
 				for k := range numKeys {
 					key := taskKey(i, k+1)
-					if val, err := k1.Get(ctx, key); err == nil {
+					if val, err := k1.Get(t.Context(), key); err == nil {
 						t.Errorf("Task %d: k1.Get(%q) got %q, want error", i, key, val)
 					}
-					if _, err := k2.Get(ctx, key); err != nil {
+					if _, err := k2.Get(t.Context(), key); err != nil {
 						t.Errorf("Task %d: k2.Get(%q) failed: %v", i, key, err)
 					}
 
@@ -348,7 +347,7 @@ func Run(t *testing.T, s blob.StoreCloser) {
 
 				for k := range numKeys {
 					key := taskKey(i, k+1)
-					if err := k2.Delete(ctx, key); err != nil {
+					if err := k2.Delete(t.Context(), key); err != nil {
 						t.Errorf("Task %d: s.Delete(%q) failed: %v", i, key, err)
 					}
 				}
@@ -357,12 +356,12 @@ func Run(t *testing.T, s blob.StoreCloser) {
 		wg.Wait()
 
 		// Verify that k2 is empty after the test settles.
-		if n, err := k2.Len(ctx); err != nil || n != 0 {
+		if n, err := k2.Len(t.Context()); err != nil || n != 0 {
 			t.Errorf("k2.Len: got (%v, %v), want (0, nil)", n, err)
 		}
 	})
 
-	if err := s.Close(ctx); err != nil {
+	if err := s.Close(t.Context()); err != nil {
 		t.Errorf("Close failed: %v", err)
 	}
 }
@@ -381,7 +380,7 @@ func NopCloser(s blob.Store) blob.StoreCloser { return nopStoreCloser{Store: s} 
 // traversal logs a failure in t.
 func SubKV(t *testing.T, ctx context.Context, s blob.Store, names ...string) blob.KV {
 	return subWalk(t, ctx, s, names, func(s blob.Store, name string) (blob.KV, error) {
-		return s.KV(ctx, name)
+		return s.KV(t.Context(), name)
 	})
 }
 
@@ -390,7 +389,7 @@ func SubKV(t *testing.T, ctx context.Context, s blob.Store, names ...string) blo
 // traversal logs a failure in t.
 func SubCAS(t *testing.T, ctx context.Context, s blob.Store, names ...string) blob.CAS {
 	return subWalk(t, ctx, s, names, func(s blob.Store, name string) (blob.CAS, error) {
-		return s.CAS(ctx, name)
+		return s.CAS(t.Context(), name)
 	})
 }
 
@@ -401,7 +400,7 @@ func subWalk[T any](t *testing.T, ctx context.Context, s blob.Store, names []str
 	}
 	cur := s
 	for _, name := range names[:len(names)-1] {
-		next, err := cur.Sub(ctx, name)
+		next, err := cur.Sub(t.Context(), name)
 		if err != nil {
 			t.Fatalf("Sub(%q) failed: %v", name, err)
 		}
