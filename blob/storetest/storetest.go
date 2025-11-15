@@ -208,7 +208,7 @@ func Run(t *testing.T, s blob.StoreCloser) {
 				t.Errorf("KV 1 stat (-got, +want):\n%s", diff)
 			}
 
-			// Check that calling Has, Get, and List inside List works.
+			// Check that calling List inside List works.
 			var got []string
 			for key1, err := range k1.List(t.Context(), "fruit") {
 				if err != nil {
@@ -224,6 +224,22 @@ func Run(t *testing.T, s blob.StoreCloser) {
 					got = append(got, key2)
 				}
 			}
+
+			// Check that calling Has and Get inside List works.
+			for _, err := range k1.List(t.Context(), "") {
+				if err != nil {
+					t.Fatalf("List: unexpected error: %v", err)
+				}
+				if got, err := k1.Get(t.Context(), "nut"); err != nil || string(got) != "hazelnut" {
+					t.Errorf("Get nut: got (%q, %v), want (hazelnut, nil)", got, err)
+				}
+
+				if hs, err := k1.Has(t.Context(), "fruit"); err != nil || !hs.Has("fruit") {
+					t.Errorf("Has fruit: got (%v, %v), want (fruit, nil)", hs, err)
+				}
+				break
+			}
+
 			if diff := gocmp.Diff(got, []string{
 				// Caps: outer list; Lowercase: inner list.
 				"FRUIT", "beverage", "fruit", "nut", "NUT", "beverage", "fruit", "nut",
