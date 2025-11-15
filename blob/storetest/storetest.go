@@ -209,6 +209,29 @@ func Run(t *testing.T, s blob.StoreCloser) {
 				t.Errorf("KV 1 stat (-got, +want):\n%s", diff)
 			}
 
+			// Check that calling List inside List works.
+			var got []string
+			for key1, err := range k1.List(ctx, "fruit") {
+				if err != nil {
+					t.Errorf("List 1: unexpected error: %v", err)
+					break
+				}
+				got = append(got, strings.ToUpper(key1))
+				for key2, err := range k1.List(ctx, "beverage") {
+					if err != nil {
+						t.Errorf("List 2: unexpected error: %v", err)
+						break
+					}
+					got = append(got, key2)
+				}
+			}
+			if diff := gocmp.Diff(got, []string{
+				// Caps: outer list; Lowercase: inner list.
+				"FRUIT", "beverage", "fruit", "nut", "NUT", "beverage", "fruit", "nut",
+			}); diff != "" {
+				t.Errorf("List/List (-got, +want):\n%s", diff)
+			}
+
 			// Verify that the edits to k1 did not impart mass to k2.
 			if n, err := k2.Len(ctx); err != nil || n != 0 {
 				t.Errorf("KV 2 len: got (%v, %v), want (0, nil)", n, err)
