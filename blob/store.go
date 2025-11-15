@@ -214,7 +214,9 @@ type PutOptions struct {
 //
 // If the concrete type of kv already implements [CAS], it is returned as-is;
 // otherwise it is wrapped in an implementation that computes content addresses
-// using a SHA3-256 digest of the content.
+// using a [blake2b] digest of the content.
+//
+// [blake2b]: https://datatracker.ietf.org/doc/html/rfc7693
 func CASFromKV(kv KV) CAS {
 	if cas, ok := kv.(CAS); ok {
 		return cas
