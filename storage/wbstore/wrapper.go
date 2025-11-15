@@ -37,8 +37,6 @@ type kvWrapper struct {
 	nempty trigger.Cond
 }
 
-func (w *kvWrapper) signal() { w.nempty.Set() }
-
 // run implements the backround writer. It runs until ctx terminates or until
 // it receives an unrecoverable error.
 func (w *kvWrapper) run(ctx context.Context) {
@@ -49,7 +47,6 @@ func (w *kvWrapper) run(ctx context.Context) {
 		case <-ctx.Done():
 			return // normal shutdown
 		case <-w.nempty.Ready():
-			w.nempty.Reset()
 		}
 
 		for key, err := range w.buf.List(ctx, "") {
@@ -94,9 +91,8 @@ func (w *kvWrapper) run(ctx context.Context) {
 		}
 		if err := g.Wait(); err != nil {
 			log.Printf("DEBUG :: error in writeback: %v", err)
-			w.signal()
-		} else if n, err := w.buf.Len(ctx); err == nil && n > 0 {
-			w.signal()
+		} else if n, err := w.buf.Len(ctx); err == nil && n == 0 {
+			w.nempty.Reset()
 		}
 	}
 }
@@ -175,7 +171,7 @@ func (w *kvWrapper) Put(ctx context.Context, opts blob.PutOptions) error {
 	if err := w.buf.Put(ctx, opts); err != nil {
 		return err
 	}
-	w.signal()
+	w.nempty.Set()
 	return nil
 }
 
