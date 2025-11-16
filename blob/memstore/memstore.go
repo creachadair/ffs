@@ -200,15 +200,26 @@ func (s *KV) Delete(_ context.Context, key string) error {
 // List implements part of [blob.KV].
 func (s *KV) List(_ context.Context, start string) iter.Seq2[string, error] {
 	return func(yield func(string, error) bool) {
-		s.μ.RLock()
-		defer s.μ.RUnlock()
-
-		for e := range s.m.InorderAfter(entry{Key: start}) {
-			if !yield(e.Key, nil) {
+		cur, ok := s.firstKey(start)
+		for ok {
+			if !yield(cur.Key, nil) {
 				return
 			}
+			cur, ok = s.nextKey(cur)
 		}
 	}
+}
+
+func (s *KV) firstKey(start string) (entry, bool) {
+	s.μ.RLock()
+	defer s.μ.RUnlock()
+	return s.m.GetNearest(entry{Key: start})
+}
+
+func (s *KV) nextKey(prev entry) (entry, bool) {
+	s.μ.RLock()
+	defer s.μ.RUnlock()
+	return s.m.GetNext(prev)
 }
 
 // Len implements part of [blob.KV].

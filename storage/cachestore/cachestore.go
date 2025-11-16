@@ -277,20 +277,13 @@ func (s *KV) loadKeyMap(ctx context.Context) (any, error) {
 func (s *KV) firstKey(start string) (string, bool) {
 	s.μ.RLock()
 	defer s.μ.RUnlock()
-	cur := s.keymap.Find(start)
-	return cur.Key(), cur.Valid()
+	return s.keymap.GetNearest(start)
 }
 
 func (s *KV) nextKey(prev string) (string, bool) {
 	s.μ.RLock()
 	defer s.μ.RUnlock()
-	cur := s.keymap.Find(prev)
-	if cur.Key() > prev {
-		return cur.Key(), true
-	} else if next := cur.Next(); next.Valid() {
-		return next.Key(), true
-	}
-	return "", false
+	return s.keymap.GetNext(prev)
 }
 
 // List implements a method of [blob.KV].
