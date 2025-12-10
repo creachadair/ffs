@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package file implements a File API over a content-addressable blob.Store.
+// Package file implements a File API over a content-addressable [blob.Store].
 //
 // A File as defined by this package differs from the POSIX file model in that
 // any File may have both binary content and "children". Thus, any File is also
@@ -34,13 +34,13 @@
 //
 //	f, err := file.Open(ctx, cas, key)
 //
-// The I/O methods of a File require a context argument. For compatibility with
-// the standard interfaces in the io package, a File provides a wrapper for a
-// request-scoped context:
+// The I/O methods of a [File] require a context argument. For compatibility
+// with the standard interfaces in the io package, a file provides a wrapper
+// for a request-scoped context:
 //
 //	_, err := io.Copy(dst, f.Cursor(ctx))
 //
-// A value of the file.Cursor type should not be used outside the dynamic
+// A value of the [file.Cursor] type must not be used outside the dynamic
 // extent of the request whose context it captures.
 //
 // # Metadata
@@ -50,8 +50,8 @@
 // interpreted by the API, but will be persisted if they are set.
 //
 // By default, a File does not persist stat metadata. To enable stat
-// persistence, you may either set the Stat field of file.NewOptions when the
-// File is created, or use the Persist method of the Stat value to enable or
+// persistence, you may either set the Stat field of [file.NewOptions] when the
+// File is created, or use the Persist method of the [Stat] value to enable or
 // disable persistence:
 //
 //	s := f.Stat()
@@ -62,8 +62,8 @@
 //
 // # Synchronization
 //
-// The exported methods of *File and the views of its data (Child, Data, Stat,
-// XAttr) are safe for concurrent use by multiple goroutines.
+// The exported methods of [File] and the views of its data ([Child], [Data],
+// [Stat], [XAttr]) are safe for concurrent use by multiple goroutines.
 package file
 
 import (
