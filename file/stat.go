@@ -27,16 +27,16 @@ import (
 type Stat struct {
 	f *File // set for stat views of an existing file; nil OK
 
-	Mode    fs.FileMode `json:"mode,omitempty"`
-	ModTime time.Time   `json:"mod_time,omitempty"`
+	Mode    fs.FileMode `json:"mode,omitzero"`
+	ModTime time.Time   `json:"mod_time,omitzero"`
 
 	// Numeric ID and name of file owner.
-	OwnerID   int    `json:"owner_id,omitempty"`
-	OwnerName string `json:"owner_name,omitempty"`
+	OwnerID   int    `json:"owner_id,omitzero"`
+	OwnerName string `json:"owner_name,omitzero"`
 
 	// Numeric ID and name of file group.
-	GroupID   int    `json:"group_id,omitempty"`
-	GroupName string `json:"group_name,omitempty"`
+	GroupID   int    `json:"group_id,omitzero"`
+	GroupName string `json:"group_name,omitzero"`
 
 	// To add additional metadata, add a field to this type and a corresponding
 	// field to wiretype.Stat, then update the toWireType and fromWireType
