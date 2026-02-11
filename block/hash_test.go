@@ -20,13 +20,6 @@ import (
 	"github.com/creachadair/ffs/block"
 )
 
-func max(a, b int) int {
-	if a < b {
-		return b
-	}
-	return a
-}
-
 func TestModHashSimple(t *testing.T) {
 	// A trivial validation, make sure we get the expected results when the
 	// base and modulus are round powers of two, so that the hash values will
