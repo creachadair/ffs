@@ -69,7 +69,7 @@ func Decode(pb *indexpb.Index) (*Index, error) {
 	}
 	idx.bits = make(bitVector, nseg)
 	idx.nbits = 64 * pb.NumSegments
-	for i := 0; i < nseg; i++ {
+	for i := range nseg {
 		idx.bits[i] = binary.BigEndian.Uint64(bits[8*i:])
 	}
 	return idx, nil
