@@ -12,7 +12,7 @@ require (
 )
 
 require (
-	github.com/creachadair/mds v0.25.15
+	github.com/creachadair/mds v0.26.0
 	github.com/creachadair/msync v0.8.3
 	golang.org/x/crypto v0.48.0
 )

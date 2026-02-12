@@ -107,7 +107,8 @@ type KV struct {
 func NewKV(s blob.KV, maxBytes int) *KV {
 	return &KV{
 		base: s,
-		cache: cache.New(cache.LRU[string, []byte](int64(maxBytes)).
+		cache: cache.New(cache.LRU[string, []byte]().
+			WithLimit(int64(maxBytes)).
 			WithSize(cache.Length),
 		),
 	}
