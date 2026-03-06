@@ -43,6 +43,9 @@ func New(numKeys int, opts *Options) *Index {
 // Add adds the specified key to the index.
 func (idx *Index) Add(key string) {
 	hash := idx.hash(key)
+	if idx.hasHash(hash) {
+		return
+	}
 	for _, seed := range idx.seeds {
 		pos := int((hash ^ seed) % idx.nbits)
 		idx.bits.Set(pos)
@@ -52,8 +55,10 @@ func (idx *Index) Add(key string) {
 
 // Has reports whether key is one of the indexed keys. False positives are
 // possible for keys that were not added to the index, but no false negatives.
-func (idx *Index) Has(key string) bool {
-	hash := idx.hash(key)
+func (idx *Index) Has(key string) bool { return idx.hasHash(idx.hash(key)) }
+
+// hasHash reports whether the specified key hash is present in the index.
+func (idx *Index) hasHash(hash uint64) bool {
 	for _, seed := range idx.seeds {
 		pos := int((hash ^ seed) % idx.nbits)
 		if !idx.bits.IsSet(pos) {
