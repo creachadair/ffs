@@ -12,9 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package filestore implements the [blob.KV] interface using files.  The store
-// comprises a directory with subdirectories keyed by a prefix of the encoded
-// blob key.
+// Package filestore implements the [blob.Store] interface using files.
+// The store comprises a directory with subdirectories named for the keyspaces
+// and substores it contains, encoded as hexadecimal.
 package filestore
 
 import (
@@ -52,18 +52,18 @@ func New(dir string) (Store, error) {
 	return Store{key: hexkey.Config{Prefix: path, Shard: 3}}, nil
 }
 
-func (s Store) mkPath(name string) (string, error) {
+func (s Store) mkPath(tag, name string) (string, error) {
 	if name == "" {
 		return s.key.Prefix, nil // already known to exist
 	}
-	// Prefix non-empty name with "_" to avert conflict with hex keys.
-	path := filepath.Join(s.key.Prefix, "_"+hex.EncodeToString([]byte(name)))
+	// Prefix non-empty name with tag to avert conflict with hex keys.
+	path := filepath.Join(s.key.Prefix, tag+hex.EncodeToString([]byte(name)))
 	return path, os.MkdirAll(path, 0700)
 }
 
 // KV implements part of the [blob.Store] interface.
 func (s Store) KV(_ context.Context, name string) (blob.KV, error) {
-	path, err := s.mkPath(name)
+	path, err := s.mkPath("kv_", name)
 	if err != nil {
 		return nil, err
 	}
@@ -77,7 +77,7 @@ func (s Store) CAS(ctx context.Context, name string) (blob.CAS, error) {
 
 // Sub implements part of the [blob.Store] interface.
 func (s Store) Sub(_ context.Context, name string) (blob.Store, error) {
-	path, err := s.mkPath(name)
+	path, err := s.mkPath("sub_", name)
 	if err != nil {
 		return nil, err
 	}
