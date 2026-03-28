@@ -67,12 +67,12 @@
 package file
 
 import (
+	"cmp"
 	"context"
 	"errors"
 	"fmt"
 	"io"
 	"slices"
-	"sort"
 	"sync"
 	"time"
 
@@ -169,12 +169,9 @@ type child struct {
 // findChildLocked reports whether f has a child with the specified name and
 // its index in the slice if so, or otherwise -1.
 func (f *File) findChildLocked(name string) (int, bool) {
-	if n := sort.Search(len(f.kids), func(i int) bool {
-		return f.kids[i].Name >= name
-	}); n < len(f.kids) && f.kids[n].Name == name {
-		return n, true
-	}
-	return -1, false
+	return slices.BinarySearchFunc(f.kids, name, func(c child, n string) int {
+		return cmp.Compare(c.Name, n)
+	})
 }
 
 func (f *File) setStatLocked(s Stat) {
