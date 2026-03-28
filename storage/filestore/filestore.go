@@ -26,7 +26,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strings"
 
 	"github.com/creachadair/atomicfile"
@@ -209,6 +209,6 @@ func listdir(path string) ([]string, error) {
 	}
 	names, err := f.Readdirnames(-1)
 	f.Close()
-	sort.Strings(names)
+	slices.Sort(names)
 	return names, err
 }

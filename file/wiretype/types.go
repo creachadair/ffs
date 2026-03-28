@@ -21,9 +21,10 @@ package wiretype
 //go:generate protoc -I. -I../.. --go_out=. --go_opt=paths=source_relative wiretype.proto
 
 import (
+	"cmp"
 	"context"
 	"fmt"
-	"sort"
+	"slices"
 
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
@@ -42,11 +43,11 @@ func (r *Root) MarshalJSON() ([]byte, error) { return protojson.Marshal(r) }
 // Normalize updates n in-place so that all fields are in canonical order.
 func (n *Node) Normalize() {
 	n.Index.Normalize()
-	sort.Slice(n.XAttrs, func(i, j int) bool {
-		return n.XAttrs[i].Name < n.XAttrs[j].Name
+	slices.SortFunc(n.XAttrs, func(a, b *XAttr) int {
+		return cmp.Compare(a.Name, b.Name)
 	})
-	sort.Slice(n.Children, func(i, j int) bool {
-		return n.Children[i].Name < n.Children[j].Name
+	slices.SortFunc(n.Children, func(a, b *Child) int {
+		return cmp.Compare(a.Name, b.Name)
 	})
 }
 
@@ -55,8 +56,8 @@ func (x *Index) Normalize() {
 	if x == nil || len(x.Extents) == 0 {
 		return
 	}
-	sort.Slice(x.Extents, func(i, j int) bool {
-		return x.Extents[i].Base < x.Extents[j].Base
+	slices.SortFunc(x.Extents, func(a, b *Extent) int {
+		return cmp.Compare(a.Base, b.Base)
 	})
 	i, j := 0, 1
 	for j < len(x.Extents) {

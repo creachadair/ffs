@@ -16,7 +16,7 @@ package wbstore_test
 
 import (
 	"context"
-	"sort"
+	"slices"
 	"testing"
 
 	"github.com/creachadair/ffs/blob"
@@ -113,7 +113,7 @@ func TestStore(t *testing.T) {
 	}
 	checkList := func(m blob.KVCore, want ...string) {
 		t.Helper()
-		sort.Strings(want)
+		slices.Sort(want)
 		var got []string
 		for key, err := range m.List(ctx, "") {
 			if err != nil {

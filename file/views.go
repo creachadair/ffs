@@ -18,7 +18,6 @@ import (
 	"encoding/binary"
 	"io"
 	"slices"
-	"sort"
 
 	"golang.org/x/crypto/blake2b"
 )
@@ -206,7 +205,7 @@ func (x XAttr) Names() []string {
 	for key := range x.f.xattr {
 		names = append(names, key)
 	}
-	sort.Strings(names)
+	slices.Sort(names)
 	return names
 }
 

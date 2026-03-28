@@ -20,7 +20,7 @@ import (
 	"io/fs"
 	"log"
 	"math/rand"
-	"sort"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -170,7 +170,7 @@ func TestScan(t *testing.T) {
 	}); err != nil {
 		t.Fatalf("Scan failed: %v", err)
 	}
-	if !sort.StringsAreSorted(got) {
+	if !slices.IsSorted(got) {
 		t.Errorf("Scan result: %q, should be sorted", got)
 	}
 
@@ -204,7 +204,7 @@ func TestChild(t *testing.T) {
 	}
 
 	// Names should come out in lexicographic order.
-	sort.Strings(names)
+	slices.Sort(names)
 
 	// Child names should be correct even without a flush.
 	if diff := cmp.Diff(names, root.Child().Names()); diff != "" {
