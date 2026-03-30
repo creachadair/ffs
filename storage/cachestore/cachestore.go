@@ -109,7 +109,7 @@ func NewKV(s blob.KV, maxBytes int) *KV {
 		base: s,
 		cache: cache.New(cache.LRU[string, []byte]().
 			WithLimit(int64(maxBytes)).
-			WithSize(cache.Length),
+			WithSizeFunc(cache.Length),
 		),
 	}
 }
