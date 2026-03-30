@@ -267,6 +267,8 @@ func (s *KV) loadKeyMap(ctx context.Context) (any, error) {
 	}
 	if err := g.Wait(); err != nil {
 		return nil, err
+	} else if err := ctx.Err(); err != nil {
+		return nil, err
 	}
 	s.μ.Lock()
 	s.keymap = keymap
