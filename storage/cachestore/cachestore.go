@@ -145,14 +145,14 @@ func (s *KV) Get(ctx context.Context, key string) ([]byte, error) {
 // getLocal reports whether key is present in the store, and if so whether
 // its contents are cached locally.
 //
-// If key is not present, it returns nil, false, ErrKeyNotFound.
+// If key is not present, it returns nil, false, [ErrKeyNotFound].
 // IF key is present but not cached, it returns nil, false, nil.
 // If key is present and cached, it returns data, true, nil.
 //
 // Precondition: initKeyMap must have previously succeeded.
 func (s *KV) getLocal(ctx context.Context, key string) ([]byte, bool, error) {
-	s.μ.Lock()
-	defer s.μ.Unlock()
+	s.μ.RLock()
+	defer s.μ.RUnlock()
 	if _, ok := s.keymap.Get(key); !ok {
 		return nil, false, blob.KeyNotFound(key)
 	}
@@ -196,8 +196,8 @@ func (s *KV) Put(ctx context.Context, opts blob.PutOptions) error {
 			return nil, err
 		}
 		s.μ.Lock()
+		defer s.μ.Unlock()
 		s.keymap.Replace(opts.Key)
-		s.μ.Unlock()
 		s.cache.Put(opts.Key, opts.Data)
 		return nil, nil
 	})
