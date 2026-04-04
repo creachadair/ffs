@@ -84,52 +84,9 @@ func (s Store) Base() blob.Store { return s.s }
 // Close closes the store attached to c.
 func (s Store) Close(ctx context.Context) error { return s.s.Close(ctx) }
 
-func isAllHex(s string) bool {
-	for _, c := range s {
-		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f' || c >= 'A' && c <= 'F') {
-			return false
-		}
-	}
-	return true
-}
-
-// PathInfo is the result of parsing and opening a path spec.
-type PathInfo struct {
-	Path    string     // the original input path (unparsed)
-	Base    *file.File // the root or starting file of the path
-	BaseKey string     // the storage key of the base file
-	File    *file.File // the target file of the path
-	FileKey string     // the storage key of the target file
-	Root    *root.Root // the specified root, or nil if none
-	RootKey string     // the key of root, or ""
-}
-
-// Flush flushes the base file to reflect any changes and returns its updated
-// storage key. If p is based on a root, the root is also updated and saved.
-func (p *PathInfo) Flush(ctx context.Context) (string, error) {
-	key, err := p.Base.Flush(ctx)
-	if err != nil {
-		return "", err
-	}
-	p.BaseKey = key
-
-	// If this path started at a root, write out the updated contents.
-	if p.Root != nil {
-		// If the file has changed, invalidate the index.
-		if p.Root.FileKey != key {
-			p.Root.IndexKey = ""
-		}
-		p.Root.FileKey = key
-		if err := p.Root.Save(ctx, p.RootKey); err != nil {
-			return "", err
-		}
-	}
-	return key, nil
-}
-
 // OpenPath parses and opens the specified path in s.
 // The path has either the form "<root-key>/some/path" or "@<file-key>/some/path".
-func OpenPath(ctx context.Context, s Store, path string) (*PathInfo, error) {
+func (s Store) OpenPath(ctx context.Context, path string) (*PathInfo, error) {
 	out := &PathInfo{Path: path}
 
 	first, rest := SplitPath(path)
@@ -176,6 +133,56 @@ func OpenPath(ctx context.Context, s Store, path string) (*PathInfo, error) {
 	out.File = tf
 	out.FileKey = out.File.Key() // safe, it was just opened
 	return out, nil
+}
+
+func isAllHex(s string) bool {
+	for _, c := range s {
+		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f' || c >= 'A' && c <= 'F') {
+			return false
+		}
+	}
+	return true
+}
+
+// PathInfo is the result of parsing and opening a path spec.
+type PathInfo struct {
+	Path    string     // the original input path (unparsed)
+	Base    *file.File // the root or starting file of the path
+	BaseKey string     // the storage key of the base file
+	File    *file.File // the target file of the path
+	FileKey string     // the storage key of the target file
+	Root    *root.Root // the specified root, or nil if none
+	RootKey string     // the key of root, or ""
+}
+
+// Flush flushes the base file to reflect any changes and returns its updated
+// storage key. If p is based on a root, the root is also updated and saved.
+func (p *PathInfo) Flush(ctx context.Context) (string, error) {
+	key, err := p.Base.Flush(ctx)
+	if err != nil {
+		return "", err
+	}
+	p.BaseKey = key
+
+	// If this path started at a root, write out the updated contents.
+	if p.Root != nil {
+		// If the file has changed, invalidate the index.
+		if p.Root.FileKey != key {
+			p.Root.IndexKey = ""
+		}
+		p.Root.FileKey = key
+		if err := p.Root.Save(ctx, p.RootKey); err != nil {
+			return "", err
+		}
+	}
+	return key, nil
+}
+
+// OpenPath parses and opens the specified path in s.
+//
+// Deprecated: Use [Store.OpenPath] instead.
+func OpenPath(ctx context.Context, s Store, path string) (*PathInfo, error) {
+	return s.OpenPath(ctx, path)
 }
 
 // SplitPath parses s as a slash-separated path specification.
