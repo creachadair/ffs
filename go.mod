@@ -5,16 +5,13 @@ go 1.25.0
 require (
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/creachadair/atomicfile v0.4.1
+	github.com/creachadair/mds v0.26.2
+	github.com/creachadair/msync v0.8.3
 	github.com/creachadair/taskgroup v0.14.2
 	github.com/golang/snappy v1.0.0
 	github.com/google/go-cmp v0.7.0
-	google.golang.org/protobuf v1.36.11
-)
-
-require (
-	github.com/creachadair/mds v0.26.2
-	github.com/creachadair/msync v0.8.3
 	golang.org/x/crypto v0.49.0
+	google.golang.org/protobuf v1.36.11
 )
 
 require (
