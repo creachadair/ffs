@@ -27,7 +27,9 @@ import (
 	"github.com/creachadair/ffs/blob"
 	"github.com/creachadair/ffs/file"
 	"github.com/creachadair/ffs/file/root"
+	"github.com/creachadair/ffs/file/wiretype"
 	"github.com/creachadair/ffs/fpath"
+	"github.com/creachadair/ffs/index"
 )
 
 // Store is a composite [blob.StoreCloser] that maintains separate buckets for
@@ -135,6 +137,26 @@ func (s Store) OpenPath(ctx context.Context, path string) (*PathInfo, error) {
 	return out, nil
 }
 
+// LoadIndex opens an [index.Index] from the specified key in s.
+func (s Store) LoadIndex(ctx context.Context, indexKey string) (*index.Index, error) {
+	var obj wiretype.Object
+	if err := wiretype.Load(ctx, s.Files(), indexKey, &obj); err != nil {
+		return nil, fmt.Errorf("loading index: %w", err)
+	}
+	ridx := obj.GetIndex()
+	if ridx == nil {
+		return nil, fmt.Errorf("no index in %s", formatKey(indexKey))
+	}
+	return index.Decode(ridx)
+}
+
+// SaveIndex writes idx to storage and returns its storage key.
+func (s Store) SaveIndex(ctx context.Context, idx *index.Index) (string, error) {
+	return wiretype.Save(ctx, s.Files(), &wiretype.Object{
+		Value: &wiretype.Object_Index{Index: index.Encode(idx)},
+	})
+}
+
 func isAllHex(s string) bool {
 	for _, c := range s {
 		if !(c >= '0' && c <= '9' || c >= 'a' && c <= 'f' || c >= 'A' && c <= 'F') {
@@ -224,4 +246,8 @@ func ParseKey(s string) (string, error) {
 		return "", fmt.Errorf("invalid key %q: %w", s, err)
 	}
 	return string(key), nil
+}
+
+func formatKey(key string) string {
+	return base64.StdEncoding.EncodeToString([]byte(key))
 }
