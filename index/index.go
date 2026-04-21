@@ -43,9 +43,6 @@ func New(numKeys int, opts *Options) *Index {
 // Add adds the specified key to the index.
 func (idx *Index) Add(key string) {
 	hash := idx.hash(key)
-	if idx.hasHash(hash) {
-		return
-	}
 	for _, seed := range idx.seeds {
 		pos := int((hash ^ seed) % idx.nbits)
 		idx.bits.Set(pos)
