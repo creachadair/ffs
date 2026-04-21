@@ -36,14 +36,14 @@ type FS struct {
 	root *file.File
 }
 
-// NewFS constructs an FS rooted at the given file. The context is held by the
-// FS and must be valid for the full extent of its use.
+// NewFS constructs an [FS] rooted at the given file. The context is held by
+// the FS and must be valid for the full extent of its use.
 func NewFS(ctx context.Context, root *file.File) FS {
 	return FS{ctx: ctx, root: root}
 }
 
-// Open implements the fs.FS interface. The concrete type of the file returned
-// by a successful Open call is *file.Cursor.
+// Open implements the [fs.FS] interface. The concrete type of the file
+// returned by a successful Open call is [*file.Cursor].
 func (fp FS) Open(path string) (fs.File, error) {
 	target, err := fp.openFile("open", path)
 	if err != nil {
@@ -52,8 +52,8 @@ func (fp FS) Open(path string) (fs.File, error) {
 	return target.Cursor(fp.ctx), nil
 }
 
-// Stat implements the fs.StatFS interface. The concrete type of the info
-// record returned by a successful Stat call is file.FileInfo.
+// Stat implements the [fs.StatFS] interface. The concrete type of the info
+// record returned by a successful Stat call is [file.FileInfo].
 func (fp FS) Stat(path string) (fs.FileInfo, error) {
 	target, err := fp.openFile("stat", path)
 	if err != nil {
@@ -62,7 +62,7 @@ func (fp FS) Stat(path string) (fs.FileInfo, error) {
 	return target.FileInfo(), nil
 }
 
-// Sub implements the fs.SubFS interface.
+// Sub implements the [fs.SubFS] interface.
 func (fp FS) Sub(dir string) (fs.FS, error) {
 	target, err := fp.openFile("sub", dir)
 	if err != nil {
@@ -71,7 +71,7 @@ func (fp FS) Sub(dir string) (fs.FS, error) {
 	return NewFS(fp.ctx, target), nil
 }
 
-// ReadDir implements the fs.ReadDirFS interface.
+// ReadDir implements the [fs.ReadDirFS] interface.
 func (fp FS) ReadDir(path string) ([]fs.DirEntry, error) {
 	target, err := fp.openFile("readdir", path)
 	if err != nil {

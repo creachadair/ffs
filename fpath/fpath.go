@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package fpath implements path traversal relative to a *file.File.  A path is
-// a slash-separated string, which may optionally begin with "/".
+// Package fpath implements path traversal relative to a [*file.File].  A path
+// is a slash-separated string, which may optionally begin with "/".
 package fpath
 
 import (
@@ -39,7 +39,7 @@ var (
 )
 
 // Open traverses the given slash-separated path sequentially from root, and
-// returns the resulting file or file.ErrChildNotFound. An empty path yields
+// returns the resulting file or [file.ErrChildNotFound]. An empty path yields
 // root without error.
 func Open(ctx context.Context, root *file.File, path string) (*file.File, error) {
 	fp, err := findPath(ctx, query{root: root, path: path})
@@ -49,7 +49,7 @@ func Open(ctx context.Context, root *file.File, path string) (*file.File, error)
 // OpenPath traverses the given slash-separated path sequentially from root,
 // and returns a slice of all the files along the path, not including root
 // itself.  If any element of the path does not exist, OpenPath returns the
-// prefix that was found along with an file.ErrChildNotFound error.
+// prefix that was found along with an [file.ErrChildNotFound] error.
 func OpenPath(ctx context.Context, root *file.File, path string) ([]*file.File, error) {
 	var out []*file.File
 	cur := root
@@ -64,7 +64,7 @@ func OpenPath(ctx context.Context, root *file.File, path string) ([]*file.File, 
 	return out, nil
 }
 
-// SetOptions control the behaviour of the Set function. A nil *SetOptions
+// SetOptions control the behaviour of the [Set] function. A nil *SetOptions
 // behaves as a zero-valued options structure.
 type SetOptions struct {
 	// If true, create any path elements that do not exist along the path.
@@ -99,15 +99,15 @@ func (s *SetOptions) setStat(f *file.File) *file.File {
 }
 
 // Set traverses the given slash-separated path sequentially from root and
-// inserts a file at the end of it. An empty path is an error (ErrEmptyPath).
+// inserts a file at the end of it. An empty path reports [ErrEmptyPath].
 //
 // If opts.Create is true, any missing path entries are created; otherwise it
-// is an error (file.ErrChildNotFound) if any path element except the last does
-// not exist.
+// reports [file.ErrChildNotFound] if any path element except the last does not
+// exist.
 //
 // If opts.File != nil, that file is inserted at the end of the path; otherwise
 // if opts.Create is true, a new empty file is inserted. If neither of these is
-// true, Set reports ErrNilFile.
+// true, Set reports [ErrNilFile].
 func Set(ctx context.Context, root *file.File, path string, opts *SetOptions) (*file.File, error) {
 	if opts.target() == nil && !opts.create() {
 		return nil, fmt.Errorf("set %q: %w", path, ErrNilFile)
@@ -145,7 +145,7 @@ func Set(ctx context.Context, root *file.File, path string, opts *SetOptions) (*
 }
 
 // Remove removes the file at the given slash-separated path beneath root.  If
-// any component of the path does not exist, it returns file.ErrChildNotFound.
+// any component of the path does not exist, it returns [file.ErrChildNotFound].
 func Remove(ctx context.Context, root *file.File, path string) error {
 	fp, err := findPath(ctx, query{root: root, path: path})
 	if err != nil {
@@ -156,7 +156,7 @@ func Remove(ctx context.Context, root *file.File, path string) error {
 	return nil
 }
 
-// An Entry is the argument to the visit callback for the Walk function.
+// An Entry is the argument to the visit callback for the [Walk] function.
 type Entry struct {
 	Path string     // the path of this entry relative to the root
 	File *file.File // the file for this entry (nil on error)
@@ -169,8 +169,8 @@ type Entry struct {
 // path, entry.File is nil and entry.Err contains the error; otherwise
 // entry.File contains the file addressed by the path.
 //
-// If visit reports an error other than ErrSkipChildren, traversal stops and
-// that error is returned to the caller of Walk.  If it returns ErrSkipChildren
+// If visit reports an error other than [ErrSkipChildren], traversal stops and
+// that error is returned to the caller of Walk.  If it returns [ErrSkipChildren]
 // the walk continues but skips the descendant files of the current entry.
 func Walk(ctx context.Context, root *file.File, visit func(Entry) error) error {
 	q := []string{""}
