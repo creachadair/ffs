@@ -21,6 +21,7 @@ import (
 	"hash"
 	"io/fs"
 	"strconv"
+	"strings"
 	"testing"
 
 	"github.com/creachadair/ffs/blob"
@@ -35,10 +36,11 @@ var (
 	saveStore = flag.String("save", "", "Save blobs to a filestore at this path")
 
 	// Interface satisfaction checks.
-	_ fs.FS        = fpath.FS{}
-	_ fs.StatFS    = fpath.FS{}
-	_ fs.SubFS     = fpath.FS{}
-	_ fs.ReadDirFS = fpath.FS{}
+	_ fs.FS         = fpath.FS{}
+	_ fs.StatFS     = fpath.FS{}
+	_ fs.SubFS      = fpath.FS{}
+	_ fs.ReadDirFS  = fpath.FS{}
+	_ fs.ReadLinkFS = fpath.FS{}
 )
 
 func mustNewCAS(t *testing.T, h func() hash.Hash) blob.CAS {
@@ -253,6 +255,17 @@ func TestFS(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Create child: %v", err)
 	}
+	link, err := fpath.Set(ctx, root, "symlink", &fpath.SetOptions{
+		File: root.New(&file.NewOptions{
+			Stat: &file.Stat{Mode: fs.ModeSymlink | 0555},
+		}),
+	})
+	if err != nil {
+		t.Fatalf("Create symlink: %v", err)
+	}
+	if err := link.SetData(t.Context(), strings.NewReader("kid")); err != nil {
+		t.Fatalf("Set symlink target: %v", err)
+	}
 
 	fp := fpath.NewFS(ctx, root)
 	t.Run("Open", func(t *testing.T) {
@@ -284,7 +297,7 @@ func TestFS(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ReadDir root: %v", err)
 		}
-		if len(des) != 1 {
+		if len(des) != 2 {
 			t.Fatalf("Got %+v, wanted 1 entry", des)
 		}
 		if n := des[0].Name(); n != "kid" {
@@ -292,6 +305,36 @@ func TestFS(t *testing.T) {
 		}
 		if des[0].IsDir() {
 			t.Error("IsDir is true, want false")
+		}
+	})
+
+	t.Run("ReadLink", func(t *testing.T) {
+		// A plain file should not report being a symlink.
+		if fi, err := fp.Lstat("kid"); err != nil {
+			t.Errorf("Lstat kid: %v", err)
+		} else if !fi.Mode().IsRegular() {
+			t.Errorf("Lstat kid: mode is %v, want regular file", fi)
+		}
+
+		// Lstat should report on the symlink, not the target.
+		if fi, err := fp.Lstat("symlink"); err != nil {
+			t.Errorf("Lstat symlink: %v", err)
+		} else if fi.Mode().Type()&fs.ModeSymlink == 0 {
+			t.Errorf("Lstat symlink: got %v, want symlink", fi)
+		}
+
+		// Read the symlink back and verify it points to the right place.
+		target, err := fp.ReadLink("symlink")
+		if err != nil {
+			t.Errorf("Readlink symlink: %v", err)
+		} else if target != "kid" {
+			t.Errorf("Readlink symlink: got %q, want symlink-target", target)
+		}
+
+		// A non-symlink should report an error for Readlink.
+		bogus, err := fp.ReadLink("kid")
+		if err == nil || !strings.Contains(err.Error(), "not a symlink") {
+			t.Errorf("Readlink kid: got %q, %v; want not a symlink", bogus, err)
 		}
 	})
 

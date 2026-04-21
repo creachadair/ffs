@@ -17,6 +17,7 @@ package fpath
 import (
 	"context"
 	"errors"
+	"io"
 	"io/fs"
 	slashpath "path"
 
@@ -27,9 +28,9 @@ func pathErr(op, path string, err error) error {
 	return &fs.PathError{Op: op, Path: path, Err: err}
 }
 
-// FS implements the standard library fs.FS, fs.StatFS, fs.SubFS, and
-// fs.ReadDirFS interfaces. Path traversal is rooted at a file assigned when
-// the FS is created.
+// FS implements the standard library [fs.FS], [fs.StatFS], [fs.SubFS],
+// [fs.ReadDirFS], and [fs.ReadLinkFS] interfaces. Path traversal is rooted at
+// a file assigned when the FS is created.
 type FS struct {
 	ctx  context.Context
 	root *file.File
@@ -86,6 +87,31 @@ func (fp FS) ReadDir(path string) ([]fs.DirEntry, error) {
 		out[i] = fs.FileInfoToDirEntry(kid.FileInfo())
 	}
 	return out, nil
+}
+
+// ReadLink implements part of the [fs.ReadLinkFS] interface.
+func (fp FS) ReadLink(path string) (string, error) {
+	target, err := fp.openFile("readlink", path)
+	if err != nil {
+		return "", err
+	}
+	if target.Stat().Mode.Type()&fs.ModeSymlink == 0 {
+		return "", pathErr("readlink", path, errors.New("not a symlink"))
+	}
+	data, err := io.ReadAll(target.Cursor(context.Background()))
+	if err != nil {
+		return "", pathErr("readlink", path, err)
+	}
+	return string(data), nil
+}
+
+// Lstat implements part of the [fs.ReadLinkFS] interface.
+func (fp FS) Lstat(path string) (fs.FileInfo, error) {
+	target, err := fp.openFile("lstat", path)
+	if err != nil {
+		return nil, err
+	}
+	return target.FileInfo(), nil
 }
 
 func (fp FS) openFile(op, path string) (*file.File, error) {
