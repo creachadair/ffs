@@ -315,11 +315,7 @@ func Run(t *testing.T, s blob.StoreCloser) {
 	t.Run("Concurrent", func(t *testing.T) {
 		var wg sync.WaitGroup
 		for i := range numWorkers {
-			wg.Add(1)
-			i := i
-			go func() {
-				defer wg.Done()
-
+			wg.Go(func() {
 				for k := range numKeys {
 					key := taskKey(i, k+1)
 					value := strconv.Itoa(k)
@@ -367,7 +363,7 @@ func Run(t *testing.T, s blob.StoreCloser) {
 						t.Errorf("Task %d: s.Delete(%q) failed: %v", i, key, err)
 					}
 				}
-			}()
+			})
 		}
 		wg.Wait()
 
