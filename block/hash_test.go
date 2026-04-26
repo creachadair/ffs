@@ -91,8 +91,8 @@ func TestModHash(t *testing.T) {
 		mod       = 1031
 		maxWindow = 8
 	)
-	for i := 1; i <= maxWindow; i++ {
-		windowTest(t, block.RabinKarpHasher(base, mod, i), i)
+	for i := range maxWindow {
+		windowTest(t, block.RabinKarpHasher(base, mod, i+1), i+1)
 	}
 }
 
