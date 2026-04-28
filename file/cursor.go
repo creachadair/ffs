@@ -22,13 +22,13 @@ import (
 	"time"
 )
 
-// A Cursor bundles a *File with a context so that the file can be used with
-// the standard interfaces defined by the io package. A Cursor value may be
+// A Cursor bundles a [*File] with a context so that the file can be used with
+// the standard interfaces defined by the [io] package. A Cursor value may be
 // used only during the lifetime of the request whose context it binds.
 //
 // Each Cursor maintains a separate offset position on the underlying file,
-// affecting Read, Write, and Seek operations on that cursor. The offset value
-// for a newly-created cursor is always 0.
+// affecting [Cursor.Read], [Cursor.Write], and [Cursor.Seek] operations on
+// that cursor. The offset value for a newly-created cursor is always 0.
 type Cursor struct {
 	ctx    context.Context // the captured context
 	offset int64           // the current seek position (≥ 0)
@@ -91,7 +91,7 @@ func (c *Cursor) ReadDir(n int) ([]fs.DirEntry, error) {
 	return de, nil
 }
 
-// Seek sets the starting offset for the next Read or Write, as io.Seeker.
+// Seek sets the starting offset for the next Read or Write, as [io.Seeker].
 func (c *Cursor) Seek(offset int64, whence int) (int64, error) {
 	target := offset
 	switch whence {
@@ -114,14 +114,14 @@ func (c *Cursor) Seek(offset int64, whence int) (int64, error) {
 // Tell reports the current offset of the cursor.
 func (c *Cursor) Tell() int64 { return c.offset }
 
-// Close implements the [io.Closer] interface. A File does not have a system
+// Close implements the [io.Closer] interface. A [File] does not have a system
 // descriptor, so "closing" performs a flush but does not invalidate the file.
 func (c *Cursor) Close() error { _, err := c.file.Flush(c.ctx); return err }
 
 // Stat implements part of the [fs.File] interface.
 func (c *Cursor) Stat() (fs.FileInfo, error) { return c.file.FileInfo(), nil }
 
-// FileInfo implements the fs.FileInfo interface for a [File].
+// FileInfo implements the [fs.FileInfo] interface for a [File].
 type FileInfo struct {
 	name    string
 	size    int64
