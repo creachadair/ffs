@@ -240,8 +240,8 @@ var (
 	ErrChildNotFound = errors.New("child file not found")
 )
 
-// Open opens the specified child file of f, or returns ErrChildNotFound if no
-// such child exists.
+// Open opens the specified child file of f, or returns [ErrChildNotFound] if
+// no such child exists.
 func (f *File) Open(ctx context.Context, name string) (*File, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
