@@ -12,8 +12,18 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package dbkey provides some common utility code for working with key-value
-// stores that use prefixes to partition the key space.
+// Package dbkey provides utility code for working with key-value stores that
+// use prefixes to partition the key space.
+//
+// The [blob.Store] interface allows a flat key-value store to be partitioned
+// into multiple disjoint key-value namespaces ("keyspaces"). One way to
+// implement that is to assign each keyspace its own unique key prefix p, and
+// prepend all the keys belonging to that namespace with p.
+//
+// A given keyspace is uniquely identified by a string name, and the sequence
+// of subspace names from the root store to the substore containing it.  The
+// [Prefix] type implements a fixed-size prefix assignment scheme, using a
+// truncated hash of this naming path.
 package dbkey
 
 import (
