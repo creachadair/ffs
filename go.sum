@@ -6,8 +6,8 @@ github.com/creachadair/atomicfile v0.4.1 h1:72SopAy00u42/iL0p3CZILv51oUEem8uDbxU
 github.com/creachadair/atomicfile v0.4.1/go.mod h1:+PsFcWa9SZuK+xnykzupXErqESId5eCGsuqFWkazMQI=
 github.com/creachadair/mds v0.28.0 h1:VS4JsBSlClsqBrHT8cYMTMqFHJdU0P/Z1ES6zjnSMXo=
 github.com/creachadair/mds v0.28.0/go.mod h1:dMBTCSy3iS3dwh4Rb1zxeZz2d7K8+N24GCTsayWtQRI=
-github.com/creachadair/msync v0.8.3 h1:7XtEy9LSx6yOIgiApfGJcAmgwH/mBYGFtRXi1VtfvB0=
-github.com/creachadair/msync v0.8.3/go.mod h1:LzxqD9kfIl/O3DczkwOgJplLPqwrTbIhINlf9bHIsEY=
+github.com/creachadair/msync v0.8.4 h1:IuYa51fNkeQmRtDh1VhMDWRk37OI3nZrkVTf+jcApl8=
+github.com/creachadair/msync v0.8.4/go.mod h1:2E/m/jzb/LyzJoReI8esZGyYR8McLoLRMvDnSRisD1w=
 github.com/creachadair/taskgroup v0.14.3 h1:sjBR7psFRDBy79KFtNs/qbTOh2zTuzaWDmxdA95v2V8=
 github.com/creachadair/taskgroup v0.14.3/go.mod h1:uhCtIEsa7zpeMAFixddhCYjbJi7e4JMyU7OXUygkSsg=
 github.com/golang/snappy v1.0.0 h1:Oy607GVXHs7RtbggtPBnr2RmDArIsAefDwvrdWvRhGs=

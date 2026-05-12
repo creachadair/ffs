@@ -6,7 +6,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/creachadair/atomicfile v0.4.1
 	github.com/creachadair/mds v0.28.0
-	github.com/creachadair/msync v0.8.3
+	github.com/creachadair/msync v0.8.4
 	github.com/creachadair/taskgroup v0.14.3
 	github.com/golang/snappy v1.0.0
 	github.com/google/go-cmp v0.7.0
