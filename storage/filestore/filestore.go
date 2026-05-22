@@ -86,7 +86,47 @@ func (s Store) Sub(_ context.Context, name string) (blob.Store, error) {
 
 // Close implements part of the [blob.StoreCloser] interface.
 // This implementation always reports nil.
-func (Store) Close(context.Context) error { return nil }
+func (s Store) Close(_ context.Context) error {
+	// Make a best-effort to unlink empty directories.
+	unlinkEmpty(s.key.Prefix, true)
+	return nil
+}
+
+// unlinkEmpty unlinks any empty directories in the directory tree rooted at
+// path, not including path itself, and reports whether any non-directory files
+// were found.
+func unlinkEmpty(path string, isRoot bool) (bool, error) {
+	fi, err := os.Lstat(path)
+	if err != nil {
+		return true, err
+	} else if !fi.IsDir() {
+		return true, nil // skip
+	}
+
+	// Scan depth-first, so we can prune empty directory trees.
+	// We can't use filepath.WalkDir, which works top-down.
+	// In case of any error, treat the path as having non-directory contents,
+	// even if it might not.
+	de, err := os.ReadDir(path)
+	if err != nil {
+		return true, err
+	}
+
+	var hasFile bool
+	for _, e := range de {
+		kidHasFile, uerr := unlinkEmpty(filepath.Join(path, e.Name()), false)
+		if uerr != nil {
+			err = uerr
+		}
+		if kidHasFile {
+			hasFile = true
+		}
+	}
+	if !isRoot && !hasFile {
+		os.Remove(path)
+	}
+	return hasFile, err
+}
 
 // KV implements the [blob.kV] interface using a directory structure with one
 // file per stored blob. Keys are encoded in hex and used to construct file and
