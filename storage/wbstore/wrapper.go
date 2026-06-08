@@ -158,6 +158,14 @@ func (w *kvWrapper) Delete(ctx context.Context, key string) error {
 func (w *kvWrapper) Put(ctx context.Context, opts blob.PutOptions) error {
 	if opts.Replace {
 		// Don't buffer writes that request replacement.
+		//
+		// Note that it is possible a previous non-replacement Put was made for
+		// this same key, and may already be sitting in the buffer pending
+		// writeback.  That is OK: If the writeback gets there first, this Put
+		// will replace its value (correctly linearizing after the previous one).
+		// Conversely, if this Put succeeds first, then the writeback will see
+		// that the target key exists, and do nothing, again ensuring this write
+		// (which took place later) wins.
 		return w.base.Put(ctx, opts)
 	}
 
