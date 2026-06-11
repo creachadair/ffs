@@ -5,12 +5,12 @@ go 1.25.0
 require (
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/creachadair/atomicfile v0.4.1
-	github.com/creachadair/mds v0.28.1
-	github.com/creachadair/msync v0.8.4
+	github.com/creachadair/mds v0.29.0
+	github.com/creachadair/msync v0.9.0
 	github.com/creachadair/taskgroup v0.14.4
 	github.com/golang/snappy v1.0.0
 	github.com/google/go-cmp v0.7.0
-	golang.org/x/crypto v0.52.0
+	golang.org/x/crypto v0.53.0
 	google.golang.org/protobuf v1.36.11
 )
 
@@ -18,7 +18,7 @@ require (
 	golang.org/x/exp/typeparams v0.0.0-20231108232855-2478ac86f678 // indirect
 	golang.org/x/mod v0.31.0 // indirect
 	golang.org/x/sync v0.19.0 // indirect
-	golang.org/x/sys v0.45.0 // indirect
+	golang.org/x/sys v0.46.0 // indirect
 	golang.org/x/tools v0.40.1-0.20260108161641-ca281cf95054 // indirect
 	honnef.co/go/tools v0.7.0 // indirect
 )
