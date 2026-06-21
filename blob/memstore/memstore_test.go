@@ -23,6 +23,10 @@ import (
 	"github.com/google/go-cmp/cmp"
 )
 
+func BenchmarkStore(b *testing.B) {
+	storetest.BenchmarkKV(b, memstore.NewKV())
+}
+
 func TestStore(t *testing.T) {
 	var s memstore.Store
 	storetest.Run(t, &s)

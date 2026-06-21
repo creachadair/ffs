@@ -102,3 +102,15 @@ func TestCleanup(t *testing.T) {
 		t.Errorf("Get returned %q, want hello", got)
 	}
 }
+
+func BenchmarkStore(b *testing.B) {
+	s, err := filestore.New(b.TempDir())
+	if err != nil {
+		b.Fatalf("New: %v", err)
+	}
+	kv, err := s.KV(b.Context(), "benchmark")
+	if err != nil {
+		b.Fatalf("KV: %v", err)
+	}
+	storetest.BenchmarkKV(b, kv)
+}
