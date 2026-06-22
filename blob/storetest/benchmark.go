@@ -26,17 +26,26 @@ import (
 // The benchmark does not make any assumptions about the contents of kv, but
 // after it runs its contents will be garbage.
 func BenchmarkKV(b *testing.B, kv blob.KV) {
-	smallValue := bytes.Repeat([]byte{1}, 8)
-	mediumValue := bytes.Repeat([]byte{1}, 16000)  // about 16K
-	largeValue := bytes.Repeat([]byte{1}, 1500000) // about 1M
+	vs := [][]byte{
+		bytes.Repeat([]byte{1}, 8),
+		bytes.Repeat([]byte{2}, 2000),    // about 2K
+		bytes.Repeat([]byte{3}, 16000),   // about 16K
+		bytes.Repeat([]byte{4}, 1500000), // about 1M
+	}
 
 	// Set up a bunch of keys to use for the benchmark.
-	// The Put benchmark actually stores them.
+	// This is done outside the timer to warm the store.
+	// The Put benchmark will replace these values.
 	const numSeedValues = 2_000
-	vs := [][]byte{smallValue, mediumValue, largeValue}
 	keys := make([]string, numSeedValues)
 	for i := range numSeedValues {
 		keys[i] = strconv.Itoa(i + 1)
+		if err := kv.Put(b.Context(), blob.PutOptions{
+			Key:  keys[i],
+			Data: vs[i%len(vs)],
+		}); err != nil {
+			b.Fatalf("Put %q: %v", i+1, err)
+		}
 	}
 
 	b.Run("Put", func(b *testing.B) {
@@ -44,7 +53,7 @@ func BenchmarkKV(b *testing.B, kv blob.KV) {
 		for b.Loop() {
 			if err := kv.Put(b.Context(), blob.PutOptions{
 				Key:     keys[cur],
-				Data:    vs[cur%3],
+				Data:    vs[cur%len(vs)],
 				Replace: true,
 			}); err != nil {
 				b.Fatalf("Put %q: %v", cur+1, err)
