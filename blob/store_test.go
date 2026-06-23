@@ -127,11 +127,10 @@ func TestSyncKeys(t *testing.T) {
 	})
 	cas := blob.CASFromKV(kv)
 
-	ctx := t.Context()
 	check := func(ks blob.KVCore, keys []string, want ...string) func(t *testing.T) {
 		return func(t *testing.T) {
 			t.Helper()
-			got, err := blob.SyncKeys(ctx, kv, keys)
+			got, err := blob.SyncKeys(t.Context(), kv, keys)
 			if err != nil {
 				t.Fatalf("SyncKeys: unexpected error: %v", err)
 			}

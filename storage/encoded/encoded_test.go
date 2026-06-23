@@ -40,8 +40,6 @@ func (identity) Encode(w io.Writer, src []byte) error { _, err := w.Write(src); 
 func (identity) Decode(w io.Writer, src []byte) error { _, err := w.Write(src); return err }
 
 func TestRegression(t *testing.T) {
-	ctx := t.Context()
-
 	t.Run("DoubleEncode", func(t *testing.T) {
 		// Verify that a given Put or Get only encodes/decodes once.
 		base := memstore.New(nil)
@@ -49,7 +47,7 @@ func TestRegression(t *testing.T) {
 		kv := storetest.SubKV(t, enc, "test")
 
 		const testValue = "bar"
-		if err := kv.Put(ctx, blob.PutOptions{
+		if err := kv.Put(t.Context(), blob.PutOptions{
 			Key:  "foo",
 			Data: []byte(testValue),
 		}); err != nil {
@@ -57,13 +55,13 @@ func TestRegression(t *testing.T) {
 		}
 
 		real := storetest.SubKV(t, base, "test")
-		if val, err := real.Get(ctx, "foo"); err != nil {
+		if val, err := real.Get(t.Context(), "foo"); err != nil {
 			t.Fatalf("Get foo: %v", err)
 		} else if got, want := string(val), testValue+"@"; got != want {
 			t.Errorf("Base foo: got %q, want %q", got, want)
 		}
 
-		if val, err := kv.Get(ctx, "foo"); err != nil {
+		if val, err := kv.Get(t.Context(), "foo"); err != nil {
 			t.Fatalf("Get foo: %v", err)
 		} else if got, want := string(val), testValue; got != want {
 			t.Errorf("Get foo: got %q, want %q", got, want)
