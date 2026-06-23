@@ -390,8 +390,8 @@ func NopCloser(s blob.Store) blob.StoreCloser { return nopStoreCloser{Store: s} 
 // SubKV traverses a sequence of zero or more subspace names beginning at s,
 // and returns a KV for the last name in the sequence. Any error during
 // traversal logs a failure in t.
-func SubKV(t *testing.T, ctx context.Context, s blob.Store, names ...string) blob.KV {
-	return subWalk(t, ctx, s, names, func(s blob.Store, name string) (blob.KV, error) {
+func SubKV(t *testing.T, s blob.Store, names ...string) blob.KV {
+	return subWalk(t, s, names, func(s blob.Store, name string) (blob.KV, error) {
 		return s.KV(t.Context(), name)
 	})
 }
@@ -399,13 +399,13 @@ func SubKV(t *testing.T, ctx context.Context, s blob.Store, names ...string) blo
 // SubCAS traverses a sequence of zero or more subspace names beginning at s,
 // and returns a CAS for the last name in the sequence. Any error during
 // traversal logs a failure in t.
-func SubCAS(t *testing.T, ctx context.Context, s blob.Store, names ...string) blob.CAS {
-	return subWalk(t, ctx, s, names, func(s blob.Store, name string) (blob.CAS, error) {
+func SubCAS(t *testing.T, s blob.Store, names ...string) blob.CAS {
+	return subWalk(t, s, names, func(s blob.Store, name string) (blob.CAS, error) {
 		return s.CAS(t.Context(), name)
 	})
 }
 
-func subWalk[T any](t *testing.T, ctx context.Context, s blob.Store, names []string, f func(blob.Store, string) (T, error)) T {
+func subWalk[T any](t *testing.T, s blob.Store, names []string, f func(blob.Store, string) (T, error)) T {
 	t.Helper()
 	if len(names) == 0 {
 		t.Fatal("No keyspace name provided")

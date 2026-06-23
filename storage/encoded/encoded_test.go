@@ -46,7 +46,7 @@ func TestRegression(t *testing.T) {
 		// Verify that a given Put or Get only encodes/decodes once.
 		base := memstore.New(nil)
 		enc := encoded.New(base, tagger("@"))
-		kv := storetest.SubKV(t, ctx, enc, "test")
+		kv := storetest.SubKV(t, enc, "test")
 
 		const testValue = "bar"
 		if err := kv.Put(ctx, blob.PutOptions{
@@ -56,7 +56,7 @@ func TestRegression(t *testing.T) {
 			t.Fatalf("Put foo: %v", err)
 		}
 
-		real := storetest.SubKV(t, ctx, base, "test")
+		real := storetest.SubKV(t, base, "test")
 		if val, err := real.Get(ctx, "foo"); err != nil {
 			t.Fatalf("Get foo: %v", err)
 		} else if got, want := string(val), testValue+"@"; got != want {

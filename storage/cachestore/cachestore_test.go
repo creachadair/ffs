@@ -62,7 +62,7 @@ func TestRecurrentList(t *testing.T) {
 		return memstore.NewKV().Init(want)
 	})
 	cs := cachestore.New(base, 100)
-	kv := storetest.SubKV(t, ctx, cs, "test")
+	kv := storetest.SubKV(t, cs, "test")
 
 	for key, err := range kv.List(ctx, "") {
 		if err != nil {

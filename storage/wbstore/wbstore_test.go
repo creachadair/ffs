@@ -62,7 +62,7 @@ func TestStore(t *testing.T) {
 	})
 
 	bufStore := memstore.New(nil)
-	buf := storetest.SubKV(t, ctx, bufStore, "test")
+	buf := storetest.SubKV(t, bufStore, "test")
 	st := wbstore.New(ctx, base, bufStore)
 	kv, err := st.KV(ctx, "test")
 	if err != nil {

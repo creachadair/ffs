@@ -53,9 +53,8 @@ func TestNesting(t *testing.T) {
 		t.Fatalf("Creating store in %q: %v", dir, err)
 	}
 
-	ctx := t.Context()
-	k1 := storetest.SubKV(t, ctx, s, "foo", "bar")
-	k2 := storetest.SubKV(t, ctx, s, "foo/_bar")
+	k1 := storetest.SubKV(t, s, "foo", "bar")
+	k2 := storetest.SubKV(t, s, "foo/_bar")
 
 	if k1d, k2d := k1.(filestore.KV).Dir(), k2.(filestore.KV).Dir(); k1d == k2d {
 		t.Fatalf("Equal directories: %q", k1d)
@@ -68,7 +67,7 @@ func TestCleanup(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Creating store in %q: %v", dir, err)
 	}
-	kv := storetest.SubKV(t, t.Context(), s, "non-empty", "stuff")
+	kv := storetest.SubKV(t, s, "non-empty", "stuff")
 	if err := kv.Put(t.Context(), blob.PutOptions{
 		Key:     "something",
 		Data:    []byte("hello"),

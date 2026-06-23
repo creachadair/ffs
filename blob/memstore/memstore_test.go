@@ -52,7 +52,6 @@ func TestSnapshot(t *testing.T) {
 }
 
 func TestConsistency(t *testing.T) {
-	ctx := t.Context()
 	data := map[string]string{
 		"natha":  "striped",
 		"zuulie": "roumnd",
@@ -63,15 +62,15 @@ func TestConsistency(t *testing.T) {
 		return memstore.NewKV().Init(data)
 	})
 
-	k1 := storetest.SubKV(t, ctx, s, "foo", "bar")
-	k2 := storetest.SubKV(t, ctx, s, "foo", "bar")
+	k1 := storetest.SubKV(t, s, "foo", "bar")
+	k2 := storetest.SubKV(t, s, "foo", "bar")
 
 	for key, want := range data {
-		got1, err := k1.Get(ctx, key)
+		got1, err := k1.Get(t.Context(), key)
 		if err != nil {
 			t.Fatalf("Get 1 key %q: %v", key, err)
 		}
-		got2, err := k2.Get(ctx, key)
+		got2, err := k2.Get(t.Context(), key)
 		if err != nil {
 			t.Fatalf("Get 2 key %q: %v", key, err)
 		}
