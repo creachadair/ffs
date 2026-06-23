@@ -390,38 +390,38 @@ func NopCloser(s blob.Store) blob.StoreCloser { return nopStoreCloser{Store: s} 
 // SubKV traverses a sequence of zero or more subspace names beginning at s,
 // and returns a KV for the last name in the sequence. Any error during
 // traversal logs a failure in t.
-func SubKV(t *testing.T, s blob.Store, names ...string) blob.KV {
-	return subWalk(t, s, names, func(s blob.Store, name string) (blob.KV, error) {
-		return s.KV(t.Context(), name)
+func SubKV(tb testing.TB, s blob.Store, names ...string) blob.KV {
+	return subWalk(tb, s, names, func(s blob.Store, name string) (blob.KV, error) {
+		return s.KV(tb.Context(), name)
 	})
 }
 
 // SubCAS traverses a sequence of zero or more subspace names beginning at s,
 // and returns a CAS for the last name in the sequence. Any error during
 // traversal logs a failure in t.
-func SubCAS(t *testing.T, s blob.Store, names ...string) blob.CAS {
-	return subWalk(t, s, names, func(s blob.Store, name string) (blob.CAS, error) {
-		return s.CAS(t.Context(), name)
+func SubCAS(tb testing.TB, s blob.Store, names ...string) blob.CAS {
+	return subWalk(tb, s, names, func(s blob.Store, name string) (blob.CAS, error) {
+		return s.CAS(tb.Context(), name)
 	})
 }
 
-func subWalk[T any](t *testing.T, s blob.Store, names []string, f func(blob.Store, string) (T, error)) T {
-	t.Helper()
+func subWalk[T any](tb testing.TB, s blob.Store, names []string, f func(blob.Store, string) (T, error)) T {
+	tb.Helper()
 	if len(names) == 0 {
-		t.Fatal("No keyspace name provided")
+		tb.Fatal("No keyspace name provided")
 	}
 	cur := s
 	for _, name := range names[:len(names)-1] {
-		next, err := cur.Sub(t.Context(), name)
+		next, err := cur.Sub(tb.Context(), name)
 		if err != nil {
-			t.Fatalf("Sub(%q) failed: %v", name, err)
+			tb.Fatalf("Sub(%q) failed: %v", name, err)
 		}
 		cur = next
 	}
 	last := names[len(names)-1]
 	v, err := f(cur, last)
 	if err != nil {
-		t.Fatalf("Lookup(%q) failed: %v", last, err)
+		tb.Fatalf("Lookup(%q) failed: %v", last, err)
 	}
 	return v
 }
