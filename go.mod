@@ -5,8 +5,8 @@ go 1.25.0
 require (
 	github.com/cespare/xxhash/v2 v2.3.0
 	github.com/creachadair/atomicfile v0.4.1
-	github.com/creachadair/mds v0.29.0
-	github.com/creachadair/msync v0.9.0
+	github.com/creachadair/mds v0.29.2
+	github.com/creachadair/msync v0.9.1
 	github.com/creachadair/taskgroup v0.14.4
 	github.com/golang/snappy v1.0.0
 	github.com/google/go-cmp v0.7.0
