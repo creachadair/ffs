@@ -19,10 +19,13 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"encoding/binary"
+	"io"
+	"strings"
 	"testing"
 
 	"github.com/creachadair/ffs/storage/codecs/encrypted"
 	"github.com/creachadair/ffs/storage/encoded"
+	"github.com/creachadair/mds/mstr"
 )
 
 var _ encoded.Codec = (*encrypted.Codec)(nil)
@@ -40,16 +43,23 @@ func (k *keyring) GetActive(buf []byte) (int, []byte) {
 
 func (k *keyring) addKey(s string) { *k = append(*k, s) }
 
-func TestCodec(t *testing.T) {
-	newCipher := func(key []byte) (cipher.AEAD, error) {
-		blk, err := aes.NewCipher(key)
-		if err != nil {
-			return nil, err
-		}
-		return cipher.NewGCM(blk)
+func newCipher(key []byte) (cipher.AEAD, error) {
+	blk, err := aes.NewCipher(key)
+	if err != nil {
+		return nil, err
 	}
+	return cipher.NewGCM(blk)
+}
+
+func newTestCodec(t *testing.T) (*encrypted.Codec, *keyring) {
+	t.Helper()
 	kr := &keyring{"00000000000000000000000000000000"}
 	e := encrypted.New(newCipher, kr)
+	return e, kr
+}
+
+func TestCodec(t *testing.T) {
+	e, kr := newTestCodec(t)
 
 	checkEncrypt := func(ptext string) []byte {
 		t.Helper()
@@ -105,4 +115,50 @@ func TestCodec(t *testing.T) {
 	t.Logf("Legacy block (%d bytes):\n%#q", len(legacy), legacy)
 
 	checkDecrypt(legacy, value)
+}
+
+func TestErrors(t *testing.T) {
+	e, kr := newTestCodec(t)
+	_ = kr
+	t.Run("Empty", func(t *testing.T) {
+		if err := e.Decode(io.Discard, nil); err == nil || !strings.Contains(err.Error(), "invalid block") {
+			t.Errorf("Decode nil: got %v, want invalid block", err)
+		}
+		if err := e.Decode(io.Discard, []byte{}); err == nil || !strings.Contains(err.Error(), "invalid block") {
+			t.Errorf("Decode empty: got %v, want invalid block", err)
+		}
+	})
+	t.Run("Short/v0", func(t *testing.T) {
+		const input = "\x05\x00\x00\x00" // 5-byte nonce length, only 3 bytes provided
+		err := e.Decode(io.Discard, []byte(input))
+		if err == nil || !strings.Contains(err.Error(), "truncated v0") {
+			t.Errorf("Decode short v0: got %v, want truncated v0", err)
+		}
+	})
+	t.Run("Short/v1", func(t *testing.T) {
+		for _, input := range []string{
+			"\x80\x00\x00\x00",
+			//   ^---key ID (short)
+			"\x85\x00\x00\x00\x01\x0f\x1e\x2d",
+			//   ^----key ID----|^-- nonce (short)
+		} {
+			err := e.Decode(io.Discard, []byte(input))
+			if err == nil || !strings.Contains(err.Error(), "truncated v1") {
+				t.Errorf("Decode short v1: got %v, want truncated v1", err)
+			}
+		}
+	})
+	t.Run("BadKeyID", func(t *testing.T) {
+		for _, input := range []string{
+			"\x82\x00\x00\x00\x00\x12\x34\x56\x78",
+			//   ^----key ID----| ID 0 is not valid
+			"\x82\x00\x00\x00\x02\x12\x34\x56\x78",
+			//   ^----key ID----| ID 2 does not exist in the test ring
+		} {
+			err := e.Decode(io.Discard, []byte(input))
+			if err == nil || !mstr.Match(err.Error(), "key id * not found") {
+				t.Errorf("Decode missing key: got %v want key not found", err)
+			}
+		}
+	})
 }

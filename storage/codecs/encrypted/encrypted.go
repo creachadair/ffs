@@ -145,16 +145,18 @@ func parseBlock(from []byte) (block, error) {
 		return block{}, errors.New("parse: invalid block format")
 	}
 	hasKeyID := from[0]&0x80 != 0
-	nonceLen := int(from[0] & 0x7f)
+	nonceLen := int(from[0] &^ 0x80)
 	if hasKeyID {
 		if len(from) < 5+nonceLen {
-			return block{}, errors.New("parse: truncated block")
+			return block{}, errors.New("parse: truncated v1 block")
 		}
 		return block{
 			KeyID: int(binary.BigEndian.Uint32(from[1:])),
 			Nonce: from[5 : 5+nonceLen],
 			Data:  from[5+nonceLen:],
 		}, nil
+	} else if len(from) < 1+nonceLen {
+		return block{}, errors.New("parse: truncated v0 block")
 	}
 	return block{
 		KeyID: 1,
