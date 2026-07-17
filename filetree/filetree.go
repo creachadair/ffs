@@ -283,8 +283,8 @@ func SplitPath(s string) (first, rest string) {
 //	@foo     encodes "foo"
 //	@@foo    encodes "@foo"
 //	414243   encodes "ABC"   (hexadecimal)
-//	d6s81v46 encodes "apple" (key32, see FormatKey)
-//	eHl6enk= encodes "xyzzy" (base64)
+//	d6s81v46 encodes "apple" (key32, see FormatKey32)
+//	eHl6enk= encodes "xyzzy" (base64, see FormatKey64)
 func ParseKey(s string) (string, error) {
 	if strings.HasPrefix(s, "@") {
 		return s[1:], nil
@@ -311,6 +311,9 @@ func ParseKey(s string) (string, error) {
 // FormatKey32 renders key in a human-readable format.  The encoding is base32
 // with no padding and a custom alphabet.
 func FormatKey32(key string) string { return key32.EncodeToString([]byte(key)) }
+
+// FormatKey64 renders key in a human-readable format.  The encoding is base64.
+func FormatKey64(key string) string { return base64.StdEncoding.EncodeToString([]byte(key)) }
 
 func check(data []byte, err error) ([]byte, error) {
 	if err != nil {
