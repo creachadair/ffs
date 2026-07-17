@@ -18,6 +18,7 @@ package filetree
 
 import (
 	"context"
+	"encoding/base32"
 	"encoding/base64"
 	"encoding/hex"
 	"errors"
@@ -198,7 +199,7 @@ func (s Store) LoadIndex(ctx context.Context, indexKey string) (*index.Index, er
 	}
 	ridx := obj.GetIndex()
 	if ridx == nil {
-		return nil, fmt.Errorf("no index in %s", formatKey(indexKey))
+		return nil, fmt.Errorf("no index in %s", FormatKey32(indexKey))
 	}
 	return index.Decode(ridx)
 }
@@ -275,32 +276,53 @@ func SplitPath(s string) (first, rest string) {
 	return pre, path.Clean(post)
 }
 
-// ParseKey parses the string encoding of a key. A key must be a hex string, a
-// base64 string, or a literal string prefixed with "@":
+// ParseKey parses the string encoding of a key. A key must be an even-length
+// hex string, a base64 string, a key32 string (see [FormatKey32]) or a literal
+// string prefixed with "@":
 //
 //	@foo     encodes "foo"
 //	@@foo    encodes "@foo"
-//	414243   encodes "ABC"
-//	eHl6enk= encodes "xyzzy"
+//	414243   encodes "ABC"   (hexadecimal)
+//	d6s81v46 encodes "apple" (key32, see FormatKey)
+//	eHl6enk= encodes "xyzzy" (base64)
 func ParseKey(s string) (string, error) {
 	if strings.HasPrefix(s, "@") {
 		return s[1:], nil
 	}
+
+	// Try each supported encoding in a plausible order:
 	var key []byte
 	var err error
-	if isAllHex(s) {
-		key, err = hex.DecodeString(s)
-	} else if strings.HasSuffix(s, "=") {
-		key, err = base64.StdEncoding.DecodeString(s)
-	} else {
-		key, err = base64.RawStdEncoding.DecodeString(s) // tolerate missing padding
+	if isAllHex(s) && len(s)%2 == 0 {
+		key, err = check(hex.DecodeString(s))
+	}
+	if key == nil && strings.HasSuffix(s, "=") {
+		key, err = check(base64.StdEncoding.DecodeString(s))
+	}
+	if key == nil {
+		key, err = check(key32.DecodeString(strings.ToLower(s)))
 	}
 	if err != nil {
-		return "", fmt.Errorf("invalid key %q: %w", s, err)
+		return "", fmt.Errorf("invalid key %q", s)
 	}
 	return string(key), nil
 }
 
-func formatKey(key string) string {
-	return base64.StdEncoding.EncodeToString([]byte(key))
+// FormatKey32 renders key in a human-readable format.  The encoding is base32
+// with no padding and a custom alphabet.
+func FormatKey32(key string) string { return key32.EncodeToString([]byte(key)) }
+
+func check(data []byte, err error) ([]byte, error) {
+	if err != nil {
+		return nil, err // in case data contains a partial result
+	}
+	return data, nil
 }
+
+// key32 is a custom base32 encoding. The alphabet is similar in spirit to
+// base58, in that it is alphanumeric but with easily-confused symbols omitted.
+// In particular, 0, O, I, and l (lower-case L) are left out.
+//
+// The encoding omits padding, and ParseKey will normalize uppercase to
+// lowercase before decoding since there is no ambiguity in doing so.
+var key32 = base32.NewEncoding("123456789abcdefghjkmnpqrstuvwxyz").WithPadding(base32.NoPadding)
