@@ -112,7 +112,10 @@ func (s Store) OpenPath(ctx context.Context, path string) (*PathInfo, error) {
 		out.File = rf
 		out.FileKey = rp.FileKey // provisional
 
-	} else if fk, err := ParseKey(strings.TrimPrefix(first, "@")); err != nil {
+	} else if fkp, err := ParseKey(strings.TrimPrefix(first, "@")); err != nil {
+		return nil, err
+
+	} else if fk, err := s.findUniqueFileKey(ctx, fkp); err != nil {
 		return nil, err
 
 	} else if fp, err := file.Open(ctx, s.Files(), fk); err != nil {
@@ -138,6 +141,35 @@ func (s Store) OpenPath(ctx context.Context, path string) (*PathInfo, error) {
 	out.File = tf
 	out.FileKey = out.File.Key() // safe, it was just opened
 	return out, nil
+}
+
+// errPrefixNotUnique is a sentinel error reported by findUniqueFileKey when
+// presented with a prefix that has multiple matches.
+var errPrefixNotUnique = errors.New("key prefix is not unique")
+
+func (s Store) findUniqueFileKey(ctx context.Context, prefix string) (string, error) {
+	// If the presented prefix is at least 256 bits, assume it is already a
+	// content address and skip the lookup.
+	if len(prefix) >= 32 {
+		return prefix, nil
+	}
+
+	var candidate string
+	var ok bool
+	for key, err := range s.Files().List(ctx, prefix) {
+		if err != nil {
+			return "", err
+		} else if !strings.HasPrefix(key, prefix) {
+			break
+		} else if ok {
+			return "", errPrefixNotUnique
+		}
+		candidate, ok = key, true
+	}
+	if !ok {
+		return "", blob.KeyNotFound(prefix)
+	}
+	return candidate, nil
 }
 
 // SetPath sets the specified root-key/path or file-key/path to the given
