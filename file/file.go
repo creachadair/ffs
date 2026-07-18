@@ -138,6 +138,32 @@ func Open(ctx context.Context, s blob.CAS, key string) (*File, error) {
 	return f, nil
 }
 
+// Move moves and possibly renames a child of one file to another.
+// Neither oldName nor newName may be empty.
+// It reports an error if oldName does not identify a child of oldf.
+// It is valid if oldf == newf, in which case the child is renamed within oldf.
+func Move(oldf *File, oldName string, newf *File, newName string) error {
+	if oldName == "" || newName == "" {
+		return errors.New("names may not be empty")
+	}
+	oldf.mu.Lock()
+	defer oldf.mu.Unlock()
+	if newf != oldf {
+		newf.mu.Lock()
+		defer newf.mu.Unlock()
+	}
+	oc, ok := oldf.kids[oldName]
+	if !ok {
+		return fmt.Errorf("%s: %w", oldName, ErrChildNotFound)
+	}
+	if oc.File != nil {
+		oc.File.setName(newName)
+	}
+	delete(oldf.kids, oldName)
+	newf.kids[newName] = oc
+	return nil
+}
+
 // A File represents a writable file stored in a content-addressable blobstore.
 type File struct {
 	s blob.CAS

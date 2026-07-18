@@ -15,6 +15,7 @@
 package file_test
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -44,6 +45,46 @@ var (
 	_ fs.FileInfo    = file.FileInfo{}
 	_ fs.DirEntry    = file.DirEntry{}
 )
+
+func TestMove(t *testing.T) {
+	cas := blob.CASFromKV(memstore.NewKV())
+
+	f1 := file.New(cas, &file.NewOptions{Name: "odir"})
+	f1.Child().Set("old", f1.New(nil))
+	f2 := file.New(cas, &file.NewOptions{Name: "ndir"})
+	f2.Child().Set("exists", f2.New(nil))
+
+	// Try to move a non-existing child.
+	if err := file.Move(f1, "nonesuch", f2, "somesuch"); !errors.Is(err, file.ErrChildNotFound) {
+		t.Errorf("Move nonesuch: got %v, want %v", err, file.ErrChildNotFound)
+	}
+
+	checkMove := func(f1 *file.File, oldName string, f2 *file.File, newName string) {
+		t.Helper()
+		if err := file.Move(f1, oldName, f2, newName); err != nil {
+			t.Fatalf("Move %p.%q to %p.%q: unexpected error: %v", f1, oldName, f2, newName, err)
+		}
+		if oldName != newName && f1.Child().Has(oldName) {
+			t.Errorf("Name %q still present in %p", oldName, f1)
+		}
+		if !f2.Child().Has(newName) {
+			t.Errorf("Name %q not present in %p", newName, f2)
+		}
+		cf, err := f2.Open(t.Context(), newName)
+		if err != nil {
+			t.Errorf("Open %p.%q: unexpected error: %v", f2, newName, err)
+		} else if cf.Name() != newName {
+			t.Errorf("Name is %q, want %q", cf.Name(), newName)
+		}
+	}
+
+	checkMove(f1, "old", f1, "old")         // no change
+	checkMove(f1, "old", f1, "alt")         // rename in-place
+	checkMove(f1, "alt", f2, "alt")         // move without name change
+	checkMove(f2, "exists", f1, "somesuch") // move and rename
+	checkMove(f2, "alt", f2, "neu")         // rename in-place
+	checkMove(f1, "somesuch", f2, "neu")    // replace existing
+}
 
 func TestRoundTrip(t *testing.T) {
 	cas := blob.CASFromKV(memstore.NewKV())
