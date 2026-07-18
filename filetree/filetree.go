@@ -318,7 +318,9 @@ func SplitPath(s string) (first, rest string) {
 //	d6s81v46 encodes "apple" (key32, see FormatKey32)
 //	eHl6enk= encodes "xyzzy" (base64, see FormatKey64)
 func ParseKey(s string) (string, error) {
-	if strings.HasPrefix(s, "@") {
+	if s == "" || s == "@" {
+		return "", errors.New("an empty key is invalid")
+	} else if strings.HasPrefix(s, "@") {
 		return s[1:], nil
 	}
 
@@ -350,6 +352,8 @@ func FormatKey64(key string) string { return base64.StdEncoding.EncodeToString([
 func check(data []byte, err error) ([]byte, error) {
 	if err != nil {
 		return nil, err // in case data contains a partial result
+	} else if len(data) == 0 {
+		return nil, errors.New("encoding is empty")
 	}
 	return data, nil
 }

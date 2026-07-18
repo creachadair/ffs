@@ -13,8 +13,9 @@ func TestParseKey(t *testing.T) {
 		want    string
 		errText string
 	}{
-		{"", "", ""},  // empty
-		{"@", "", ""}, // literal
+		{"", "", "empty key is invalid"},
+		{"@", "", "empty key is invalid"},
+
 		{"@x", "x", ""},
 		{"@@xyz", "@xyz", ""},
 
