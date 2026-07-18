@@ -135,8 +135,8 @@ func (d Data) Hash() []byte {
 		var buf [8]byte
 
 		// Mix in the base and size of each extent so that zero ranges are covered.
-		h.Write(binary.BigEndian.AppendUint64(buf[:], uint64(e.base)))
-		h.Write(binary.BigEndian.AppendUint64(buf[:], uint64(e.bytes)))
+		h.Write(binary.BigEndian.AppendUint64(buf[:0], uint64(e.base)))
+		h.Write(binary.BigEndian.AppendUint64(buf[:0], uint64(e.bytes)))
 
 		// Within each extent, mix in the block storage keys.
 		for _, blk := range e.blocks {
