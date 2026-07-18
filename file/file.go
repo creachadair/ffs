@@ -67,7 +67,6 @@
 package file
 
 import (
-	"cmp"
 	"context"
 	"errors"
 	"fmt"
@@ -79,6 +78,7 @@ import (
 	"github.com/creachadair/ffs/blob"
 	"github.com/creachadair/ffs/block"
 	"github.com/creachadair/ffs/file/wiretype"
+	"github.com/creachadair/mds/slice"
 )
 
 // New constructs a new, empty File with the given options and backed by s. The
@@ -93,6 +93,7 @@ func New(s blob.CAS, opts *NewOptions) *File {
 		name:     opts.Name,
 		saveStat: opts.PersistStat,
 		data:     fileData{sc: opts.Split},
+		kids:     make(map[string]child),
 		xattr:    make(map[string]string),
 	}
 	// If the options contain stat metadata, copy them in.
@@ -149,7 +150,7 @@ type File struct {
 	saveStat bool // whether to persist file metadata
 
 	data  fileData          // binary file data
-	kids  []child           // ordered lexicographically by name
+	kids  map[string]child  // :: name → metadata
 	xattr map[string]string // extended attributes
 }
 
@@ -164,14 +165,6 @@ type child struct {
 	// is opened, the Key may go out of sync with the file due to modifications
 	// by the caller: When the enclosing file is flushed, any child with a File
 	// attached is also flushed and the Key is updated.
-}
-
-// findChildLocked reports whether f has a child with the specified name and
-// its index in the slice if so, or otherwise -1.
-func (f *File) findChildLocked(name string) (int, bool) {
-	return slices.BinarySearchFunc(f.kids, name, func(c child, n string) int {
-		return cmp.Compare(c.Name, n)
-	})
 }
 
 func (f *File) setStatLocked(s Stat) {
@@ -245,19 +238,20 @@ var (
 func (f *File) Open(ctx context.Context, name string) (*File, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	i, ok := f.findChildLocked(name)
+	c, ok := f.kids[name]
 	if !ok {
 		return nil, fmt.Errorf("open %q: %w", name, ErrChildNotFound)
 	}
-	if c := f.kids[i].File; c != nil {
-		return c, nil
+	if c.File != nil {
+		return c.File, nil
 	}
-	c, err := Open(ctx, f.s, f.kids[i].Key)
+	cf, err := Open(ctx, f.s, c.Key)
 	if err == nil {
-		c.name = name // remember the name the file was opened with
-		f.kids[i].File = c
+		cf.name = name // remember the name the file was opened with
+		c.File = cf
+		f.kids[name] = c
 	}
-	return c, err
+	return cf, err
 }
 
 // Load loads an existing file given its storage key in the store used by f.
@@ -310,7 +304,7 @@ func (f *File) recFlushLocked(ctx context.Context, path []*File) (string, error)
 	needsUpdate := f.key == ""
 
 	// Flush any cached children.
-	for i, kid := range f.kids {
+	for name, kid := range f.kids {
 		if kf := kid.File; kf != nil {
 			// Check for direct or indirect cycles. This check is quadratic in the
 			// height of the DAG over the whole scan in the worst case. In
@@ -332,8 +326,9 @@ func (f *File) recFlushLocked(ctx context.Context, path []*File) (string, error)
 			}
 			if fkey != kid.Key {
 				needsUpdate = true
+				kid.Key = fkey
+				f.kids[name] = kid
 			}
-			f.kids[i].Key = fkey
 		}
 	}
 
@@ -416,7 +411,10 @@ func (f *File) recScanLocked(ctx context.Context, name string, visit func(ScanIt
 	if !visit(ScanItem{File: f, Name: name}) {
 		return nil // skip the descendants of f
 	}
-	for i, kid := range f.kids {
+	names := slice.MapKeys(f.kids)
+	slices.Sort(names)
+	for _, name := range names {
+		kid := f.kids[name]
 		fp := kid.File
 		if fp == nil {
 			// If the child was not already open, we need to do so to scan it, but
@@ -439,7 +437,8 @@ func (f *File) recScanLocked(ctx context.Context, name string, visit func(ScanIt
 		// If scanning invalidated fp, make sure the parent copy is updated.
 		// This ensures the parent will include these changes in a flush.
 		if fp.key == "" {
-			f.kids[i].File = fp
+			kid.File = fp
+			f.kids[name] = kid
 		}
 	}
 	return nil
@@ -473,12 +472,15 @@ func (f *File) fromWireType(obj *wiretype.Object) error {
 		f.xattr[xa.Name] = string(xa.Value)
 	}
 
-	f.kids = nil
+	if f.kids == nil {
+		f.kids = make(map[string]child)
+	}
+	clear(f.kids)
 	for _, kid := range pb.Node.Children {
-		f.kids = append(f.kids, child{
+		f.kids[kid.Name] = child{
 			Name: kid.Name,
 			Key:  string(kid.Key),
-		})
+		}
 	}
 	return nil
 }
@@ -489,12 +491,14 @@ func (f *File) toWireTypeLocked() *wiretype.Object {
 		n.Stat = f.stat.toWireType()
 	}
 	for name, value := range f.xattr {
+		// Currently disordered; sorted in Normalize.
 		n.XAttrs = append(n.XAttrs, &wiretype.XAttr{
 			Name:  name,
 			Value: []byte(value),
 		})
 	}
 	for _, kid := range f.kids {
+		// Currently disordered; sorted in Normalize.
 		n.Children = append(n.Children, &wiretype.Child{
 			Name: kid.Name,
 			Key:  []byte(kid.Key),

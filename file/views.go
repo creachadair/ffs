@@ -19,6 +19,7 @@ import (
 	"io"
 	"slices"
 
+	"github.com/creachadair/mds/slice"
 	"golang.org/x/crypto/blake2b"
 )
 
@@ -29,7 +30,7 @@ type Child struct{ f *File }
 func (c Child) Has(name string) bool {
 	c.f.mu.RLock()
 	defer c.f.mu.RUnlock()
-	_, ok := c.f.findChildLocked(name)
+	_, ok := c.f.kids[name]
 	return ok
 }
 
@@ -42,18 +43,9 @@ func (c Child) Set(name string, kid *File) {
 	defer c.f.mu.Unlock()
 	kid.setName(name)
 	c.f.modifyLocked()
-	if i, ok := c.f.findChildLocked(name); ok {
-		c.f.kids[i].File = kid // replace an existing child
-		return
-	}
-	c.f.kids = append(c.f.kids, child{Name: name, File: kid})
-
-	// Restore lexicographic order.
-	for i := len(c.f.kids) - 1; i > 0; i-- {
-		if c.f.kids[i].Name >= c.f.kids[i-1].Name {
-			break
-		}
-		c.f.kids[i], c.f.kids[i-1] = c.f.kids[i-1], c.f.kids[i]
+	c.f.kids[name] = child{
+		Name: name,
+		File: kid,
 	}
 }
 
@@ -64,12 +56,9 @@ func (c Child) Len() int { c.f.mu.RLock(); defer c.f.mu.RUnlock(); return len(c.
 func (c Child) Remove(name string) bool {
 	c.f.mu.Lock()
 	defer c.f.mu.Unlock()
-	if i, ok := c.f.findChildLocked(name); ok {
-		c.f.modifyLocked()
-		c.f.kids = append(c.f.kids[:i], c.f.kids[i+1:]...)
-		return true
-	}
-	return false
+	_, had := c.f.kids[name]
+	delete(c.f.kids, name)
+	return had
 }
 
 // Names returns a lexicographically ordered slice of the names of all the
@@ -77,10 +66,8 @@ func (c Child) Remove(name string) bool {
 func (c Child) Names() []string {
 	c.f.mu.RLock()
 	defer c.f.mu.RUnlock()
-	out := make([]string, len(c.f.kids))
-	for i, kid := range c.f.kids {
-		out[i] = kid.Name
-	}
+	out := slice.MapKeys(c.f.kids)
+	slices.Sort(out)
 	return out
 }
 
@@ -90,9 +77,10 @@ func (c Child) Release() int {
 	c.f.mu.Lock()
 	defer c.f.mu.Unlock()
 	var n int
-	for i, kid := range c.f.kids {
+	for name, kid := range c.f.kids {
 		if kid.File != nil && kid.Key != "" && kid.Key == kid.File.Key() {
-			c.f.kids[i].File = nil
+			kid.File = nil
+			c.f.kids[name] = kid
 			n++
 		}
 	}
