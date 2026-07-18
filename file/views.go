@@ -43,10 +43,7 @@ func (c Child) Set(name string, kid *File) {
 	defer c.f.mu.Unlock()
 	kid.setName(name)
 	c.f.modifyLocked()
-	c.f.kids[name] = child{
-		Name: name,
-		File: kid,
-	}
+	c.f.kids[name] = child{File: kid}
 }
 
 // Len returns the number of children of the file.

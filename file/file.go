@@ -156,7 +156,6 @@ type File struct {
 
 // A child records the name and storage key of a child file.
 type child struct {
-	Name string
 	Key  string // the storage key of the child
 	File *File  // the opened file for the child
 
@@ -428,7 +427,7 @@ func (f *File) recScanLocked(ctx context.Context, name string, visit func(ScanIt
 		err := func() error {
 			fp.mu.Lock()
 			defer fp.mu.Unlock()
-			return fp.recScanLocked(ctx, kid.Name, visit)
+			return fp.recScanLocked(ctx, name, visit)
 		}()
 		if err != nil {
 			return err
@@ -478,8 +477,7 @@ func (f *File) fromWireType(obj *wiretype.Object) error {
 	clear(f.kids)
 	for _, kid := range pb.Node.Children {
 		f.kids[kid.Name] = child{
-			Name: kid.Name,
-			Key:  string(kid.Key),
+			Key: string(kid.Key),
 		}
 	}
 	return nil
@@ -497,10 +495,10 @@ func (f *File) toWireTypeLocked() *wiretype.Object {
 			Value: []byte(value),
 		})
 	}
-	for _, kid := range f.kids {
+	for name, kid := range f.kids {
 		// Currently disordered; sorted in Normalize.
 		n.Children = append(n.Children, &wiretype.Child{
-			Name: kid.Name,
+			Name: name,
 			Key:  []byte(kid.Key),
 		})
 	}
