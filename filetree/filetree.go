@@ -188,7 +188,7 @@ func (s Store) SetPath(ctx context.Context, path string, tf *file.File) (string,
 		return "", err
 	}
 
-	// If orest == "", we are being asked to the target file of a root.
+	// If orest == "", we are being asked to set the target file of a root.
 	if orest == "" {
 		// If we don't have a root, we can't do anything.
 		if of.Root == nil {
