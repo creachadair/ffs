@@ -53,9 +53,12 @@ func (c Child) Len() int { c.f.mu.RLock(); defer c.f.mu.RUnlock(); return len(c.
 func (c Child) Remove(name string) bool {
 	c.f.mu.Lock()
 	defer c.f.mu.Unlock()
-	_, had := c.f.kids[name]
-	delete(c.f.kids, name)
-	return had
+	if _, had := c.f.kids[name]; had {
+		delete(c.f.kids, name)
+		c.f.modifyLocked()
+		return true
+	}
+	return false
 }
 
 // Names returns a lexicographically ordered slice of the names of all the

@@ -25,7 +25,10 @@ require (
 
 retract [v0.2.2, v0.2.4]
 
-retract v0.3.0
+retract (
+	v0.17.18
+	v0.3.0
+)
 
 tool (
 	google.golang.org/protobuf/cmd/protoc-gen-go
