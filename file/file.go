@@ -159,7 +159,9 @@ func Move(oldf *File, oldName string, newf *File, newName string) error {
 	if oc.File != nil {
 		oc.File.setName(newName)
 	}
+	oldf.modifyLocked()
 	delete(oldf.kids, oldName)
+	newf.modifyLocked()
 	newf.kids[newName] = oc
 	return nil
 }

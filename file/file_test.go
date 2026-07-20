@@ -46,13 +46,23 @@ var (
 	_ fs.DirEntry    = file.DirEntry{}
 )
 
+func mustFlush(t *testing.T, f *file.File) string {
+	key, err := f.Flush(t.Context())
+	if err != nil {
+		t.Fatalf("Flush %p: %v", f, err)
+	}
+	return key
+}
+
 func TestMove(t *testing.T) {
 	cas := blob.CASFromKV(memstore.NewKV())
 
 	f1 := file.New(cas, &file.NewOptions{Name: "odir"})
 	f1.Child().Set("old", f1.New(nil))
+	k1 := mustFlush(t, f1)
 	f2 := file.New(cas, &file.NewOptions{Name: "ndir"})
 	f2.Child().Set("exists", f2.New(nil))
+	k2 := mustFlush(t, f2)
 
 	// Try to move a non-existing child.
 	if err := file.Move(f1, "nonesuch", f2, "somesuch"); !errors.Is(err, file.ErrChildNotFound) {
@@ -84,6 +94,17 @@ func TestMove(t *testing.T) {
 	checkMove(f2, "exists", f1, "somesuch") // move and rename
 	checkMove(f2, "alt", f2, "neu")         // rename in-place
 	checkMove(f1, "somesuch", f2, "neu")    // replace existing
+
+	if nk1 := mustFlush(t, f1); nk1 == k1 {
+		t.Errorf("Flush f1: keys are equal after move: %x", nk1)
+	} else {
+		t.Logf("k1 updated from %x to %x (OK)", k1, nk1)
+	}
+	if nk2 := mustFlush(t, f2); nk2 == k2 {
+		t.Errorf("Flush f2: keys are equal after move: %x", nk2)
+	} else {
+		t.Logf("k1 updated from %x to %x (OK)", k2, nk2)
+	}
 }
 
 func TestRoundTrip(t *testing.T) {

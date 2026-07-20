@@ -26,6 +26,7 @@ require (
 retract [v0.2.2, v0.2.4]
 
 retract (
+	v0.17.19
 	v0.17.18
 	v0.3.0
 )
