@@ -253,6 +253,17 @@ func isAllHex(s string) bool {
 }
 
 // PathInfo is the result of parsing and opening a path spec.
+//
+// There are three components of an opened path: A root (optional), a base
+// file, and a target file:
+//
+//   - The Root is the root pointer at the top of the path (if present).
+//   - The Base file the top of the file tree containing the target file.
+//   - The target File is the file reached by traversing the path from Base.
+//
+// Both Base and File will always be set, but they may be the same file.
+// Root and RootKey will be set if the Path begin with a root pointer;
+// otherise Root == nil and RootKey == "".
 type PathInfo struct {
 	Path    string     // the original input path (unparsed)
 	Base    *file.File // the root or starting file of the path
@@ -264,7 +275,8 @@ type PathInfo struct {
 }
 
 // Flush flushes the base file to reflect any changes and returns its updated
-// storage key. If p is based on a root, the root is also updated and saved.
+// storage key. If p.Root != nil, the root is also updated and saved with the
+// resulting change. The caller may set p.Root to nil to skip this update.
 func (p *PathInfo) Flush(ctx context.Context) (string, error) {
 	key, err := p.Base.Flush(ctx)
 	if err != nil {
