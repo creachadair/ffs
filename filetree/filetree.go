@@ -298,13 +298,6 @@ func (p *PathInfo) Flush(ctx context.Context) (string, error) {
 	return key, nil
 }
 
-// OpenPath parses and opens the specified path in s.
-//
-// Deprecated: Use [Store.OpenPath] instead.
-func OpenPath(ctx context.Context, s Store, path string) (*PathInfo, error) {
-	return s.OpenPath(ctx, path)
-}
-
 // SplitPath parses s as a slash-separated path specification.
 // The first segment of s identifies the storage key of a root or file, the
 // rest indicates a sequence of child names starting from that file.
