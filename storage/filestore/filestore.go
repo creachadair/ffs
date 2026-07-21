@@ -62,6 +62,7 @@ func (s Store) mkPath(tag, name string) (string, error) {
 }
 
 // KV implements part of the [blob.Store] interface.
+// On success, the result has concrete type [KV].
 func (s Store) KV(_ context.Context, name string) (blob.KV, error) {
 	path, err := s.mkPath("kv_", name)
 	if err != nil {
@@ -76,6 +77,7 @@ func (s Store) CAS(ctx context.Context, name string) (blob.CAS, error) {
 }
 
 // Sub implements part of the [blob.Store] interface.
+// On success, the result has concrete type [Store].
 func (s Store) Sub(_ context.Context, name string) (blob.Store, error) {
 	path, err := s.mkPath("sub_", name)
 	if err != nil {
