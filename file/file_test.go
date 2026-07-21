@@ -103,7 +103,7 @@ func TestMove(t *testing.T) {
 	if nk2 := mustFlush(t, f2); nk2 == k2 {
 		t.Errorf("Flush f2: keys are equal after move: %x", nk2)
 	} else {
-		t.Logf("k1 updated from %x to %x (OK)", k2, nk2)
+		t.Logf("k2 updated from %x to %x (OK)", k2, nk2)
 	}
 }
 
