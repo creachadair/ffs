@@ -138,12 +138,3 @@ func zeroCheck(data []byte) (zhead, ztail, n int) {
 	ztail = mbits.TrailingZeroes(data[zhead:])
 	return
 }
-
-func min(z0 int, zs ...int) int {
-	for _, z := range zs {
-		if z < z0 {
-			z0 = z
-		}
-	}
-	return z0
-}
