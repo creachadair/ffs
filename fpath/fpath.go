@@ -35,7 +35,7 @@ var (
 
 	// ErrSkipChildren signals to the Walk function that the children of the
 	// current node should not be visited.
-	ErrSkipChildren = errors.New("skip child files")
+	ErrSkipChildren = file.ErrSkipChildren
 )
 
 // Open traverses the given slash-separated path sequentially from root, and

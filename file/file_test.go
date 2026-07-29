@@ -194,11 +194,11 @@ func TestRoundTrip(t *testing.T) {
 	}
 
 	// Exercise the scanner.
-	if err := f.Scan(ctx, func(v file.ScanItem) bool {
+	if err := f.Scan(ctx, func(v file.ScanItem) error {
 		if key := v.Key(); key != fkey {
 			t.Errorf("File key: got %x, want %x", key, fkey)
 		}
-		return true
+		return nil
 	}); err != nil {
 		t.Fatalf("Scan failed: %v", err)
 	}
@@ -225,10 +225,10 @@ func TestScan(t *testing.T) {
 	setFile("5", "6", "7", "8")
 
 	var got []string
-	if err := root.Scan(ctx, func(e file.ScanItem) bool {
+	if err := root.Scan(ctx, func(e file.ScanItem) error {
 		e.File.XAttr().Set("name", e.Name)
 		got = append(got, e.Name)
-		return true
+		return nil
 	}); err != nil {
 		t.Fatalf("Scan failed: %v", err)
 	}
@@ -245,11 +245,11 @@ func TestScan(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Open %x failed: %v", key, err)
 	}
-	if err := alt.Scan(ctx, func(e file.ScanItem) bool {
+	if err := alt.Scan(ctx, func(e file.ScanItem) error {
 		if got := e.File.XAttr().Get("name"); got != e.Name {
 			t.Errorf("File %p name: got %q, want %q", e.File, got, e.Name)
 		}
-		return true
+		return nil
 	}); err != nil {
 		t.Errorf("Scan failed: %v", err)
 	}
@@ -426,7 +426,7 @@ func TestConcurrentFile(t *testing.T) {
 			go func() { defer wg.Done(); _ = root.Data().Size() }()
 		case 5:
 			// Scan reachable blocks.
-			go func() { defer wg.Done(); _ = root.Scan(ctx, func(file.ScanItem) bool { return true }) }()
+			go func() { defer wg.Done(); _ = root.Scan(ctx, func(file.ScanItem) error { return nil }) }()
 		case 6:
 			// Look up a child.
 			go func() { defer wg.Done(); _ = root.Child().Has("foo") }()

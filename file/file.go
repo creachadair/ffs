@@ -258,6 +258,10 @@ func (f *File) Data() Data { return Data{f: f} }
 var (
 	// ErrChildNotFound indicates that a requested child file does not exist.
 	ErrChildNotFound = errors.New("child file not found")
+
+	// ErrSkipChildren is a sentinel error used by a Scan callback to indicate
+	// that the descendants of a file should not be scanned.
+	ErrSkipChildren = errors.New("skip child files")
 )
 
 // Open opens the specified child file of f, or returns [ErrChildNotFound] if
@@ -410,16 +414,18 @@ type ScanItem struct {
 }
 
 // Scan recursively visits f and all its descendants in depth-first
-// left-to-right order, calling visit for each file.  If visit returns false,
-// no descendants of f are visited.
+// left-to-right order, calling visit for each file.  If visit reports
+// [ErrSkipChildren], the scan continues but no descendants of f are visited.
+// Otherwise, any error visit reports terminates the scan and returns that
+// error to the caller.
 //
 // The visit function may modify the attributes or contents of the files it
 // visits, but the caller is responsible for flushing the root of the scan
 // afterward to persist changes to storage.
-func (f *File) Scan(ctx context.Context, visit func(ScanItem) bool) error {
+func (f *File) Scan(ctx context.Context, visit func(ScanItem) error) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
-	return f.recScanLocked(ctx, "", func(s ScanItem) bool {
+	return f.recScanLocked(ctx, "", func(s ScanItem) error {
 		// Yield the lock while the caller visitor runs, then reacquire it.  We
 		// do this so that the visitor can use methods that may themselves update
 		// the file, without deadlocking on the scan.
@@ -431,12 +437,14 @@ func (f *File) Scan(ctx context.Context, visit func(ScanItem) bool) error {
 
 // recScanLocked recursively scans f and all its child nodes in depth-first
 // left-to-right order, calling visit for each file.
-func (f *File) recScanLocked(ctx context.Context, name string, visit func(ScanItem) bool) error {
+func (f *File) recScanLocked(ctx context.Context, name string, visit func(ScanItem) error) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	if !visit(ScanItem{File: f, Name: name}) {
+	if err := visit(ScanItem{File: f, Name: name}); errors.Is(err, ErrSkipChildren) {
 		return nil // skip the descendants of f
+	} else if err != nil {
+		return err // terminate the scan
 	}
 	names := slice.MapKeys(f.kids)
 	slices.Sort(names)
