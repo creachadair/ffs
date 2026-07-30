@@ -4,10 +4,10 @@ github.com/cespare/xxhash/v2 v2.3.0 h1:UL815xU9SqsFlibzuggzjXhog7bL6oX9BbNZnL2UF
 github.com/cespare/xxhash/v2 v2.3.0/go.mod h1:VGX0DQ3Q6kWi7AoAeZDth3/j3BFtOZR5XLFGgcrjCOs=
 github.com/creachadair/atomicfile v0.4.2 h1:pSSsKxmUefqCTg+QgyCG2bw1KmsB76apBL4lhJjichI=
 github.com/creachadair/atomicfile v0.4.2/go.mod h1:ts9VunJluQvSXtkrl0YlDn9ckZaS+eMkBW2g20gB5II=
-github.com/creachadair/mds v0.30.2 h1:cOP0xkfYkk4mxqPl4SmjnrY+agrpgiEqsVygLnPvJto=
-github.com/creachadair/mds v0.30.2/go.mod h1:dMBTCSy3iS3dwh4Rb1zxeZz2d7K8+N24GCTsayWtQRI=
-github.com/creachadair/msync v0.9.1 h1:LEomnt/hETiaVxmYeU9PQ3dW/qYZoSZ/HebPi4vFp3k=
-github.com/creachadair/msync v0.9.1/go.mod h1:Fw4SK/DMHsIz4uEmgBdg7evUQaGhcFrA/RKrrPz9fxM=
+github.com/creachadair/mds v0.30.5 h1:JtylThbC3wUndriq7yZiY23AD0L7ZaKSvx3XQwQk8FI=
+github.com/creachadair/mds v0.30.5/go.mod h1:NGUd6kGUG0qQd2kgGOqb8NzakLnSmWZ5be2pHZsrBN4=
+github.com/creachadair/msync v0.10.0 h1:2RlGs187RQN5tzyluKEkbkXq+LRK2KIR+An6FoB9x+M=
+github.com/creachadair/msync v0.10.0/go.mod h1:J+4p7as+O7NWydXYGJNrigY67qj1F1GB0CcTWyV/5AE=
 github.com/creachadair/taskgroup v0.14.4 h1:ttR8StLWmYA1O6x96YlTpQLXjKyRpO4RBo+OcO6W6C0=
 github.com/creachadair/taskgroup v0.14.4/go.mod h1:uhCtIEsa7zpeMAFixddhCYjbJi7e4JMyU7OXUygkSsg=
 github.com/golang/snappy v1.0.0 h1:Oy607GVXHs7RtbggtPBnr2RmDArIsAefDwvrdWvRhGs=
