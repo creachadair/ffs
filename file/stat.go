@@ -93,6 +93,11 @@ const (
 
 // toWireType encodes s as an equivalent wiretype.Stat.
 func (s Stat) toWireType() *wiretype.Stat {
+	// Go promises that the bottom 9 bits of the mode word are the "normal" Unix
+	// permissions, but beyond that we have to be careful.
+	// On disk, we store perms separately from type, and pack other permission bits
+	// like setuid, setgid, and sticky into unused bits of the permission word.
+	// See wiretype/wiretype.proto.
 	perm := s.Mode.Perm()
 	if s.Mode&fs.ModeSetuid != 0 {
 		perm |= bitSetuid
@@ -128,6 +133,13 @@ func (s Stat) toWireType() *wiretype.Stat {
 	return pb
 }
 
+// modeToType converts Go file type bits into the wiretype encoding.
+//
+// Although Go considers the [fs.FileMode] values a stable API, those constants
+// are not meaningful to a program in another language reading the stored data.
+// The wiretype package defines its own enumeration.
+//
+// See typeToMode for the reverse.
 func modeToType(mode fs.FileMode) wiretype.Stat_FileType {
 	switch {
 	case mode&fs.ModeType == 0:
