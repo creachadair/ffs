@@ -118,7 +118,8 @@ func (c *Cursor) Tell() int64 { return c.offset }
 // descriptor, so "closing" performs a flush but does not invalidate the file.
 func (c *Cursor) Close() error { _, err := c.file.Flush(c.ctx); return err }
 
-// Stat implements part of the [fs.File] interface.
+// Stat implements part of the [fs.File] interface.  This implementation never
+// reports an error. The concrete type of the result is [FileInfo].
 func (c *Cursor) Stat() (fs.FileInfo, error) { return c.file.FileInfo(), nil }
 
 // FileInfo implements the [fs.FileInfo] interface for a [File].
