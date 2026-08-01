@@ -143,6 +143,11 @@ func (s Store) OpenPath(ctx context.Context, path string) (*PathInfo, error) {
 	return out, nil
 }
 
+// IsValid reports whether s is a valid usable store.
+func (s Store) IsValid() bool {
+	return s.roots != nil && s.files != nil && s.fsync != nil && s.s != nil
+}
+
 // errPrefixNotUnique is a sentinel error reported by findUniqueFileKey when
 // presented with a prefix that has multiple matches.
 var errPrefixNotUnique = errors.New("key prefix is not unique")
