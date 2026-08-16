@@ -10,8 +10,8 @@ require (
 	github.com/creachadair/taskgroup v0.14.4
 	github.com/golang/snappy v1.0.0
 	github.com/google/go-cmp v0.7.0
-	golang.org/x/crypto v0.54.0
-	google.golang.org/protobuf v1.36.11
+	golang.org/x/crypto v0.55.0
+	google.golang.org/protobuf v1.36.12
 )
 
 require (
