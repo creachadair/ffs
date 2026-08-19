@@ -300,10 +300,7 @@ func (d *fileData) readAt(ctx context.Context, s blob.CAS, data []byte, offset i
 	if offset > d.totalBytes {
 		return 0, io.EOF
 	}
-	end := offset + int64(len(data))
-	if end > d.totalBytes {
-		end = d.totalBytes
-	}
+	end := min(offset+int64(len(data)), d.totalBytes)
 	_, span, _ := d.splitSpan(offset, end)
 
 	// If the entire requested range is unstored, zero as much as we can

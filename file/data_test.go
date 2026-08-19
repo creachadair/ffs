@@ -291,10 +291,7 @@ func TestReblocking(t *testing.T) {
 	// result reblocks adjacent chunks.
 	i, nb := 0, 0
 	for i < len(fileData) {
-		end := i + 25
-		if end > len(fileData) {
-			end = len(fileData)
-		}
+		end := min(i+25, len(fileData))
 		d.writeString(fileData[i:end], int64(i))
 		i = end
 		nb++
