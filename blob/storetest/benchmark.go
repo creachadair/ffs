@@ -44,7 +44,7 @@ func BenchmarkKV(b *testing.B, kv blob.KV) {
 			Key:  keys[i],
 			Data: vs[i%len(vs)],
 		}); err != nil {
-			b.Fatalf("Put %q: %v", i+1, err)
+			b.Fatalf("Put %d: %v", i+1, err)
 		}
 	}
 
@@ -56,7 +56,7 @@ func BenchmarkKV(b *testing.B, kv blob.KV) {
 				Data:    vs[cur%len(vs)],
 				Replace: true,
 			}); err != nil {
-				b.Fatalf("Put %q: %v", cur+1, err)
+				b.Fatalf("Put %d: %v", cur+1, err)
 			}
 			cur = (cur + 1) % len(keys)
 		}
