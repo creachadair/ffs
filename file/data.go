@@ -575,4 +575,7 @@ type cblock struct {
 // 2-3 byte base and 1-2 byte count, or 4-6 bytes. To account for this, use the
 // square root of the block size. That's cheaper than a log, and accuracy is
 // not important on short sizes.
+//
+// Since we don't use the square heuristic when nz > 13, we do not need to worry
+// about overflowing an integer when squaring.
 func isWorthTrimming(nz, n int) bool { return nz >= 13 || nz*nz >= n }
