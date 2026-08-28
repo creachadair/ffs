@@ -115,16 +115,21 @@ func (s Store) OpenPath(ctx context.Context, path string) (*PathInfo, error) {
 	} else if fkp, err := ParseKey(strings.TrimPrefix(first, "@")); err != nil {
 		return nil, err
 
-	} else if fk, err := s.findUniqueFileKey(ctx, fkp); err != nil {
-		return nil, err
-
-	} else if fp, err := file.Open(ctx, s.Files(), fk); err != nil {
-		return nil, err
-
 	} else {
+		if len(fkp) < 32 {
+			fkp, err = s.ResolveStorageKey(ctx, fkp)
+			if err != nil {
+				return nil, err
+			}
+		}
+		fp, err := file.Open(ctx, s.Files(), fkp)
+		if err != nil {
+			return nil, err
+		}
+
 		out.Base = fp
 		out.File = fp
-		out.FileKey = fk
+		out.FileKey = fp.Key()
 	}
 	out.BaseKey = out.Base.Key() // safe, it was just opened
 
@@ -148,17 +153,15 @@ func (s Store) IsValid() bool {
 	return s.roots != nil && s.files != nil && s.fsync != nil && s.s != nil
 }
 
-// errPrefixNotUnique is a sentinel error reported by findUniqueFileKey when
-// presented with a prefix that has multiple matches.
-var errPrefixNotUnique = errors.New("key prefix is not unique")
+// ErrPrefixNotUnique is a sentinel error reported by [Store.ResolveFileKey]
+// when presented with a prefix that has multiple matches.
+var ErrPrefixNotUnique = errors.New("key prefix is not unique")
 
-func (s Store) findUniqueFileKey(ctx context.Context, prefix string) (string, error) {
-	// If the presented prefix is at least 256 bits, assume it is already a
-	// content address and skip the lookup.
-	if len(prefix) >= 32 {
-		return prefix, nil
-	}
-
+// ResolveStorageKey resolves a storage key prefix to a unique complete key.
+// If no key has the specified prefix, it reports [blob.ErrKeyNotFound].
+// If multiple keys have the specified prefix, it the first matching key and
+// [ErrPrefixNotUnique].
+func (s Store) ResolveStorageKey(ctx context.Context, prefix string) (string, error) {
 	var candidate string
 	var ok bool
 	for key, err := range s.Files().List(ctx, prefix) {
@@ -167,7 +170,7 @@ func (s Store) findUniqueFileKey(ctx context.Context, prefix string) (string, er
 		} else if !strings.HasPrefix(key, prefix) {
 			break
 		} else if ok {
-			return "", errPrefixNotUnique
+			return candidate, ErrPrefixNotUnique
 		}
 		candidate, ok = key, true
 	}
