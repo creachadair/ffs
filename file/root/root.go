@@ -24,6 +24,7 @@ import (
 	"github.com/creachadair/ffs/blob"
 	"github.com/creachadair/ffs/file"
 	"github.com/creachadair/ffs/file/wiretype"
+	"github.com/creachadair/ffs/index"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -73,6 +74,26 @@ func (r *Root) File(ctx context.Context, s blob.CAS) (*file.File, error) {
 		return nil, errors.New("no store provided")
 	}
 	return file.Open(ctx, s, r.FileKey)
+}
+
+// Index loads and returns the index of r from s, if one exists.
+// If no index exists, it returns [ErrNoData].
+func (r *Root) Index(ctx context.Context, s wiretype.Getter) (*index.Index, error) {
+	if r.IndexKey == "" {
+		return nil, ErrNoData
+	} else if s == nil {
+		return nil, errors.New("no store provided")
+	}
+
+	var obj wiretype.Object
+	if err := wiretype.Load(ctx, s, r.IndexKey, &obj); err != nil {
+		return nil, fmt.Errorf("loading index: %w", err)
+	}
+	ridx := obj.GetIndex()
+	if ridx == nil {
+		return nil, errors.New("no index found")
+	}
+	return index.Decode(ridx)
 }
 
 // Save writes r in wire format to the given storage key.
