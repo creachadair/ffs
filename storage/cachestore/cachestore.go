@@ -28,10 +28,10 @@ import (
 	"github.com/creachadair/ffs/blob"
 	"github.com/creachadair/ffs/storage/dbkey"
 	"github.com/creachadair/ffs/storage/monitor"
+	"github.com/creachadair/ffs/storage/storeutil"
 	"github.com/creachadair/mds/cache"
 	"github.com/creachadair/mds/stree"
 	"github.com/creachadair/msync/throttle"
-	"github.com/creachadair/taskgroup"
 )
 
 // Store implements the [blob.StoreCloser] interface.
@@ -239,37 +239,17 @@ func (s *KV) loadKeyMap(ctx context.Context) (any, error) {
 	if s.listed.Load() {
 		return nil, nil
 	}
-	var g taskgroup.Group
 
 	// The keymap is not safe for concurrent use by multiple goroutines, so
 	// serialize insertions through a collector.
 	keymap := stree.New[string](300, strings.Compare)
-	coll := taskgroup.Gather(g.Go, func(key string) {
+	if err := storeutil.ListAllKeys(ctx, s.base, func(key string) error {
 		keymap.Add(key)
-	})
+		return nil
+	}); err != nil {
+		return nil, err
+	}
 
-	for i := range 256 {
-		if ctx.Err() != nil {
-			break
-		}
-		pfx := string([]byte{byte(i)})
-		coll.Report(func(report func(string)) error {
-			for key, err := range s.base.List(ctx, pfx) {
-				if err != nil {
-					return err
-				} else if !strings.HasPrefix(key, pfx) {
-					break
-				}
-				report(key)
-			}
-			return nil
-		})
-	}
-	if err := g.Wait(); err != nil {
-		return nil, err
-	} else if err := ctx.Err(); err != nil {
-		return nil, err
-	}
 	s.μ.Lock()
 	s.keymap = keymap
 	s.μ.Unlock()
