@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"path"
+	"slices"
 	"strings"
 
 	"github.com/creachadair/ffs/file"
@@ -192,10 +193,7 @@ func Walk(ctx context.Context, root *file.File, visit func(Entry) error) error {
 			for i, name := range kids {
 				kids[i] = path.Join(next, name)
 			}
-			for i, j := 0, len(kids)-1; i < j; i++ {
-				kids[i], kids[j] = kids[j], kids[i]
-				j--
-			}
+			slices.Reverse(kids)
 			q = append(q, kids...)
 		} else if err != ErrSkipChildren {
 			return err
