@@ -7,7 +7,7 @@ require (
 	github.com/creachadair/atomicfile v0.4.2
 	github.com/creachadair/mds v0.31.0
 	github.com/creachadair/msync v0.10.1
-	github.com/creachadair/taskgroup v0.14.4
+	github.com/creachadair/taskgroup v0.14.5
 	github.com/golang/snappy v1.0.0
 	github.com/google/go-cmp v0.7.0
 	golang.org/x/crypto v0.58.0
